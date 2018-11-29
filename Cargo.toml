@@ -1,0 +1,11 @@
+[package]
+name = "ac-ffmpeg"
+version = "0.1.0"
+authors = ["Ondrej Perutka <ondrej.perutka@angelcam.com>"]
+
+[dependencies]
+lazy_static = "1.2"
+libc        = "0.2"
+
+[build-dependencies]
+cc = "1.0"
