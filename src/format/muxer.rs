@@ -132,7 +132,7 @@ impl MuxerBuilder {
         let res = Muxer {
             ptr: muxer_ptr,
             extradata: extradata,
-            io_context: io_context,
+            io_context: Some(io_context),
         };
 
         Ok(res)
@@ -154,7 +154,7 @@ pub struct Muxer<T> {
     #[allow(dead_code)]
     extradata: Vec<Option<BytesMut>>,
     #[allow(dead_code)]
-    io_context: T,
+    io_context: Option<T>,
 }
 
 impl Muxer<()> {
@@ -210,6 +210,11 @@ impl<T> Muxer<T> {
         }
 
         Ok(())
+    }
+
+    /// Take the output.
+    pub fn output(mut self) -> T {
+        self.io_context.take().unwrap()
     }
 }
 
