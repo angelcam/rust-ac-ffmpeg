@@ -13,6 +13,8 @@ fn main() {
         .include(&ffmpeg_include_dir)
         .file("src/logger.c")
         .file("src/packet.c")
+        .file("src/format/io.c")
+        .file("src/format/muxer.c")
         .file("src/video/frame.c")
         .file("src/video/scaler.c")
         .file("src/video/codec.c")

@@ -93,7 +93,7 @@ pub struct Decoder {
 impl Decoder {
     /// Create a new video decoder for a given codec.
     pub fn new(codec: &str) -> Result<Decoder, Error> {
-        let codec = CString::new(codec).map_err(|_| Error::new("invalid codec name"))?;
+        let codec = CString::new(codec).expect("invalid codec name");
 
         let ptr = unsafe { ffw_decoder_new(codec.as_ptr() as _) };
 
@@ -109,7 +109,7 @@ impl Decoder {
     /// Push a given packet to the decoder.
     pub fn push(&mut self, packet: &Packet) -> Result<(), Error> {
         unsafe {
-            match ffw_decoder_push_packet(self.ptr, packet.raw_ptr()) {
+            match ffw_decoder_push_packet(self.ptr, packet.as_ptr()) {
                 1 => Ok(()),
                 0 => Err(Error::again(
                     "all frames must be consumed before pushing a new packet",
@@ -171,7 +171,7 @@ pub struct EncoderBuilder {
 impl EncoderBuilder {
     /// Create a new encoder builder for a given codec.
     fn new(codec: &str) -> Result<EncoderBuilder, Error> {
-        let codec = CString::new(codec).map_err(|_| Error::new("invalid codec name"))?;
+        let codec = CString::new(codec).expect("invalid codec name");
 
         let ptr = unsafe { ffw_encoder_new(codec.as_ptr() as _) };
 
@@ -287,7 +287,7 @@ impl Encoder {
     /// Push a given frame to the encoder.
     pub fn push(&mut self, frame: &Frame) -> Result<(), Error> {
         unsafe {
-            match ffw_encoder_push_frame(self.ptr, frame.raw_ptr()) {
+            match ffw_encoder_push_frame(self.ptr, frame.as_ptr()) {
                 1 => Ok(()),
                 0 => Err(Error::again(
                     "all packets must be consumed before pushing a new frame",

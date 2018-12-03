@@ -192,7 +192,7 @@ impl FrameScaler {
             return Err(Error::new("frame pixel format does not match"));
         }
 
-        let res = unsafe { ffw_frame_scaler_scale(self.ptr, frame.raw_ptr()) };
+        let res = unsafe { ffw_frame_scaler_scale(self.ptr, frame.as_ptr()) };
 
         if res.is_null() {
             panic!("unable to scale a frame");

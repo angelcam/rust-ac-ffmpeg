@@ -45,12 +45,12 @@ impl FrameMut {
     }
 
     /// Get raw pointer.
-    pub fn raw_ptr(&self) -> *const c_void {
+    pub fn as_ptr(&self) -> *const c_void {
         self.ptr
     }
 
     /// Get mutable raw pointer.
-    pub fn mut_ptr(&mut self) -> *mut c_void {
+    pub fn as_mut_ptr(&mut self) -> *mut c_void {
         self.ptr
     }
 
@@ -105,7 +105,7 @@ impl Frame {
     }
 
     /// Get raw pointer.
-    pub fn raw_ptr(&self) -> *const c_void {
+    pub fn as_ptr(&self) -> *const c_void {
         self.ptr
     }
 }
