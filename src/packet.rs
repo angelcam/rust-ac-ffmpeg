@@ -14,6 +14,8 @@ extern "C" {
     fn ffw_packet_set_pts(packet: *mut c_void, pts: int64_t);
     fn ffw_packet_get_dts(packet: *const c_void) -> int64_t;
     fn ffw_packet_set_dts(packet: *mut c_void, pts: int64_t);
+    fn ffw_packet_is_key(packet: *const c_void) -> c_int;
+    fn ffw_packet_set_key(packet: *mut c_void, key: c_int);
     fn ffw_packet_get_stream_index(packet: *const c_void) -> c_int;
     fn ffw_packet_set_stream_index(packet: *mut c_void, index: c_int);
 }
@@ -64,6 +66,13 @@ impl PacketBuilder {
         self
     }
 
+    /// Set or unset the key flag.
+    pub fn key(self, key: bool) -> PacketBuilder {
+        unsafe { ffw_packet_set_key(self.ptr, key as _) }
+
+        self
+    }
+
     /// Build the packet.
     pub fn build(mut self) -> PacketMut {
         let ptr = self.ptr;
@@ -106,6 +115,9 @@ where
     }
 }
 
+unsafe impl Send for PacketBuilder {}
+unsafe impl Sync for PacketBuilder {}
+
 /// Mutable packet.
 pub struct PacketMut {
     ptr: *mut c_void,
@@ -135,6 +147,11 @@ impl PacketMut {
     /// Get packet decoding timestamp.
     pub fn dts(&self) -> i64 {
         unsafe { ffw_packet_get_dts(self.ptr) as _ }
+    }
+
+    /// Check if the key flag is set.
+    pub fn is_key(&self) -> bool {
+        unsafe { ffw_packet_is_key(self.ptr) != 0 }
     }
 
     /// Get raw pointer.

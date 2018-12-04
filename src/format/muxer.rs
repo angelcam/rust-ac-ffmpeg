@@ -1,16 +1,14 @@
-use std::mem;
 use std::ptr;
 
 use std::ffi::CString;
 
-use bytes::BytesMut;
-
-use libc::{c_char, c_int, c_uint, c_void, uint8_t};
+use libc::{c_char, c_int, c_uint, c_void};
 
 use Error;
 
 use format::io::Writer;
 use packet::PacketMut;
+use video::codec::CodecParameters;
 
 extern "C" {
     fn ffw_guess_output_format(
@@ -21,13 +19,7 @@ extern "C" {
 
     fn ffw_muxer_new() -> *mut c_void;
     fn ffw_muxer_get_nb_streams(muxer: *const c_void) -> c_uint;
-    fn ffw_muxer_new_stream(muxer: *mut c_void, codec: *const c_char) -> c_int;
-    fn ffw_muxer_set_stream_extradata(
-        muxer: *mut c_void,
-        stream_index: c_uint,
-        extradata: *mut uint8_t,
-        extradata_size: c_int,
-    );
+    fn ffw_muxer_new_stream(muxer: *mut c_void, params: *const c_void) -> c_int;
     fn ffw_muxer_init(
         muxer: *mut c_void,
         io_context: *mut c_void,
@@ -42,7 +34,6 @@ extern "C" {
 /// Muxer builder.
 pub struct MuxerBuilder {
     ptr: *mut c_void,
-    extradata: Vec<Option<BytesMut>>,
 }
 
 impl MuxerBuilder {
@@ -54,53 +45,15 @@ impl MuxerBuilder {
             panic!("unable to allocate a muxer context");
         }
 
-        MuxerBuilder {
-            ptr: ptr,
-            extradata: Vec::new(),
-        }
+        MuxerBuilder { ptr: ptr }
     }
 
-    /// Add a new stream with a given codec and optional extradata.
-    pub fn add_stream<T>(&mut self, codec: &str, extradata: Option<T>) -> Result<(), Error>
-    where
-        T: Into<BytesMut>,
-    {
-        let codec = CString::new(codec).expect("invalid codec name");
-
-        let res = unsafe { ffw_muxer_new_stream(self.ptr, codec.as_ptr() as *const _) };
+    /// Add a new video stream with given parameters.
+    pub fn add_video_stream(&mut self, params: &CodecParameters) -> Result<(), Error> {
+        let res = unsafe { ffw_muxer_new_stream(self.ptr, params.as_ptr()) };
 
         if res < 0 {
-            return Err(Error::new("unknown codec"));
-        }
-
-        let stream_index = res as usize;
-
-        while stream_index >= self.extradata.len() {
-            self.extradata.push(None);
-        }
-
-        let mut extradata = extradata.map(|d| d.into());
-
-        let extradata_ptr;
-        let extradata_size;
-
-        if let Some(extradata) = extradata.as_mut() {
-            extradata_ptr = extradata.as_mut_ptr();
-            extradata_size = extradata.len();
-        } else {
-            extradata_ptr = ptr::null_mut();
-            extradata_size = 0;
-        }
-
-        self.extradata[stream_index] = extradata;
-
-        unsafe {
-            ffw_muxer_set_stream_extradata(
-                self.ptr,
-                stream_index as c_uint,
-                extradata_ptr,
-                extradata_size as c_int,
-            );
+            return Err(Error::new("unable to create a new video stream"));
         }
 
         Ok(())
@@ -125,14 +78,12 @@ impl MuxerBuilder {
         }
 
         let muxer_ptr = self.ptr;
-        let extradata = mem::replace(&mut self.extradata, Vec::new());
 
         self.ptr = ptr::null_mut();
 
         let res = Muxer {
             ptr: muxer_ptr,
-            extradata: extradata,
-            io_context: Some(io_context),
+            io_context: io_context,
         };
 
         Ok(res)
@@ -151,10 +102,7 @@ unsafe impl Sync for MuxerBuilder {}
 /// Muxer.
 pub struct Muxer<T> {
     ptr: *mut c_void,
-    #[allow(dead_code)]
-    extradata: Vec<Option<BytesMut>>,
-    #[allow(dead_code)]
-    io_context: Option<T>,
+    io_context: T,
 }
 
 impl Muxer<()> {
@@ -199,22 +147,23 @@ impl<T> Muxer<T> {
 
     /// Flush the muxer.
     pub fn flush(&mut self) -> Result<(), Error> {
-        let mut res = 0;
+        let res = unsafe { ffw_muxer_interleaved_write_frame(self.ptr, ptr::null_mut()) };
 
-        while res != 1 {
-            res = unsafe { ffw_muxer_interleaved_write_frame(self.ptr, ptr::null_mut()) };
-
-            if res < 0 {
-                return Err(Error::new("unable to write a given packet"));
-            }
+        if res < 0 {
+            Err(Error::new("unable to write a given packet"))
+        } else {
+            Ok(())
         }
-
-        Ok(())
     }
 
-    /// Take the output.
-    pub fn output(mut self) -> T {
-        self.io_context.take().unwrap()
+    /// Get reference to the underlying IO.
+    pub fn io(&self) -> &T {
+        &self.io_context
+    }
+
+    /// Get mutable reference to the underlying IO.
+    pub fn io_mut(&mut self) -> &mut T {
+        &mut self.io_context
     }
 }
 
@@ -225,7 +174,6 @@ impl<T> Drop for Muxer<T> {
 }
 
 unsafe impl<T> Send for Muxer<T> where T: Send {}
-
 unsafe impl<T> Sync for Muxer<T> where T: Sync {}
 
 /// FFmpeg output format.
@@ -284,3 +232,6 @@ impl OutputFormat {
         Some(res)
     }
 }
+
+unsafe impl Send for OutputFormat {}
+unsafe impl Sync for OutputFormat {}

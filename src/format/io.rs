@@ -117,8 +117,8 @@ impl MemWriter {
         }
     }
 
-    /// Take the output data
-    pub fn take(mut self) -> BytesMut {
+    /// Take the currently buffered output data
+    pub fn take_data(&mut self) -> BytesMut {
         self.output.take()
     }
 }

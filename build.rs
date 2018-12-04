@@ -29,6 +29,7 @@ fn main() {
     let ffmpeg_link_mode = lib_mode("ffmpeg");
 
     link("avcodec", ffmpeg_link_mode);
+    link("avformat", ffmpeg_link_mode);
     link("avutil", ffmpeg_link_mode);
     link("swscale", ffmpeg_link_mode);
 }

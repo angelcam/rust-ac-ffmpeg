@@ -18,8 +18,7 @@ typedef struct Muxer {
 
 Muxer* ffw_muxer_new();
 unsigned ffw_muxer_get_nb_streams(const Muxer*);
-int ffw_muxer_new_stream(Muxer*, const char*);
-void ffw_muxer_set_stream_extradata(Muxer*, unsigned, uint8_t*, int);
+int ffw_muxer_new_stream(Muxer*, const AVCodecParameters*);
 int ffw_muxer_init(Muxer*, AVIOContext*, AVOutputFormat*, AVDictionary**);
 int ffw_muxer_write_frame(Muxer*, AVPacket*);
 int ffw_muxer_interleaved_write_frame(Muxer*, AVPacket*);
@@ -51,33 +50,21 @@ unsigned ffw_muxer_get_nb_streams(const Muxer* muxer) {
     return muxer->fc->nb_streams;
 }
 
-int ffw_muxer_new_stream(Muxer* muxer, const char* codec) {
-    AVCodec* encoder = avcodec_find_encoder_by_name(codec);
-    if (encoder == NULL) {
-        return -1;
-    }
+int ffw_muxer_new_stream(Muxer* muxer, const AVCodecParameters* params) {
+    AVStream* s;
+    int ret;
 
-    AVStream* s = avformat_new_stream(muxer->fc, encoder);
+    s = avformat_new_stream(muxer->fc, NULL);
     if (s == NULL) {
         return -1;
     }
 
-    return s->index;
-}
-
-void ffw_muxer_set_stream_extradata(
-    Muxer* muxer,
-    unsigned stream_index,
-    uint8_t* extradata,
-    int extradata_size) {
-    if (stream_index >= muxer->fc->nb_streams) {
-        return;
+    ret = avcodec_parameters_copy(s->codecpar, params);
+    if (ret < 0) {
+        return -1;
     }
 
-    AVStream* stream = muxer->fc->streams[stream_index];
-
-    stream->codecpar->extradata = extradata;
-    stream->codecpar->extradata_size = extradata_size;
+    return s->index;
 }
 
 int ffw_muxer_init(

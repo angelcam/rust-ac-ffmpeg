@@ -54,6 +54,18 @@ void ffw_packet_set_stream_index(AVPacket* packet, int index) {
     packet->stream_index = index;
 }
 
+int ffw_packet_is_key(const AVPacket* packet) {
+    return packet->flags & AV_PKT_FLAG_KEY;
+}
+
+void ffw_packet_set_key(AVPacket* packet, int key) {
+    if (key) {
+        packet->flags |= AV_PKT_FLAG_KEY;
+    } else {
+        packet->flags &= ~AV_PKT_FLAG_KEY;
+    }
+}
+
 int ffw_packet_get_size(const AVPacket* packet) {
     return packet->size;
 }
