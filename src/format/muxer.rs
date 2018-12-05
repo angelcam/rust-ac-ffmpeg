@@ -1,6 +1,6 @@
 use std::ptr;
 
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 
 use libc::{c_char, c_int, c_uint, c_void};
 
@@ -17,6 +17,8 @@ extern "C" {
         mime_type: *const c_char,
     ) -> *mut c_void;
 
+    fn av_free(ptr: *mut c_void);
+
     fn ffw_muxer_new() -> *mut c_void;
     fn ffw_muxer_get_nb_streams(muxer: *const c_void) -> c_uint;
     fn ffw_muxer_new_stream(muxer: *mut c_void, params: *const c_void) -> c_int;
@@ -26,6 +28,9 @@ extern "C" {
         format: *mut c_void,
         options: *mut c_void,
     ) -> c_int;
+    fn ffw_muxer_get_option(muxer: *mut c_void, key: *const c_char, out: *mut *mut c_char)
+        -> c_int;
+    fn ffw_muxer_set_option(muxer: *mut c_void, key: *const c_char, value: *const c_char) -> c_int;
     fn ffw_muxer_write_frame(muxer: *mut c_void, packet: *mut c_void) -> c_int;
     fn ffw_muxer_interleaved_write_frame(muxer: *mut c_void, packet: *mut c_void) -> c_int;
     fn ffw_muxer_free(muxer: *mut c_void);
@@ -34,6 +39,7 @@ extern "C" {
 /// Muxer builder.
 pub struct MuxerBuilder {
     ptr: *mut c_void,
+    interleaved: bool,
 }
 
 impl MuxerBuilder {
@@ -45,7 +51,10 @@ impl MuxerBuilder {
             panic!("unable to allocate a muxer context");
         }
 
-        MuxerBuilder { ptr: ptr }
+        MuxerBuilder {
+            ptr: ptr,
+            interleaved: false,
+        }
     }
 
     /// Add a new video stream with given parameters.
@@ -57,6 +66,13 @@ impl MuxerBuilder {
         }
 
         Ok(())
+    }
+
+    /// Set the muxer to do the interleaving automatically. It is disabled by
+    /// default.
+    pub fn interleaved(mut self, interleaved: bool) -> MuxerBuilder {
+        self.interleaved = interleaved;
+        self
     }
 
     /// Build the muxer.
@@ -84,6 +100,7 @@ impl MuxerBuilder {
         let res = Muxer {
             ptr: muxer_ptr,
             io_context: io_context,
+            interleaved: self.interleaved,
         };
 
         Ok(res)
@@ -103,6 +120,7 @@ unsafe impl Sync for MuxerBuilder {}
 pub struct Muxer<T> {
     ptr: *mut c_void,
     io_context: T,
+    interleaved: bool,
 }
 
 impl Muxer<()> {
@@ -113,30 +131,67 @@ impl Muxer<()> {
 }
 
 impl<T> Muxer<T> {
-    /// Write a given frame.
-    pub fn write_frame(&mut self, mut packet: PacketMut) -> Result<(), Error> {
-        let nb_streams = unsafe { ffw_muxer_get_nb_streams(self.ptr) as usize };
+    /// Get option.
+    pub fn get_option(&self, name: &str) -> Option<String> {
+        let name = CString::new(name).expect("invalid option name");
 
-        assert!(packet.stream_index() < nb_streams);
+        let mut value = ptr::null_mut() as *mut c_char;
 
-        let res = unsafe { ffw_muxer_write_frame(self.ptr, packet.as_mut_ptr()) };
+        let value_ptr = &mut value as *mut *mut c_char;
 
-        if res < 0 {
-            Err(Error::new("unable to write a given packet"))
-        } else {
-            Ok(())
+        unsafe {
+            let ret = ffw_muxer_get_option(self.ptr, name.as_ptr() as _, value_ptr);
+
+            if ret < 0 {
+                if !value.is_null() {
+                    av_free(value as _);
+                }
+
+                panic!("invalid option");
+            } else if value.is_null() {
+                None
+            } else {
+                let v = CStr::from_ptr(value as _)
+                    .to_str()
+                    .expect("option is not UTF-8 encoded")
+                    .to_string();
+
+                av_free(value as _);
+
+                Some(v)
+            }
         }
     }
 
-    /// Write a given frame and handle interleaving internally.
-    pub fn interleaved_write_frame(&mut self, mut packet: PacketMut) -> Result<(), Error> {
+    /// Set an option.
+    pub fn set_option<V>(&mut self, name: &str, value: V)
+    where
+        V: ToString,
+    {
+        let name = CString::new(name).expect("invalid option name");
+        let value = CString::new(value.to_string()).expect("invalid option value");
+
+        let ret =
+            unsafe { ffw_muxer_set_option(self.ptr, name.as_ptr() as _, value.as_ptr() as _) };
+
+        if ret < 0 {
+            panic!("invalid option");
+        }
+    }
+
+    /// Mux a given packet.
+    pub fn push(&mut self, mut packet: PacketMut) -> Result<(), Error> {
         let nb_streams = unsafe { ffw_muxer_get_nb_streams(self.ptr) as usize };
 
         assert!(packet.stream_index() < nb_streams);
 
-        // note: this is OK even though the function takes ownership of the
-        // packet data because we still need to deallocate the envelope
-        let res = unsafe { ffw_muxer_interleaved_write_frame(self.ptr, packet.as_mut_ptr()) };
+        let res = unsafe {
+            if self.interleaved {
+                ffw_muxer_interleaved_write_frame(self.ptr, packet.as_mut_ptr())
+            } else {
+                ffw_muxer_write_frame(self.ptr, packet.as_mut_ptr())
+            }
+        };
 
         if res < 0 {
             Err(Error::new("unable to write a given packet"))
@@ -147,10 +202,16 @@ impl<T> Muxer<T> {
 
     /// Flush the muxer.
     pub fn flush(&mut self) -> Result<(), Error> {
-        let res = unsafe { ffw_muxer_interleaved_write_frame(self.ptr, ptr::null_mut()) };
+        let res = unsafe {
+            if self.interleaved {
+                ffw_muxer_interleaved_write_frame(self.ptr, ptr::null_mut())
+            } else {
+                ffw_muxer_write_frame(self.ptr, ptr::null_mut())
+            }
+        };
 
         if res < 0 {
-            Err(Error::new("unable to write a given packet"))
+            Err(Error::new("unable to flush the muxer"))
         } else {
             Ok(())
         }

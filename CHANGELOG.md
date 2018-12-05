@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.0 (2018-12-05)
+
+* Add support for muxer runtime options
+
 ## v0.3.0 (2018-12-04)
 
 * Add codec parameters, decoder builder and extradata

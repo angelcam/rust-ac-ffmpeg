@@ -1,6 +1,7 @@
 #include<libavformat/avformat.h>
 #include<libavformat/avio.h>
 #include<libavcodec/avcodec.h>
+#include <libavutil/opt.h>
 
 #include<stdlib.h>
 
@@ -20,6 +21,8 @@ Muxer* ffw_muxer_new();
 unsigned ffw_muxer_get_nb_streams(const Muxer*);
 int ffw_muxer_new_stream(Muxer*, const AVCodecParameters*);
 int ffw_muxer_init(Muxer*, AVIOContext*, AVOutputFormat*, AVDictionary**);
+int ffw_muxer_get_option(Muxer*, const char*, uint8_t**);
+int ffw_muxer_set_option(Muxer*, const char*, const char*);
 int ffw_muxer_write_frame(Muxer*, AVPacket*);
 int ffw_muxer_interleaved_write_frame(Muxer*, AVPacket*);
 void ffw_muxer_free(Muxer*);
@@ -83,6 +86,25 @@ int ffw_muxer_init(
     }
 
     muxer->initialized = 1;
+
+    return ret;
+}
+
+int ffw_muxer_get_option(Muxer* muxer, const char* key, uint8_t** out) {
+    int ret = av_opt_get(muxer->fc, key, AV_OPT_SEARCH_CHILDREN | AV_OPT_ALLOW_NULL, out);
+    if (ret == AVERROR_OPTION_NOT_FOUND) {
+        *out = NULL;
+        return 0;
+    }
+
+    return ret;
+}
+
+int ffw_muxer_set_option(Muxer* muxer, const char* key, const char* value) {
+    int ret = av_opt_set(muxer->fc, key, value, AV_OPT_SEARCH_CHILDREN);
+    if (ret == AVERROR_OPTION_NOT_FOUND) {
+        return 0;
+    }
 
     return ret;
 }
