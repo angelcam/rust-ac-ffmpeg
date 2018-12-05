@@ -127,4 +127,6 @@ void ffw_muxer_free(Muxer* muxer) {
     }
 
     avformat_free_context(muxer->fc);
+
+    free(muxer);
 }

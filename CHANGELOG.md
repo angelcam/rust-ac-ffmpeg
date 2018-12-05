@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.1 (2018-12-05)
+
+* Fix memory leak in muxer
+
 ## v0.4.0 (2018-12-05)
 
 * Add support for muxer runtime options
