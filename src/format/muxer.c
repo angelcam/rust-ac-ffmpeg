@@ -109,11 +109,49 @@ int ffw_muxer_set_option(Muxer* muxer, const char* key, const char* value) {
     return ret;
 }
 
+static int ffw_rescale_packet_timestamps(Muxer* muxer, AVPacket* packet) {
+    AVStream* stream;
+    AVRational micro;
+
+    unsigned stream_index;
+
+    if (packet == NULL) {
+        return 0;
+    }
+
+    stream_index = packet->stream_index;
+
+    if (stream_index > muxer->fc->nb_streams) {
+        return -1;
+    }
+
+    stream = muxer->fc->streams[stream_index];
+
+    micro.num = 1;
+    micro.den = 1000000;
+
+    av_packet_rescale_ts(packet, micro, stream->time_base);
+
+    return 0;
+}
+
 int ffw_muxer_write_frame(Muxer* muxer, AVPacket* packet) {
+    int ret = ffw_rescale_packet_timestamps(muxer, packet);
+
+    if (ret < 0) {
+        return ret;
+    }
+
     return av_write_frame(muxer->fc, packet);
 }
 
 int ffw_muxer_interleaved_write_frame(Muxer* muxer, AVPacket* packet) {
+    int ret = ffw_rescale_packet_timestamps(muxer, packet);
+
+    if (ret < 0) {
+        return ret;
+    }
+
     return av_interleaved_write_frame(muxer->fc, packet);
 }
 

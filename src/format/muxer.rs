@@ -7,7 +7,7 @@ use libc::{c_char, c_int, c_uint, c_void};
 use Error;
 
 use format::io::Writer;
-use packet::PacketMut;
+use packet::Packet;
 use video::codec::CodecParameters;
 
 extern "C" {
@@ -179,8 +179,10 @@ impl<T> Muxer<T> {
         }
     }
 
-    /// Mux a given packet.
-    pub fn push(&mut self, mut packet: PacketMut) -> Result<(), Error> {
+    /// Mux a given packet. The packet pts and dts are expected to be in
+    /// microseconds. They will be automatically rescaled to match the time
+    /// base of the corresponding stream.
+    pub fn push(&mut self, mut packet: Packet) -> Result<(), Error> {
         let nb_streams = unsafe { ffw_muxer_get_nb_streams(self.ptr) as usize };
 
         assert!(packet.stream_index() < nb_streams);

@@ -18,16 +18,17 @@ extern "C" {
     fn ffw_packet_set_key(packet: *mut c_void, key: c_int);
     fn ffw_packet_get_stream_index(packet: *const c_void) -> c_int;
     fn ffw_packet_set_stream_index(packet: *mut c_void, index: c_int);
+    fn ffw_packet_make_writable(packet: *mut c_void) -> c_int;
 }
 
-/// Packet builder.
-pub struct PacketBuilder {
+/// Mutable packet.
+pub struct PacketMut {
     ptr: *mut c_void,
 }
 
-impl PacketBuilder {
-    /// Create a packet builder for a packet of a given size.
-    fn new(size: usize) -> PacketBuilder {
+impl PacketMut {
+    /// Create a new packet of a given size.
+    pub fn new(size: usize) -> PacketMut {
         unsafe {
             let ptr;
 
@@ -41,97 +42,8 @@ impl PacketBuilder {
                 panic!("unable to allocate a packet");
             }
 
-            PacketBuilder { ptr: ptr }
+            PacketMut { ptr: ptr }
         }
-    }
-
-    /// Set stream index.
-    pub fn stream_index(self, index: usize) -> PacketBuilder {
-        unsafe { ffw_packet_set_stream_index(self.ptr, index as _) }
-
-        self
-    }
-
-    /// Set packet presentation timestamp.
-    pub fn pts(self, pts: i64) -> PacketBuilder {
-        unsafe { ffw_packet_set_pts(self.ptr, pts as _) }
-
-        self
-    }
-
-    /// Set packet decoding timestamp.
-    pub fn dts(self, dts: i64) -> PacketBuilder {
-        unsafe { ffw_packet_set_dts(self.ptr, dts as _) }
-
-        self
-    }
-
-    /// Set or unset the key flag.
-    pub fn key(self, key: bool) -> PacketBuilder {
-        unsafe { ffw_packet_set_key(self.ptr, key as _) }
-
-        self
-    }
-
-    /// Build the packet.
-    pub fn build(mut self) -> PacketMut {
-        let ptr = self.ptr;
-
-        self.ptr = ptr::null_mut();
-
-        PacketMut { ptr: ptr }
-    }
-}
-
-impl Drop for PacketBuilder {
-    fn drop(&mut self) {
-        unsafe { ffw_packet_free(self.ptr) }
-    }
-}
-
-impl<T> From<T> for PacketBuilder
-where
-    T: AsRef<[u8]>,
-{
-    fn from(data: T) -> PacketBuilder {
-        let data = data.as_ref();
-
-        let builder = PacketBuilder::new(data.len());
-
-        let dst = unsafe {
-            let data = ffw_packet_get_data(builder.ptr) as *mut u8;
-            let size = ffw_packet_get_size(builder.ptr) as usize;
-
-            if data.is_null() {
-                &mut []
-            } else {
-                slice::from_raw_parts_mut(data, size)
-            }
-        };
-
-        dst.copy_from_slice(data);
-
-        builder
-    }
-}
-
-unsafe impl Send for PacketBuilder {}
-unsafe impl Sync for PacketBuilder {}
-
-/// Mutable packet.
-pub struct PacketMut {
-    ptr: *mut c_void,
-}
-
-impl PacketMut {
-    /// Create a new packet builder for a packet of a given size.
-    pub fn builder(size: usize) -> PacketBuilder {
-        PacketBuilder::new(size)
-    }
-
-    /// Create a new packet from its raw representation.
-    pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> PacketMut {
-        PacketMut { ptr: ptr }
     }
 
     /// Get stream index.
@@ -139,19 +51,47 @@ impl PacketMut {
         unsafe { ffw_packet_get_stream_index(self.ptr) as _ }
     }
 
+    /// Set stream index.
+    pub fn with_stream_index(self, index: usize) -> PacketMut {
+        unsafe { ffw_packet_set_stream_index(self.ptr, index as _) }
+
+        self
+    }
+
     /// Get packet presentation timestamp.
-    pub fn pts(&self) -> i64 {
+    pub fn pts(&self) -> u64 {
         unsafe { ffw_packet_get_pts(self.ptr) as _ }
     }
 
+    /// Set packet presentation timestamp.
+    pub fn with_pts(self, pts: u64) -> PacketMut {
+        unsafe { ffw_packet_set_pts(self.ptr, pts as _) }
+
+        self
+    }
+
     /// Get packet decoding timestamp.
-    pub fn dts(&self) -> i64 {
+    pub fn dts(&self) -> u64 {
         unsafe { ffw_packet_get_dts(self.ptr) as _ }
+    }
+
+    /// Set packet decoding timestamp.
+    pub fn with_dts(self, dts: u64) -> PacketMut {
+        unsafe { ffw_packet_set_dts(self.ptr, dts as _) }
+
+        self
     }
 
     /// Check if the key flag is set.
     pub fn is_key(&self) -> bool {
         unsafe { ffw_packet_is_key(self.ptr) != 0 }
+    }
+
+    /// Set or unset the key flag.
+    pub fn with_key_flag(self, key: bool) -> PacketMut {
+        unsafe { ffw_packet_set_key(self.ptr, key as _) }
+
+        self
     }
 
     /// Get raw pointer.
@@ -208,6 +148,21 @@ impl Drop for PacketMut {
     }
 }
 
+impl<T> From<T> for PacketMut
+where
+    T: AsRef<[u8]>,
+{
+    fn from(data: T) -> PacketMut {
+        let data = data.as_ref();
+
+        let mut packet = PacketMut::new(data.len());
+
+        packet.bytes_mut().copy_from_slice(data);
+
+        packet
+    }
+}
+
 unsafe impl Send for PacketMut {}
 unsafe impl Sync for PacketMut {}
 
@@ -227,18 +182,51 @@ impl Packet {
         unsafe { ffw_packet_get_stream_index(self.ptr) as _ }
     }
 
+    /// Set stream index.
+    pub fn with_stream_index(self, index: usize) -> Packet {
+        unsafe { ffw_packet_set_stream_index(self.ptr, index as _) }
+
+        self
+    }
+
     /// Get packet presentation timestamp.
-    pub fn pts(&self) -> i64 {
+    pub fn pts(&self) -> u64 {
         unsafe { ffw_packet_get_pts(self.ptr) as _ }
     }
 
+    /// Set packet presentation timestamp.
+    pub fn with_pts(self, pts: u64) -> Packet {
+        unsafe { ffw_packet_set_pts(self.ptr, pts as _) }
+
+        self
+    }
+
     /// Get packet decoding timestamp.
-    pub fn dts(&self) -> i64 {
+    pub fn dts(&self) -> u64 {
         unsafe { ffw_packet_get_dts(self.ptr) as _ }
+    }
+
+    /// Set packet decoding timestamp.
+    pub fn with_dts(self, dts: u64) -> Packet {
+        unsafe { ffw_packet_set_dts(self.ptr, dts as _) }
+
+        self
+    }
+
+    /// Check if the key flag is set.
+    pub fn is_key(&self) -> bool {
+        unsafe { ffw_packet_is_key(self.ptr) != 0 }
     }
 
     /// Get raw pointer.
     pub fn as_ptr(&self) -> *const c_void {
+        self.ptr
+    }
+
+    /// Get mutable raw pointer. Please note that even though it is required
+    /// in some cases to pass a mut pointer to an immutable packet, it is not
+    /// allowed to modify packet data in such cases.
+    pub fn as_mut_ptr(&mut self) -> *mut c_void {
         self.ptr
     }
 
@@ -254,6 +242,23 @@ impl Packet {
                 slice::from_raw_parts(data, size)
             }
         }
+    }
+
+    /// Make this packet mutable.
+    pub fn into_mut(mut self) -> PacketMut {
+        let res = unsafe {
+            ffw_packet_make_writable(self.ptr)
+        };
+
+        if res < 0 {
+            panic!("unable to make the packet mutable");
+        }
+
+        let ptr = self.ptr;
+
+        self.ptr = ptr::null_mut();
+
+        PacketMut { ptr: ptr }
     }
 }
 
