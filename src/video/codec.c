@@ -273,6 +273,24 @@ AVCodecParameters* ffw_codec_parameters_new(const char* codec_name) {
     return res;
 }
 
+AVCodecParameters* ffw_codec_parameters_clone(const AVCodecParameters* src) {
+    AVCodecParameters* res = avcodec_parameters_alloc();
+    if (res == NULL) {
+        return NULL;
+    }
+
+    if (avcodec_parameters_copy(res, src) < 0) {
+        goto err;
+    }
+
+    return res;
+
+err:
+    avcodec_parameters_free(&res);
+
+    return NULL;
+}
+
 void ffw_codec_parameters_set_width(AVCodecParameters* params, int width) {
     params->width = width;
 }

@@ -35,6 +35,7 @@ extern "C" {
     fn ffw_encoder_free(encoder: *mut c_void);
 
     fn ffw_codec_parameters_new(codec: *const c_char) -> *mut c_void;
+    fn ffw_codec_parameters_clone(params: *const c_void) -> *mut c_void;
     fn ffw_codec_parameters_set_width(params: *mut c_void, width: c_int);
     fn ffw_codec_parameters_set_height(params: *mut c_void, height: c_int);
     fn ffw_codec_parameters_set_extradata(
@@ -533,6 +534,20 @@ impl CodecParameters {
 impl Drop for CodecParameters {
     fn drop(&mut self) {
         unsafe { ffw_codec_parameters_free(self.ptr) }
+    }
+}
+
+impl Clone for CodecParameters {
+    fn clone(&self) -> CodecParameters {
+        let ptr = unsafe {
+            ffw_codec_parameters_clone(self.ptr)
+        };
+
+        if ptr.is_null() {
+            panic!("unable to clone codec parameters");
+        }
+
+        CodecParameters { ptr: ptr }
     }
 }
 

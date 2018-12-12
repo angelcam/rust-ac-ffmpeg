@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.1 (2018-12-12)
+
+* Implement Clone for CodecParameters
+
 ## v0.5.0 (2018-12-07)
 
 * Redesign of the packet interface for better ergonomics
