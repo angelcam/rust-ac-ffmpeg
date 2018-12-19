@@ -1,6 +1,6 @@
 [package]
 name = "ac-ffmpeg"
-version = "0.5.1"
+version = "0.6.0"
 authors = ["Ondrej Perutka <ondrej.perutka@angelcam.com>"]
 
 [dependencies]

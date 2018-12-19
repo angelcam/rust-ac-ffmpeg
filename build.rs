@@ -11,6 +11,7 @@ fn main() {
 
     Build::new()
         .include(&ffmpeg_include_dir)
+        .file("src/codec.c")
         .file("src/logger.c")
         .file("src/packet.c")
         .file("src/format/io.c")

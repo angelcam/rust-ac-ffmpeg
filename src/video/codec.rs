@@ -7,6 +7,7 @@ use std::fmt::{Display, Formatter};
 
 use libc::{c_char, c_int, c_void, uint8_t};
 
+use codec::CodecParameters;
 use packet::Packet;
 use video::frame::{Format, Frame};
 
@@ -33,17 +34,6 @@ extern "C" {
     fn ffw_encoder_push_frame(encoder: *mut c_void, frame: *const c_void) -> c_int;
     fn ffw_encoder_take_packet(encoder: *mut c_void, packet: *mut *mut c_void) -> c_int;
     fn ffw_encoder_free(encoder: *mut c_void);
-
-    fn ffw_codec_parameters_new(codec: *const c_char) -> *mut c_void;
-    fn ffw_codec_parameters_clone(params: *const c_void) -> *mut c_void;
-    fn ffw_codec_parameters_set_width(params: *mut c_void, width: c_int);
-    fn ffw_codec_parameters_set_height(params: *mut c_void, height: c_int);
-    fn ffw_codec_parameters_set_extradata(
-        params: *mut c_void,
-        extradata: *const uint8_t,
-        size: c_int,
-    ) -> c_int;
-    fn ffw_codec_parameters_free(params: *mut c_void);
 }
 
 /// A decoding or encoding error.
@@ -430,126 +420,3 @@ impl Drop for Encoder {
 
 unsafe impl Send for Encoder {}
 unsafe impl Sync for Encoder {}
-
-/// Builder for the codec parameters.
-pub struct CodecParametersBuilder {
-    ptr: *mut c_void,
-}
-
-impl CodecParametersBuilder {
-    /// Create a new builder for a given codec.
-    fn new(codec: &str) -> CodecParametersBuilder {
-        let codec = CString::new(codec).expect("invalid codec name");
-
-        let ptr = unsafe { ffw_codec_parameters_new(codec.as_ptr() as *const _) };
-
-        if ptr.is_null() {
-            panic!("unable to allocate codec parameters");
-        }
-
-        CodecParametersBuilder { ptr: ptr }
-    }
-
-    /// Set frame width.
-    pub fn width(self, width: usize) -> CodecParametersBuilder {
-        unsafe {
-            ffw_codec_parameters_set_width(self.ptr, width as _);
-        }
-
-        self
-    }
-
-    /// Set frame height.
-    pub fn height(self, height: usize) -> CodecParametersBuilder {
-        unsafe {
-            ffw_codec_parameters_set_height(self.ptr, height as _);
-        }
-
-        self
-    }
-
-    /// Set extradata.
-    pub fn extradata(self, data: Option<&[u8]>) -> CodecParametersBuilder {
-        let ptr;
-        let size;
-
-        if let Some(data) = data {
-            ptr = data.as_ptr();
-            size = data.len();
-        } else {
-            ptr = ptr::null();
-            size = 0;
-        }
-
-        let res = unsafe { ffw_codec_parameters_set_extradata(self.ptr, ptr, size as _) };
-
-        if res < 0 {
-            panic!("unable to allocate extradata");
-        }
-
-        self
-    }
-
-    /// Build the codec parameters.
-    pub fn build(mut self) -> CodecParameters {
-        let ptr = self.ptr;
-
-        self.ptr = ptr::null_mut();
-
-        CodecParameters { ptr: ptr }
-    }
-}
-
-impl Drop for CodecParametersBuilder {
-    fn drop(&mut self) {
-        unsafe { ffw_codec_parameters_free(self.ptr) }
-    }
-}
-
-unsafe impl Send for CodecParametersBuilder {}
-unsafe impl Sync for CodecParametersBuilder {}
-
-/// Codec parameters.
-pub struct CodecParameters {
-    ptr: *mut c_void,
-}
-
-impl CodecParameters {
-    /// Get a builder for the codec parameters.
-    pub fn builder(codec: &str) -> CodecParametersBuilder {
-        CodecParametersBuilder::new(codec)
-    }
-
-    /// Create codec parameters from a given raw representation.
-    pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> CodecParameters {
-        CodecParameters { ptr: ptr }
-    }
-
-    /// Get raw pointer to the underlying object.
-    pub fn as_ptr(&self) -> *const c_void {
-        self.ptr
-    }
-}
-
-impl Drop for CodecParameters {
-    fn drop(&mut self) {
-        unsafe { ffw_codec_parameters_free(self.ptr) }
-    }
-}
-
-impl Clone for CodecParameters {
-    fn clone(&self) -> CodecParameters {
-        let ptr = unsafe {
-            ffw_codec_parameters_clone(self.ptr)
-        };
-
-        if ptr.is_null() {
-            panic!("unable to clone codec parameters");
-        }
-
-        CodecParameters { ptr: ptr }
-    }
-}
-
-unsafe impl Send for CodecParameters {}
-unsafe impl Sync for CodecParameters {}

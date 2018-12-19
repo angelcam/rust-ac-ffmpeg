@@ -6,9 +6,9 @@ use libc::{c_char, c_int, c_uint, c_void};
 
 use Error;
 
+use codec::CodecParameters;
 use format::io::Writer;
 use packet::Packet;
-use video::codec::CodecParameters;
 
 extern "C" {
     fn ffw_guess_output_format(

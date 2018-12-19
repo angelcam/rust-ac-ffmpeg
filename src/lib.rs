@@ -5,6 +5,7 @@ extern crate lazy_static;
 
 extern crate libc;
 
+pub mod codec;
 pub mod format;
 pub mod packet;
 pub mod video;
