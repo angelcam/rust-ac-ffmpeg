@@ -246,9 +246,7 @@ impl Packet {
 
     /// Make this packet mutable.
     pub fn into_mut(mut self) -> PacketMut {
-        let res = unsafe {
-            ffw_packet_make_writable(self.ptr)
-        };
+        let res = unsafe { ffw_packet_make_writable(self.ptr) };
 
         if res < 0 {
             panic!("unable to make the packet mutable");

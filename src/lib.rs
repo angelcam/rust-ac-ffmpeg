@@ -19,7 +19,7 @@ use std::sync::RwLock;
 
 use libc::{c_char, c_int};
 
-lazy_static!{
+lazy_static! {
     /// Log callback.
     static ref LOG_CALLBACK: RwLock<LogCallback> = {
         RwLock::new(LogCallback::new())

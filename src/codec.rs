@@ -19,7 +19,6 @@ extern "C" {
     fn ffw_codec_parameters_free(params: *mut c_void);
 }
 
-
 /// Builder for video codec parameters.
 pub struct VideoCodecParametersBuilder {
     ptr: *mut c_void,
@@ -36,9 +35,7 @@ impl VideoCodecParametersBuilder {
             return Err(Error::new("unknown codec"));
         }
 
-        let res = VideoCodecParametersBuilder {
-            ptr: ptr,
-        };
+        let res = VideoCodecParametersBuilder { ptr: ptr };
 
         Ok(res)
     }
@@ -132,9 +129,7 @@ impl Drop for CodecParameters {
 
 impl Clone for CodecParameters {
     fn clone(&self) -> CodecParameters {
-        let ptr = unsafe {
-            ffw_codec_parameters_clone(self.ptr)
-        };
+        let ptr = unsafe { ffw_codec_parameters_clone(self.ptr) };
 
         if ptr.is_null() {
             panic!("unable to clone codec parameters");
