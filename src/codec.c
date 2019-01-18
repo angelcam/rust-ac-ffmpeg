@@ -57,6 +57,14 @@ err:
     return NULL;
 }
 
+int ffw_codec_parameters_is_audio_codec(const AVCodecParameters* params) {
+    return params->codec_type == AVMEDIA_TYPE_AUDIO;
+}
+
+int ffw_codec_parameters_is_video_codec(const AVCodecParameters* params) {
+    return params->codec_type == AVMEDIA_TYPE_VIDEO;
+}
+
 void ffw_codec_parameters_set_width(AVCodecParameters* params, int width) {
     params->width = width;
 }

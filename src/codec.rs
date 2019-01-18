@@ -9,6 +9,8 @@ use Error;
 extern "C" {
     fn ffw_video_codec_parameters_new(codec: *const c_char) -> *mut c_void;
     fn ffw_codec_parameters_clone(params: *const c_void) -> *mut c_void;
+    fn ffw_codec_parameters_is_audio_codec(params: *const c_void) -> c_int;
+    fn ffw_codec_parameters_is_video_codec(params: *const c_void) -> c_int;
     fn ffw_codec_parameters_set_width(params: *mut c_void, width: c_int);
     fn ffw_codec_parameters_set_height(params: *mut c_void, height: c_int);
     fn ffw_codec_parameters_set_extradata(
@@ -118,6 +120,16 @@ impl CodecParameters {
     /// Get raw pointer to the underlying object.
     pub fn as_ptr(&self) -> *const c_void {
         self.ptr
+    }
+
+    /// Check if these codec parameters are for an audio codec.
+    pub fn is_audio_codec(&self) -> bool {
+        unsafe { ffw_codec_parameters_is_audio_codec(self.ptr) != 0 }
+    }
+
+    /// Check if these codec parameters are for a video codec.
+    pub fn is_video_codec(&self) -> bool {
+        unsafe { ffw_codec_parameters_is_video_codec(self.ptr) != 0 }
     }
 }
 

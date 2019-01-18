@@ -7,6 +7,7 @@ typedef struct Decoder {
 } Decoder;
 
 Decoder* ffw_decoder_new(const char* codec);
+Decoder* ffw_decoder_from_codec_parameters(const AVCodecParameters* params);
 int ffw_decoder_set_extradata(Decoder* decoder, const uint8_t* extradata, int size);
 int ffw_decoder_open(Decoder* decoder);
 int ffw_decoder_push_packet(Decoder* decoder, const AVPacket* packet);
@@ -36,6 +37,47 @@ Decoder* ffw_decoder_new(const char* codec) {
 
     res->frame = av_frame_alloc();
     if (res->frame == NULL) {
+        goto err;
+    }
+
+    return res;
+
+err:
+    ffw_decoder_free(res);
+
+    return NULL;
+}
+
+Decoder* ffw_decoder_from_codec_parameters(const AVCodecParameters* params) {
+    AVCodec* decoder = avcodec_find_decoder(params->codec_id);
+    if (decoder == NULL) {
+        return NULL;
+    }
+
+    Decoder* res = malloc(sizeof(Decoder));
+    if (res == NULL) {
+        return NULL;
+    }
+
+    res->decoder = decoder;
+    res->cc = NULL;
+    res->frame = NULL;
+
+    res->cc = avcodec_alloc_context3(decoder);
+    if (res->cc == NULL) {
+        goto err;
+    }
+
+    res->frame = av_frame_alloc();
+    if (res->frame == NULL) {
+        goto err;
+    }
+
+    if (avcodec_parameters_to_context(res->cc, params) < 0) {
+        goto err;
+    }
+
+    if (avcodec_open2(res->cc, res->decoder, NULL) < 0) {
         goto err;
     }
 

@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.6.1 (2019-01-18)
+
+* Create decoder from codec parameters
+
+* Determine media type from codec parameters
+
+## v0.6.0 (2018-12-19)
+
+* Make codec parameters independent of media type
+
 ## v0.5.1 (2018-12-12)
 
 * Implement Clone for CodecParameters

@@ -13,6 +13,7 @@ use video::frame::{Format, Frame};
 
 extern "C" {
     fn ffw_decoder_new(codec: *const c_char) -> *mut c_void;
+    fn ffw_decoder_from_codec_parameters(params: *const c_void) -> *mut c_void;
     fn ffw_decoder_set_extradata(
         decoder: *mut c_void,
         extradata: *const uint8_t,
@@ -172,6 +173,19 @@ impl Decoder {
     /// Create a new video decoder for a given codec.
     pub fn new(codec: &str) -> Result<Decoder, Error> {
         DecoderBuilder::new(codec).and_then(|builder| builder.build())
+    }
+
+    /// Create a new decoder from given codec parameters.
+    pub fn from_codec_parameters(codec_parameters: &CodecParameters) -> Result<Decoder, Error> {
+        let ptr = unsafe { ffw_decoder_from_codec_parameters(codec_parameters.as_ptr()) };
+
+        if ptr.is_null() {
+            return Err(Error::new("unable to create a decoder"));
+        }
+
+        let res = Decoder { ptr: ptr };
+
+        Ok(res)
     }
 
     /// Get decoder builder for a given codec.
