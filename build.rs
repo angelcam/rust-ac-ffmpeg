@@ -16,8 +16,7 @@ fn main() {
         .file("src/format/io.c")
         .file("src/format/muxer.c")
         .file("src/codec/mod.c")
-        .file("src/codec/video/mod.c")
-        .file("src/codec/video/frame.c")
+        .file("src/codec/frame.c")
         .file("src/codec/video/scaler.c")
         .compile("ffwrapper");
 

@@ -1,20 +1,17 @@
-mod frame;
-
-pub mod scaler;
+pub mod frame;
 
 use std::ptr;
 
 use std::ffi::CString;
 
-use libc::{c_char, c_int, c_void, int64_t, uint8_t};
+use libc::{c_char, c_int, c_void, int64_t, uint64_t, uint8_t};
 
 use crate::Error;
 
 use crate::codec::{CodecError, CodecParameters, ErrorKind};
 use crate::packet::Packet;
 
-pub use self::frame::{PixelFormat, VideoFrame, VideoFrameMut};
-pub use self::scaler::{VideoFrameScaler, VideoFrameScalerBuilder};
+pub use self::frame::{AudioFrame, AudioFrameMut, ChannelLayout, SampleFormat};
 
 extern "C" {
     fn ffw_decoder_new(codec: *const c_char) -> *mut c_void;
@@ -32,28 +29,28 @@ extern "C" {
 
     fn ffw_encoder_new(codec: *const c_char) -> *mut c_void;
     fn ffw_encoder_from_codec_parameters(params: *const c_void) -> *mut c_void;
-    fn ffw_encoder_get_pixel_format(encoder: *const c_void) -> c_int;
-    fn ffw_encoder_get_width(encoder: *const c_void) -> c_int;
-    fn ffw_encoder_get_height(encoder: *const c_void) -> c_int;
-    fn ffw_encoder_set_bit_rate(encoder: *mut c_void, bit_rate: int64_t);
-    fn ffw_encoder_set_pixel_format(encoder: *mut c_void, format: c_int);
-    fn ffw_encoder_set_width(encoder: *mut c_void, width: c_int);
-    fn ffw_encoder_set_height(encoder: *mut c_void, height: c_int);
+    fn ffw_encoder_get_sample_format(encoder: *const c_void) -> c_int;
+    fn ffw_encoder_get_sample_rate(encoder: *const c_void) -> c_int;
+    fn ffw_encoder_get_channel_layout(encoder: *const c_void) -> uint64_t;
     fn ffw_encoder_set_time_base(encoder: *mut c_void, num: c_int, den: c_int);
+    fn ffw_encoder_set_bit_rate(encoder: *mut c_void, bit_rate: int64_t);
+    fn ffw_encoder_set_sample_format(encoder: *mut c_void, format: c_int);
+    fn ffw_encoder_set_sample_rate(encoder: *mut c_void, sample_rate: c_int);
+    fn ffw_encoder_set_channel_layout(encoder: *mut c_void, channel_layout: uint64_t);
     fn ffw_encoder_open(encoder: *mut c_void) -> c_int;
     fn ffw_encoder_push_frame(encoder: *mut c_void, frame: *const c_void) -> c_int;
     fn ffw_encoder_take_packet(encoder: *mut c_void, packet: *mut *mut c_void) -> c_int;
     fn ffw_encoder_free(encoder: *mut c_void);
 }
 
-/// Builder for the video decoder.
-pub struct VideoDecoderBuilder {
+/// Builder for the audio decoder.
+pub struct AudioDecoderBuilder {
     ptr: *mut c_void,
 }
 
-impl VideoDecoderBuilder {
+impl AudioDecoderBuilder {
     /// Create a new builder for a given codec.
-    fn new(codec: &str) -> Result<VideoDecoderBuilder, Error> {
+    fn new(codec: &str) -> Result<AudioDecoderBuilder, Error> {
         let codec = CString::new(codec).expect("invalid codec name");
 
         let ptr = unsafe { ffw_decoder_new(codec.as_ptr() as _) };
@@ -62,13 +59,13 @@ impl VideoDecoderBuilder {
             return Err(Error::new("unknown codec"));
         }
 
-        let res = VideoDecoderBuilder { ptr: ptr };
+        let res = AudioDecoderBuilder { ptr: ptr };
 
         Ok(res)
     }
 
     /// Set codec extradata.
-    pub fn extradata(self, data: Option<&[u8]>) -> VideoDecoderBuilder {
+    pub fn extradata(self, data: Option<&[u8]>) -> AudioDecoderBuilder {
         let ptr;
         let size;
 
@@ -90,7 +87,7 @@ impl VideoDecoderBuilder {
     }
 
     /// Build the decoder.
-    pub fn build(mut self) -> Result<VideoDecoder, Error> {
+    pub fn build(mut self) -> Result<AudioDecoder, Error> {
         unsafe {
             if ffw_decoder_open(self.ptr) != 0 {
                 return Err(Error::new("unable to build the decoder"));
@@ -101,22 +98,22 @@ impl VideoDecoderBuilder {
 
         self.ptr = ptr::null_mut();
 
-        let res = VideoDecoder { ptr: ptr };
+        let res = AudioDecoder { ptr: ptr };
 
         Ok(res)
     }
 }
 
-impl Drop for VideoDecoderBuilder {
+impl Drop for AudioDecoderBuilder {
     fn drop(&mut self) {
         unsafe { ffw_decoder_free(self.ptr) }
     }
 }
 
-unsafe impl Send for VideoDecoderBuilder {}
-unsafe impl Sync for VideoDecoderBuilder {}
+unsafe impl Send for AudioDecoderBuilder {}
+unsafe impl Sync for AudioDecoderBuilder {}
 
-/// Video decoder.
+/// Audio decoder.
 ///
 /// # Decoder operation
 /// 1. Push a packet to the decoder.
@@ -124,21 +121,21 @@ unsafe impl Sync for VideoDecoderBuilder {}
 /// 3. If there are more packets to be decoded, continue with 1.
 /// 4. Flush the decoder.
 /// 5. Take all frames from the decoder until you get None.
-pub struct VideoDecoder {
+pub struct AudioDecoder {
     ptr: *mut c_void,
 }
 
-impl VideoDecoder {
-    /// Create a new video decoder for a given codec.
-    pub fn new(codec: &str) -> Result<VideoDecoder, Error> {
-        VideoDecoderBuilder::new(codec).and_then(|builder| builder.build())
+impl AudioDecoder {
+    /// Create a new audio decoder for a given codec.
+    pub fn new(codec: &str) -> Result<AudioDecoder, Error> {
+        AudioDecoderBuilder::new(codec).and_then(|builder| builder.build())
     }
 
     /// Create a new decoder from given codec parameters.
     pub fn from_codec_parameters(
         codec_parameters: &CodecParameters,
-    ) -> Result<VideoDecoder, Error> {
-        assert!(codec_parameters.is_video_codec());
+    ) -> Result<AudioDecoder, Error> {
+        assert!(codec_parameters.is_audio_codec());
 
         let ptr = unsafe { ffw_decoder_from_codec_parameters(codec_parameters.as_ptr()) };
 
@@ -146,14 +143,14 @@ impl VideoDecoder {
             return Err(Error::new("unable to create a decoder"));
         }
 
-        let res = VideoDecoder { ptr: ptr };
+        let res = AudioDecoder { ptr: ptr };
 
         Ok(res)
     }
 
     /// Get decoder builder for a given codec.
-    pub fn builder(codec: &str) -> Result<VideoDecoderBuilder, Error> {
-        VideoDecoderBuilder::new(codec)
+    pub fn builder(codec: &str) -> Result<AudioDecoderBuilder, Error> {
+        AudioDecoderBuilder::new(codec)
     }
 
     /// Push a given packet to the decoder.
@@ -185,7 +182,7 @@ impl VideoDecoder {
     }
 
     /// Take the next decoded frame from the decoder.
-    pub fn take(&mut self) -> Result<Option<VideoFrame>, CodecError> {
+    pub fn take(&mut self) -> Result<Option<AudioFrame>, CodecError> {
         let mut fptr = ptr::null_mut();
 
         unsafe {
@@ -194,7 +191,7 @@ impl VideoDecoder {
                     if fptr.is_null() {
                         panic!("no frame received")
                     } else {
-                        Ok(Some(VideoFrame::from_raw_ptr(fptr)))
+                        Ok(Some(AudioFrame::from_raw_ptr(fptr)))
                     }
                 }
                 0 => Ok(None),
@@ -215,27 +212,27 @@ impl VideoDecoder {
     }
 }
 
-impl Drop for VideoDecoder {
+impl Drop for AudioDecoder {
     fn drop(&mut self) {
         unsafe { ffw_decoder_free(self.ptr) }
     }
 }
 
-unsafe impl Send for VideoDecoder {}
-unsafe impl Sync for VideoDecoder {}
+unsafe impl Send for AudioDecoder {}
+unsafe impl Sync for AudioDecoder {}
 
-/// Builder for the video encoder.
-pub struct VideoEncoderBuilder {
+/// Builder for the audio encoder.
+pub struct AudioEncoderBuilder {
     ptr: *mut c_void,
 
-    format: Option<PixelFormat>,
-    width: Option<usize>,
-    height: Option<usize>,
+    sample_format: Option<SampleFormat>,
+    sample_rate: Option<u32>,
+    channel_layout: Option<ChannelLayout>,
 }
 
-impl VideoEncoderBuilder {
+impl AudioEncoderBuilder {
     /// Create a new encoder builder for a given codec.
-    fn new(codec: &str) -> Result<VideoEncoderBuilder, Error> {
+    fn new(codec: &str) -> Result<AudioEncoderBuilder, Error> {
         let codec = CString::new(codec).expect("invalid codec name");
 
         let ptr = unsafe { ffw_encoder_new(codec.as_ptr() as _) };
@@ -249,12 +246,12 @@ impl VideoEncoderBuilder {
             ffw_encoder_set_time_base(ptr, 1, 1000);
         }
 
-        let res = VideoEncoderBuilder {
+        let res = AudioEncoderBuilder {
             ptr: ptr,
 
-            format: None,
-            width: None,
-            height: None,
+            sample_format: None,
+            sample_rate: None,
+            channel_layout: None,
         };
 
         Ok(res)
@@ -263,8 +260,8 @@ impl VideoEncoderBuilder {
     /// Create a new encoder builder from given codec parameters.
     fn from_codec_parameters(
         codec_parameters: &CodecParameters,
-    ) -> Result<VideoEncoderBuilder, Error> {
-        assert!(codec_parameters.is_video_codec());
+    ) -> Result<AudioEncoderBuilder, Error> {
+        assert!(codec_parameters.is_audio_codec());
 
         let ptr = unsafe { ffw_encoder_from_codec_parameters(codec_parameters.as_ptr()) };
 
@@ -272,29 +269,29 @@ impl VideoEncoderBuilder {
             return Err(Error::new("unable to create an encoder"));
         }
 
-        let pixel_format;
-        let width;
-        let height;
+        let sample_format;
+        let sample_rate;
+        let channel_layout;
 
         unsafe {
-            pixel_format = ffw_encoder_get_pixel_format(ptr) as _;
-            width = ffw_encoder_get_width(ptr) as _;
-            height = ffw_encoder_get_height(ptr) as _;
+            sample_format = ffw_encoder_get_sample_format(ptr) as _;
+            sample_rate = ffw_encoder_get_sample_rate(ptr) as _;
+            channel_layout = ffw_encoder_get_channel_layout(ptr) as _;
         }
 
-        let res = VideoEncoderBuilder {
+        let res = AudioEncoderBuilder {
             ptr: ptr,
 
-            format: Some(pixel_format),
-            width: Some(width),
-            height: Some(height),
+            sample_format: Some(sample_format),
+            sample_rate: Some(sample_rate),
+            channel_layout: Some(channel_layout),
         };
 
         Ok(res)
     }
 
     /// Set encoder bit rate. The default is 0 (i.e. automatic).
-    pub fn bit_rate(self, bit_rate: u64) -> VideoEncoderBuilder {
+    pub fn bit_rate(self, bit_rate: u64) -> AudioEncoderBuilder {
         unsafe {
             ffw_encoder_set_bit_rate(self.ptr, bit_rate as _);
         }
@@ -303,7 +300,7 @@ impl VideoEncoderBuilder {
     }
 
     /// Set encoder time base as a rational number. The default is 1/1000.
-    pub fn time_base(self, num: u32, den: u32) -> VideoEncoderBuilder {
+    pub fn time_base(self, num: u32, den: u32) -> AudioEncoderBuilder {
         unsafe {
             ffw_encoder_set_time_base(self.ptr, num as _, den as _);
         }
@@ -311,34 +308,38 @@ impl VideoEncoderBuilder {
         self
     }
 
-    /// Set encoder pixel format.
-    pub fn pixel_format(mut self, format: PixelFormat) -> VideoEncoderBuilder {
-        self.format = Some(format);
+    /// Set audio sample format.
+    pub fn sample_format(mut self, format: SampleFormat) -> AudioEncoderBuilder {
+        self.sample_format = Some(format);
         self
     }
 
-    /// Set frame width.
-    pub fn width(mut self, width: usize) -> VideoEncoderBuilder {
-        self.width = Some(width);
+    /// Set sampling rate.
+    pub fn sample_rate(mut self, rate: u32) -> AudioEncoderBuilder {
+        self.sample_rate = Some(rate);
         self
     }
 
-    /// Set frame height.
-    pub fn height(mut self, height: usize) -> VideoEncoderBuilder {
-        self.height = Some(height);
+    /// Set channel layout.
+    pub fn channel_layout(mut self, layout: ChannelLayout) -> AudioEncoderBuilder {
+        self.channel_layout = Some(layout);
         self
     }
 
     /// Build the encoder.
-    pub fn build(mut self) -> Result<VideoEncoder, Error> {
-        let format = self.format.ok_or(Error::new("pixel format not set"))?;
-        let width = self.width.ok_or(Error::new("width not set"))?;
-        let height = self.height.ok_or(Error::new("height not set"))?;
+    pub fn build(mut self) -> Result<AudioEncoder, Error> {
+        let sample_format = self
+            .sample_format
+            .ok_or(Error::new("sample format not set"))?;
+        let sample_rate = self.sample_rate.ok_or(Error::new("sample rate not set"))?;
+        let channel_layout = self
+            .channel_layout
+            .ok_or(Error::new("channel layout not set"))?;
 
         unsafe {
-            ffw_encoder_set_pixel_format(self.ptr, format);
-            ffw_encoder_set_width(self.ptr, width as _);
-            ffw_encoder_set_height(self.ptr, height as _);
+            ffw_encoder_set_sample_format(self.ptr, sample_format as _);
+            ffw_encoder_set_sample_rate(self.ptr, sample_rate as _);
+            ffw_encoder_set_channel_layout(self.ptr, channel_layout as _);
 
             if ffw_encoder_open(self.ptr) != 0 {
                 return Err(Error::new("unable to build the encoder"));
@@ -349,22 +350,22 @@ impl VideoEncoderBuilder {
 
         self.ptr = ptr::null_mut();
 
-        let res = VideoEncoder { ptr: ptr };
+        let res = AudioEncoder { ptr: ptr };
 
         Ok(res)
     }
 }
 
-impl Drop for VideoEncoderBuilder {
+impl Drop for AudioEncoderBuilder {
     fn drop(&mut self) {
         unsafe { ffw_encoder_free(self.ptr) }
     }
 }
 
-unsafe impl Send for VideoEncoderBuilder {}
-unsafe impl Sync for VideoEncoderBuilder {}
+unsafe impl Send for AudioEncoderBuilder {}
+unsafe impl Sync for AudioEncoderBuilder {}
 
-/// Video encoder.
+/// Audio encoder.
 ///
 /// # Encoder operation
 /// 1. Push a frame to the encoder.
@@ -372,25 +373,25 @@ unsafe impl Sync for VideoEncoderBuilder {}
 /// 3. If there are more frames to be encoded, continue with 1.
 /// 4. Flush the encoder.
 /// 5. Take all packets from the encoder until you get None.
-pub struct VideoEncoder {
+pub struct AudioEncoder {
     ptr: *mut c_void,
 }
 
-impl VideoEncoder {
+impl AudioEncoder {
     /// Get encoder builder for a given codec.
-    pub fn builder(codec: &str) -> Result<VideoEncoderBuilder, Error> {
-        VideoEncoderBuilder::new(codec)
+    pub fn builder(codec: &str) -> Result<AudioEncoderBuilder, Error> {
+        AudioEncoderBuilder::new(codec)
     }
 
-    /// Create a new encoder from given codec parameters.
+    /// Create a new encoder builder from given codec parameters.
     pub fn from_codec_parameters(
         codec_parameters: &CodecParameters,
-    ) -> Result<VideoEncoderBuilder, Error> {
-        VideoEncoderBuilder::from_codec_parameters(codec_parameters)
+    ) -> Result<AudioEncoderBuilder, Error> {
+        AudioEncoderBuilder::from_codec_parameters(codec_parameters)
     }
 
     /// Push a given frame to the encoder.
-    pub fn push(&mut self, frame: &VideoFrame) -> Result<(), CodecError> {
+    pub fn push(&mut self, frame: &AudioFrame) -> Result<(), CodecError> {
         unsafe {
             match ffw_encoder_push_frame(self.ptr, frame.as_ptr()) {
                 1 => Ok(()),
@@ -437,11 +438,11 @@ impl VideoEncoder {
     }
 }
 
-impl Drop for VideoEncoder {
+impl Drop for AudioEncoder {
     fn drop(&mut self) {
         unsafe { ffw_encoder_free(self.ptr) }
     }
 }
 
-unsafe impl Send for VideoEncoder {}
-unsafe impl Sync for VideoEncoder {}
+unsafe impl Send for AudioEncoder {}
+unsafe impl Sync for AudioEncoder {}

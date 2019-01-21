@@ -20,8 +20,8 @@ pub struct VideoFrameMut {
 
 impl VideoFrameMut {
     /// Create a new video frame from its raw representation.
-    pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> VideoFrame {
-        VideoFrame { ptr: ptr }
+    pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> VideoFrameMut {
+        VideoFrameMut { ptr: ptr }
     }
 
     /// Get frame pixel format.

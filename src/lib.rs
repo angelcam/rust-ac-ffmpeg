@@ -4,7 +4,6 @@ pub mod packet;
 
 use std::fmt;
 
-use std::error::Error as ErrorTrait;
 use std::ffi::CStr;
 use std::fmt::{Display, Formatter};
 use std::sync::RwLock;
@@ -102,7 +101,7 @@ impl Display for Error {
     }
 }
 
-impl ErrorTrait for Error {
+impl std::error::Error for Error {
     fn description(&self) -> &str {
         &self.msg
     }
