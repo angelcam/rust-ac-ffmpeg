@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.7.0 (2019-01-21)
+
+* Public API refinements
+
+* New audio encoder and decoder
+
 ## v0.6.1 (2019-01-18)
 
 * Create decoder from codec parameters
