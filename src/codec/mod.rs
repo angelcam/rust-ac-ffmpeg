@@ -1,10 +1,12 @@
+pub mod video;
+
 use std::ptr;
 
 use std::ffi::CString;
 
 use libc::{c_char, c_int, c_void, uint8_t};
 
-use Error;
+use crate::Error;
 
 extern "C" {
     fn ffw_video_codec_parameters_new(codec: *const c_char) -> *mut c_void;

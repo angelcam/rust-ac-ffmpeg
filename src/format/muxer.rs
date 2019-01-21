@@ -4,11 +4,11 @@ use std::ffi::{CStr, CString};
 
 use libc::{c_char, c_int, c_uint, c_void};
 
-use Error;
+use crate::Error;
 
-use codec::CodecParameters;
-use format::io::Writer;
-use packet::Packet;
+use crate::codec::CodecParameters;
+use crate::format::io::Writer;
+use crate::packet::Packet;
 
 extern "C" {
     fn ffw_guess_output_format(
@@ -57,12 +57,12 @@ impl MuxerBuilder {
         }
     }
 
-    /// Add a new video stream with given parameters.
-    pub fn add_video_stream(&mut self, params: &CodecParameters) -> Result<(), Error> {
+    /// Add a new stream with given parameters.
+    pub fn add_stream(&mut self, params: &CodecParameters) -> Result<(), Error> {
         let res = unsafe { ffw_muxer_new_stream(self.ptr, params.as_ptr()) };
 
         if res < 0 {
-            return Err(Error::new("unable to create a new video stream"));
+            return Err(Error::new("unable to create a new stream"));
         }
 
         Ok(())

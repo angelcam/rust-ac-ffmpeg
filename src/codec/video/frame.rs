@@ -2,7 +2,7 @@ use std::ptr;
 
 use libc::{c_int, c_void, int64_t};
 
-pub type Format = c_int;
+pub type PixelFormat = c_int;
 
 extern "C" {
     fn ffw_frame_format(frame: *const c_void) -> c_int;
@@ -14,18 +14,18 @@ extern "C" {
 }
 
 /// Mutable video frame.
-pub struct FrameMut {
+pub struct VideoFrameMut {
     ptr: *mut c_void,
 }
 
-impl FrameMut {
+impl VideoFrameMut {
     /// Create a new video frame from its raw representation.
-    pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> Frame {
-        Frame { ptr: ptr }
+    pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> VideoFrame {
+        VideoFrame { ptr: ptr }
     }
 
     /// Get frame pixel format.
-    pub fn format(&self) -> Format {
+    pub fn pixel_format(&self) -> PixelFormat {
         unsafe { ffw_frame_format(self.ptr) }
     }
 
@@ -55,37 +55,37 @@ impl FrameMut {
     }
 
     /// Make the frame immutable.
-    pub fn freeze(mut self) -> Frame {
+    pub fn freeze(mut self) -> VideoFrame {
         let ptr = self.ptr;
 
         self.ptr = ptr::null_mut();
 
-        Frame { ptr: ptr }
+        VideoFrame { ptr: ptr }
     }
 }
 
-impl Drop for FrameMut {
+impl Drop for VideoFrameMut {
     fn drop(&mut self) {
         unsafe { ffw_frame_free(self.ptr) }
     }
 }
 
-unsafe impl Send for FrameMut {}
-unsafe impl Sync for FrameMut {}
+unsafe impl Send for VideoFrameMut {}
+unsafe impl Sync for VideoFrameMut {}
 
 /// Immutable video frame.
-pub struct Frame {
+pub struct VideoFrame {
     ptr: *mut c_void,
 }
 
-impl Frame {
+impl VideoFrame {
     /// Create a new video frame from its raw representation.
-    pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> Frame {
-        Frame { ptr: ptr }
+    pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> VideoFrame {
+        VideoFrame { ptr: ptr }
     }
 
     /// Get frame pixel format.
-    pub fn format(&self) -> Format {
+    pub fn pixel_format(&self) -> PixelFormat {
         unsafe { ffw_frame_format(self.ptr) }
     }
 
@@ -110,23 +110,23 @@ impl Frame {
     }
 }
 
-impl Clone for Frame {
-    fn clone(&self) -> Frame {
+impl Clone for VideoFrame {
+    fn clone(&self) -> VideoFrame {
         let ptr = unsafe { ffw_frame_clone(self.ptr) };
 
         if ptr.is_null() {
             panic!("unable to clone a frame");
         }
 
-        Frame { ptr: ptr }
+        VideoFrame { ptr: ptr }
     }
 }
 
-impl Drop for Frame {
+impl Drop for VideoFrame {
     fn drop(&mut self) {
         unsafe { ffw_frame_free(self.ptr) }
     }
 }
 
-unsafe impl Send for Frame {}
-unsafe impl Sync for Frame {}
+unsafe impl Send for VideoFrame {}
+unsafe impl Sync for VideoFrame {}

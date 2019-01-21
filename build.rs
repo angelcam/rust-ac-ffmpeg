@@ -11,14 +11,14 @@ fn main() {
 
     Build::new()
         .include(&ffmpeg_include_dir)
-        .file("src/codec.c")
         .file("src/logger.c")
         .file("src/packet.c")
         .file("src/format/io.c")
         .file("src/format/muxer.c")
-        .file("src/video/frame.c")
-        .file("src/video/scaler.c")
-        .file("src/video/codec.c")
+        .file("src/codec/mod.c")
+        .file("src/codec/video/mod.c")
+        .file("src/codec/video/frame.c")
+        .file("src/codec/video/scaler.c")
         .compile("ffwrapper");
 
     link_static("ffwrapper");

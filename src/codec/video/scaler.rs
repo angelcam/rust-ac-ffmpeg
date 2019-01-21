@@ -1,8 +1,8 @@
 use libc::{c_int, c_void, size_t};
 
-use Error;
+use crate::Error;
 
-use video::frame::{Format, Frame};
+use crate::codec::video::{PixelFormat, VideoFrame};
 
 const ALG_ID_FAST_BILINEAR: usize = 0;
 const ALG_ID_BILINEAR: usize = 1;
@@ -46,7 +46,7 @@ impl Algorithm {
 }
 
 /// Builder for a video frame scaler.
-pub struct FrameScalerBuilder {
+pub struct VideoFrameScalerBuilder {
     sformat: c_int,
     swidth: c_int,
     sheight: c_int,
@@ -58,14 +58,14 @@ pub struct FrameScalerBuilder {
     flags: c_int,
 }
 
-impl FrameScalerBuilder {
+impl VideoFrameScalerBuilder {
     /// Create a new video frame scaler builder.
-    fn new() -> FrameScalerBuilder {
+    fn new() -> VideoFrameScalerBuilder {
         let default_algorithm = Algorithm::Bicubic;
 
         let flags = unsafe { ffw_alg_id_to_flags(default_algorithm.id()) };
 
-        FrameScalerBuilder {
+        VideoFrameScalerBuilder {
             sformat: -1,
             swidth: 0,
             sheight: 0,
@@ -79,50 +79,50 @@ impl FrameScalerBuilder {
     }
 
     /// Set source pixel format.
-    pub fn source_format(mut self, format: Format) -> FrameScalerBuilder {
+    pub fn source_pixel_format(mut self, format: PixelFormat) -> VideoFrameScalerBuilder {
         self.sformat = format;
         self
     }
 
     /// Set source frame width.
-    pub fn source_width(mut self, width: usize) -> FrameScalerBuilder {
+    pub fn source_width(mut self, width: usize) -> VideoFrameScalerBuilder {
         self.swidth = width as _;
         self
     }
 
     /// Set source frame height.
-    pub fn source_height(mut self, height: usize) -> FrameScalerBuilder {
+    pub fn source_height(mut self, height: usize) -> VideoFrameScalerBuilder {
         self.sheight = height as _;
         self
     }
 
     /// Set target pixel format. The default is equal to the source format.
-    pub fn target_format(mut self, format: Format) -> FrameScalerBuilder {
+    pub fn target_pixel_format(mut self, format: PixelFormat) -> VideoFrameScalerBuilder {
         self.tformat = Some(format);
         self
     }
 
     /// Set target frame width.
-    pub fn target_width(mut self, width: usize) -> FrameScalerBuilder {
+    pub fn target_width(mut self, width: usize) -> VideoFrameScalerBuilder {
         self.twidth = width as _;
         self
     }
 
     /// Set target frame height.
-    pub fn target_height(mut self, height: usize) -> FrameScalerBuilder {
+    pub fn target_height(mut self, height: usize) -> VideoFrameScalerBuilder {
         self.theight = height as _;
         self
     }
 
     /// Set scaling algorithm. The default is bicubic.
-    pub fn algorithm(mut self, algorithm: Algorithm) -> FrameScalerBuilder {
+    pub fn algorithm(mut self, algorithm: Algorithm) -> VideoFrameScalerBuilder {
         self.flags = unsafe { ffw_alg_id_to_flags(algorithm.id()) };
 
         self
     }
 
     /// Build the video frame scaler.
-    pub fn build(self) -> Result<FrameScaler, Error> {
+    pub fn build(self) -> Result<VideoFrameScaler, Error> {
         let tformat = self.tformat.unwrap_or(self.sformat);
 
         if self.sformat < 0 {
@@ -155,7 +155,7 @@ impl FrameScalerBuilder {
             return Err(Error::new("unable to create a frame scaler"));
         }
 
-        let res = FrameScaler {
+        let res = VideoFrameScaler {
             ptr: ptr,
 
             sformat: self.sformat,
@@ -168,27 +168,27 @@ impl FrameScalerBuilder {
 }
 
 /// Video frame scaler.
-pub struct FrameScaler {
+pub struct VideoFrameScaler {
     ptr: *mut c_void,
 
-    sformat: Format,
+    sformat: PixelFormat,
     swidth: usize,
     sheight: usize,
 }
 
-impl FrameScaler {
+impl VideoFrameScaler {
     /// Get a frame scaler builder.
-    pub fn builder() -> FrameScalerBuilder {
-        FrameScalerBuilder::new()
+    pub fn builder() -> VideoFrameScalerBuilder {
+        VideoFrameScalerBuilder::new()
     }
 
     /// Scale a given frame.
-    pub fn scale(&mut self, frame: &Frame) -> Result<Frame, Error> {
+    pub fn scale(&mut self, frame: &VideoFrame) -> Result<VideoFrame, Error> {
         if self.swidth != frame.width() {
             return Err(Error::new("frame width does not match"));
         } else if self.sheight != frame.height() {
             return Err(Error::new("frame height does not match"));
-        } else if self.sformat != frame.format() {
+        } else if self.sformat != frame.pixel_format() {
             return Err(Error::new("frame pixel format does not match"));
         }
 
@@ -198,17 +198,17 @@ impl FrameScaler {
             panic!("unable to scale a frame");
         }
 
-        let frame = unsafe { Frame::from_raw_ptr(res) };
+        let frame = unsafe { VideoFrame::from_raw_ptr(res) };
 
         Ok(frame)
     }
 }
 
-impl Drop for FrameScaler {
+impl Drop for VideoFrameScaler {
     fn drop(&mut self) {
         unsafe { ffw_frame_scaler_free(self.ptr) }
     }
 }
 
-unsafe impl Send for FrameScaler {}
-unsafe impl Sync for FrameScaler {}
+unsafe impl Send for VideoFrameScaler {}
+unsafe impl Sync for VideoFrameScaler {}

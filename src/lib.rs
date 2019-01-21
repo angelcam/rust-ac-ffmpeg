@@ -1,14 +1,6 @@
-extern crate bytes;
-
-#[macro_use]
-extern crate lazy_static;
-
-extern crate libc;
-
 pub mod codec;
 pub mod format;
 pub mod packet;
-pub mod video;
 
 use std::fmt;
 
@@ -16,6 +8,8 @@ use std::error::Error as ErrorTrait;
 use std::ffi::CStr;
 use std::fmt::{Display, Formatter};
 use std::sync::RwLock;
+
+use lazy_static::lazy_static;
 
 use libc::{c_char, c_int};
 

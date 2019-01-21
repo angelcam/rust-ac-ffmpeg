@@ -105,7 +105,7 @@ impl PacketMut {
     }
 
     /// Get packet data.
-    pub fn bytes(&self) -> &[u8] {
+    pub fn data(&self) -> &[u8] {
         unsafe {
             let data = ffw_packet_get_data(self.ptr) as *const u8;
             let size = ffw_packet_get_size(self.ptr) as usize;
@@ -119,7 +119,7 @@ impl PacketMut {
     }
 
     /// Get mutable reference to the packet data.
-    pub fn bytes_mut(&mut self) -> &mut [u8] {
+    pub fn data_mut(&mut self) -> &mut [u8] {
         unsafe {
             let data = ffw_packet_get_data(self.ptr) as *mut u8;
             let size = ffw_packet_get_size(self.ptr) as usize;
@@ -157,7 +157,7 @@ where
 
         let mut packet = PacketMut::new(data.len());
 
-        packet.bytes_mut().copy_from_slice(data);
+        packet.data_mut().copy_from_slice(data);
 
         packet
     }
@@ -231,7 +231,7 @@ impl Packet {
     }
 
     /// Get packet data.
-    pub fn bytes(&self) -> &[u8] {
+    pub fn data(&self) -> &[u8] {
         unsafe {
             let data = ffw_packet_get_data(self.ptr) as *const u8;
             let size = ffw_packet_get_size(self.ptr) as usize;
