@@ -4,7 +4,7 @@ use std::ptr;
 
 use std::ffi::CString;
 
-use libc::{c_char, c_int, c_void, int64_t, uint64_t, uint8_t};
+use libc::c_void;
 
 use crate::Error;
 
@@ -12,36 +12,6 @@ use crate::codec::{CodecError, CodecParameters, ErrorKind};
 use crate::packet::Packet;
 
 pub use self::frame::{AudioFrame, AudioFrameMut, ChannelLayout, SampleFormat};
-
-extern "C" {
-    fn ffw_decoder_new(codec: *const c_char) -> *mut c_void;
-    fn ffw_decoder_from_codec_parameters(params: *const c_void) -> *mut c_void;
-    fn ffw_decoder_set_extradata(
-        decoder: *mut c_void,
-        extradata: *const uint8_t,
-        size: c_int,
-    ) -> c_int;
-    fn ffw_decoder_open(decoder: *mut c_void) -> c_int;
-    fn ffw_decoder_push_packet(decoder: *mut c_void, packet: *const c_void) -> c_int;
-    fn ffw_decoder_take_frame(decoder: *mut c_void, frame: *mut *mut c_void) -> c_int;
-    fn ffw_decoder_get_codec_parameters(decoder: *const c_void) -> *mut c_void;
-    fn ffw_decoder_free(decoder: *mut c_void);
-
-    fn ffw_encoder_new(codec: *const c_char) -> *mut c_void;
-    fn ffw_encoder_from_codec_parameters(params: *const c_void) -> *mut c_void;
-    fn ffw_encoder_get_sample_format(encoder: *const c_void) -> c_int;
-    fn ffw_encoder_get_sample_rate(encoder: *const c_void) -> c_int;
-    fn ffw_encoder_get_channel_layout(encoder: *const c_void) -> uint64_t;
-    fn ffw_encoder_set_time_base(encoder: *mut c_void, num: c_int, den: c_int);
-    fn ffw_encoder_set_bit_rate(encoder: *mut c_void, bit_rate: int64_t);
-    fn ffw_encoder_set_sample_format(encoder: *mut c_void, format: c_int);
-    fn ffw_encoder_set_sample_rate(encoder: *mut c_void, sample_rate: c_int);
-    fn ffw_encoder_set_channel_layout(encoder: *mut c_void, channel_layout: uint64_t);
-    fn ffw_encoder_open(encoder: *mut c_void) -> c_int;
-    fn ffw_encoder_push_frame(encoder: *mut c_void, frame: *const c_void) -> c_int;
-    fn ffw_encoder_take_packet(encoder: *mut c_void, packet: *mut *mut c_void) -> c_int;
-    fn ffw_encoder_free(encoder: *mut c_void);
-}
 
 /// Builder for the audio decoder.
 pub struct AudioDecoderBuilder {
@@ -53,7 +23,7 @@ impl AudioDecoderBuilder {
     fn new(codec: &str) -> Result<AudioDecoderBuilder, Error> {
         let codec = CString::new(codec).expect("invalid codec name");
 
-        let ptr = unsafe { ffw_decoder_new(codec.as_ptr() as _) };
+        let ptr = unsafe { super::ffw_decoder_new(codec.as_ptr() as _) };
 
         if ptr.is_null() {
             return Err(Error::new("unknown codec"));
@@ -77,7 +47,7 @@ impl AudioDecoderBuilder {
             size = 0;
         }
 
-        let res = unsafe { ffw_decoder_set_extradata(self.ptr, ptr, size as _) };
+        let res = unsafe { super::ffw_decoder_set_extradata(self.ptr, ptr, size as _) };
 
         if res < 0 {
             panic!("unable to allocate extradata");
@@ -89,7 +59,7 @@ impl AudioDecoderBuilder {
     /// Build the decoder.
     pub fn build(mut self) -> Result<AudioDecoder, Error> {
         unsafe {
-            if ffw_decoder_open(self.ptr) != 0 {
+            if super::ffw_decoder_open(self.ptr) != 0 {
                 return Err(Error::new("unable to build the decoder"));
             }
         }
@@ -106,7 +76,7 @@ impl AudioDecoderBuilder {
 
 impl Drop for AudioDecoderBuilder {
     fn drop(&mut self) {
-        unsafe { ffw_decoder_free(self.ptr) }
+        unsafe { super::ffw_decoder_free(self.ptr) }
     }
 }
 
@@ -137,7 +107,7 @@ impl AudioDecoder {
     ) -> Result<AudioDecoder, Error> {
         assert!(codec_parameters.is_audio_codec());
 
-        let ptr = unsafe { ffw_decoder_from_codec_parameters(codec_parameters.as_ptr()) };
+        let ptr = unsafe { super::ffw_decoder_from_codec_parameters(codec_parameters.as_ptr()) };
 
         if ptr.is_null() {
             return Err(Error::new("unable to create a decoder"));
@@ -156,7 +126,7 @@ impl AudioDecoder {
     /// Push a given packet to the decoder.
     pub fn push(&mut self, packet: &Packet) -> Result<(), CodecError> {
         unsafe {
-            match ffw_decoder_push_packet(self.ptr, packet.as_ptr()) {
+            match super::ffw_decoder_push_packet(self.ptr, packet.as_ptr()) {
                 1 => Ok(()),
                 0 => Err(CodecError::new(
                     ErrorKind::Again,
@@ -170,7 +140,7 @@ impl AudioDecoder {
     /// Flush the decoder.
     pub fn flush(&mut self) -> Result<(), CodecError> {
         unsafe {
-            match ffw_decoder_push_packet(self.ptr, ptr::null()) {
+            match super::ffw_decoder_push_packet(self.ptr, ptr::null()) {
                 1 => Ok(()),
                 0 => Err(CodecError::new(
                     ErrorKind::Again,
@@ -186,7 +156,7 @@ impl AudioDecoder {
         let mut fptr = ptr::null_mut();
 
         unsafe {
-            match ffw_decoder_take_frame(self.ptr, &mut fptr) {
+            match super::ffw_decoder_take_frame(self.ptr, &mut fptr) {
                 1 => {
                     if fptr.is_null() {
                         panic!("no frame received")
@@ -202,7 +172,7 @@ impl AudioDecoder {
 
     /// Get codec parameters.
     pub fn codec_parameters(&self) -> CodecParameters {
-        let ptr = unsafe { ffw_decoder_get_codec_parameters(self.ptr) };
+        let ptr = unsafe { super::ffw_decoder_get_codec_parameters(self.ptr) };
 
         if ptr.is_null() {
             panic!("unable to allocate codec parameters");
@@ -214,7 +184,7 @@ impl AudioDecoder {
 
 impl Drop for AudioDecoder {
     fn drop(&mut self) {
-        unsafe { ffw_decoder_free(self.ptr) }
+        unsafe { super::ffw_decoder_free(self.ptr) }
     }
 }
 
@@ -235,15 +205,15 @@ impl AudioEncoderBuilder {
     fn new(codec: &str) -> Result<AudioEncoderBuilder, Error> {
         let codec = CString::new(codec).expect("invalid codec name");
 
-        let ptr = unsafe { ffw_encoder_new(codec.as_ptr() as _) };
+        let ptr = unsafe { super::ffw_encoder_new(codec.as_ptr() as _) };
 
         if ptr.is_null() {
             return Err(Error::new("unknown codec"));
         }
 
         unsafe {
-            ffw_encoder_set_bit_rate(ptr, 0);
-            ffw_encoder_set_time_base(ptr, 1, 1000);
+            super::ffw_encoder_set_bit_rate(ptr, 0);
+            super::ffw_encoder_set_time_base(ptr, 1, 1000);
         }
 
         let res = AudioEncoderBuilder {
@@ -263,7 +233,7 @@ impl AudioEncoderBuilder {
     ) -> Result<AudioEncoderBuilder, Error> {
         assert!(codec_parameters.is_audio_codec());
 
-        let ptr = unsafe { ffw_encoder_from_codec_parameters(codec_parameters.as_ptr()) };
+        let ptr = unsafe { super::ffw_encoder_from_codec_parameters(codec_parameters.as_ptr()) };
 
         if ptr.is_null() {
             return Err(Error::new("unable to create an encoder"));
@@ -274,9 +244,9 @@ impl AudioEncoderBuilder {
         let channel_layout;
 
         unsafe {
-            sample_format = ffw_encoder_get_sample_format(ptr) as _;
-            sample_rate = ffw_encoder_get_sample_rate(ptr) as _;
-            channel_layout = ffw_encoder_get_channel_layout(ptr) as _;
+            sample_format = super::ffw_encoder_get_sample_format(ptr) as _;
+            sample_rate = super::ffw_encoder_get_sample_rate(ptr) as _;
+            channel_layout = super::ffw_encoder_get_channel_layout(ptr) as _;
         }
 
         let res = AudioEncoderBuilder {
@@ -293,7 +263,7 @@ impl AudioEncoderBuilder {
     /// Set encoder bit rate. The default is 0 (i.e. automatic).
     pub fn bit_rate(self, bit_rate: u64) -> AudioEncoderBuilder {
         unsafe {
-            ffw_encoder_set_bit_rate(self.ptr, bit_rate as _);
+            super::ffw_encoder_set_bit_rate(self.ptr, bit_rate as _);
         }
 
         self
@@ -302,7 +272,7 @@ impl AudioEncoderBuilder {
     /// Set encoder time base as a rational number. The default is 1/1000.
     pub fn time_base(self, num: u32, den: u32) -> AudioEncoderBuilder {
         unsafe {
-            ffw_encoder_set_time_base(self.ptr, num as _, den as _);
+            super::ffw_encoder_set_time_base(self.ptr, num as _, den as _);
         }
 
         self
@@ -331,17 +301,19 @@ impl AudioEncoderBuilder {
         let sample_format = self
             .sample_format
             .ok_or(Error::new("sample format not set"))?;
+
         let sample_rate = self.sample_rate.ok_or(Error::new("sample rate not set"))?;
+
         let channel_layout = self
             .channel_layout
             .ok_or(Error::new("channel layout not set"))?;
 
         unsafe {
-            ffw_encoder_set_sample_format(self.ptr, sample_format as _);
-            ffw_encoder_set_sample_rate(self.ptr, sample_rate as _);
-            ffw_encoder_set_channel_layout(self.ptr, channel_layout as _);
+            super::ffw_encoder_set_sample_format(self.ptr, sample_format as _);
+            super::ffw_encoder_set_sample_rate(self.ptr, sample_rate as _);
+            super::ffw_encoder_set_channel_layout(self.ptr, channel_layout as _);
 
-            if ffw_encoder_open(self.ptr) != 0 {
+            if super::ffw_encoder_open(self.ptr) != 0 {
                 return Err(Error::new("unable to build the encoder"));
             }
         }
@@ -358,7 +330,7 @@ impl AudioEncoderBuilder {
 
 impl Drop for AudioEncoderBuilder {
     fn drop(&mut self) {
-        unsafe { ffw_encoder_free(self.ptr) }
+        unsafe { super::ffw_encoder_free(self.ptr) }
     }
 }
 
@@ -393,7 +365,7 @@ impl AudioEncoder {
     /// Push a given frame to the encoder.
     pub fn push(&mut self, frame: &AudioFrame) -> Result<(), CodecError> {
         unsafe {
-            match ffw_encoder_push_frame(self.ptr, frame.as_ptr()) {
+            match super::ffw_encoder_push_frame(self.ptr, frame.as_ptr()) {
                 1 => Ok(()),
                 0 => Err(CodecError::new(
                     ErrorKind::Again,
@@ -407,7 +379,7 @@ impl AudioEncoder {
     /// Flush the encoder.
     pub fn flush(&mut self) -> Result<(), CodecError> {
         unsafe {
-            match ffw_encoder_push_frame(self.ptr, ptr::null()) {
+            match super::ffw_encoder_push_frame(self.ptr, ptr::null()) {
                 1 => Ok(()),
                 0 => Err(CodecError::new(
                     ErrorKind::Again,
@@ -423,7 +395,7 @@ impl AudioEncoder {
         let mut pptr = ptr::null_mut();
 
         unsafe {
-            match ffw_encoder_take_packet(self.ptr, &mut pptr) {
+            match super::ffw_encoder_take_packet(self.ptr, &mut pptr) {
                 1 => {
                     if pptr.is_null() {
                         panic!("no packet received")
@@ -440,7 +412,7 @@ impl AudioEncoder {
 
 impl Drop for AudioEncoder {
     fn drop(&mut self) {
-        unsafe { ffw_encoder_free(self.ptr) }
+        unsafe { super::ffw_encoder_free(self.ptr) }
     }
 }
 

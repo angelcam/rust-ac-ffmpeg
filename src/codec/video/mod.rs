@@ -6,7 +6,7 @@ use std::ptr;
 
 use std::ffi::CString;
 
-use libc::{c_char, c_int, c_void, int64_t, uint8_t};
+use libc::c_void;
 
 use crate::Error;
 
@@ -15,36 +15,6 @@ use crate::packet::Packet;
 
 pub use self::frame::{PixelFormat, VideoFrame, VideoFrameMut};
 pub use self::scaler::{VideoFrameScaler, VideoFrameScalerBuilder};
-
-extern "C" {
-    fn ffw_decoder_new(codec: *const c_char) -> *mut c_void;
-    fn ffw_decoder_from_codec_parameters(params: *const c_void) -> *mut c_void;
-    fn ffw_decoder_set_extradata(
-        decoder: *mut c_void,
-        extradata: *const uint8_t,
-        size: c_int,
-    ) -> c_int;
-    fn ffw_decoder_open(decoder: *mut c_void) -> c_int;
-    fn ffw_decoder_push_packet(decoder: *mut c_void, packet: *const c_void) -> c_int;
-    fn ffw_decoder_take_frame(decoder: *mut c_void, frame: *mut *mut c_void) -> c_int;
-    fn ffw_decoder_get_codec_parameters(decoder: *const c_void) -> *mut c_void;
-    fn ffw_decoder_free(decoder: *mut c_void);
-
-    fn ffw_encoder_new(codec: *const c_char) -> *mut c_void;
-    fn ffw_encoder_from_codec_parameters(params: *const c_void) -> *mut c_void;
-    fn ffw_encoder_get_pixel_format(encoder: *const c_void) -> c_int;
-    fn ffw_encoder_get_width(encoder: *const c_void) -> c_int;
-    fn ffw_encoder_get_height(encoder: *const c_void) -> c_int;
-    fn ffw_encoder_set_bit_rate(encoder: *mut c_void, bit_rate: int64_t);
-    fn ffw_encoder_set_pixel_format(encoder: *mut c_void, format: c_int);
-    fn ffw_encoder_set_width(encoder: *mut c_void, width: c_int);
-    fn ffw_encoder_set_height(encoder: *mut c_void, height: c_int);
-    fn ffw_encoder_set_time_base(encoder: *mut c_void, num: c_int, den: c_int);
-    fn ffw_encoder_open(encoder: *mut c_void) -> c_int;
-    fn ffw_encoder_push_frame(encoder: *mut c_void, frame: *const c_void) -> c_int;
-    fn ffw_encoder_take_packet(encoder: *mut c_void, packet: *mut *mut c_void) -> c_int;
-    fn ffw_encoder_free(encoder: *mut c_void);
-}
 
 /// Builder for the video decoder.
 pub struct VideoDecoderBuilder {
@@ -56,7 +26,7 @@ impl VideoDecoderBuilder {
     fn new(codec: &str) -> Result<VideoDecoderBuilder, Error> {
         let codec = CString::new(codec).expect("invalid codec name");
 
-        let ptr = unsafe { ffw_decoder_new(codec.as_ptr() as _) };
+        let ptr = unsafe { super::ffw_decoder_new(codec.as_ptr() as _) };
 
         if ptr.is_null() {
             return Err(Error::new("unknown codec"));
@@ -80,7 +50,7 @@ impl VideoDecoderBuilder {
             size = 0;
         }
 
-        let res = unsafe { ffw_decoder_set_extradata(self.ptr, ptr, size as _) };
+        let res = unsafe { super::ffw_decoder_set_extradata(self.ptr, ptr, size as _) };
 
         if res < 0 {
             panic!("unable to allocate extradata");
@@ -92,7 +62,7 @@ impl VideoDecoderBuilder {
     /// Build the decoder.
     pub fn build(mut self) -> Result<VideoDecoder, Error> {
         unsafe {
-            if ffw_decoder_open(self.ptr) != 0 {
+            if super::ffw_decoder_open(self.ptr) != 0 {
                 return Err(Error::new("unable to build the decoder"));
             }
         }
@@ -109,7 +79,7 @@ impl VideoDecoderBuilder {
 
 impl Drop for VideoDecoderBuilder {
     fn drop(&mut self) {
-        unsafe { ffw_decoder_free(self.ptr) }
+        unsafe { super::ffw_decoder_free(self.ptr) }
     }
 }
 
@@ -140,7 +110,7 @@ impl VideoDecoder {
     ) -> Result<VideoDecoder, Error> {
         assert!(codec_parameters.is_video_codec());
 
-        let ptr = unsafe { ffw_decoder_from_codec_parameters(codec_parameters.as_ptr()) };
+        let ptr = unsafe { super::ffw_decoder_from_codec_parameters(codec_parameters.as_ptr()) };
 
         if ptr.is_null() {
             return Err(Error::new("unable to create a decoder"));
@@ -159,7 +129,7 @@ impl VideoDecoder {
     /// Push a given packet to the decoder.
     pub fn push(&mut self, packet: &Packet) -> Result<(), CodecError> {
         unsafe {
-            match ffw_decoder_push_packet(self.ptr, packet.as_ptr()) {
+            match super::ffw_decoder_push_packet(self.ptr, packet.as_ptr()) {
                 1 => Ok(()),
                 0 => Err(CodecError::new(
                     ErrorKind::Again,
@@ -173,7 +143,7 @@ impl VideoDecoder {
     /// Flush the decoder.
     pub fn flush(&mut self) -> Result<(), CodecError> {
         unsafe {
-            match ffw_decoder_push_packet(self.ptr, ptr::null()) {
+            match super::ffw_decoder_push_packet(self.ptr, ptr::null()) {
                 1 => Ok(()),
                 0 => Err(CodecError::new(
                     ErrorKind::Again,
@@ -189,7 +159,7 @@ impl VideoDecoder {
         let mut fptr = ptr::null_mut();
 
         unsafe {
-            match ffw_decoder_take_frame(self.ptr, &mut fptr) {
+            match super::ffw_decoder_take_frame(self.ptr, &mut fptr) {
                 1 => {
                     if fptr.is_null() {
                         panic!("no frame received")
@@ -205,7 +175,7 @@ impl VideoDecoder {
 
     /// Get codec parameters.
     pub fn codec_parameters(&self) -> CodecParameters {
-        let ptr = unsafe { ffw_decoder_get_codec_parameters(self.ptr) };
+        let ptr = unsafe { super::ffw_decoder_get_codec_parameters(self.ptr) };
 
         if ptr.is_null() {
             panic!("unable to allocate codec parameters");
@@ -217,7 +187,7 @@ impl VideoDecoder {
 
 impl Drop for VideoDecoder {
     fn drop(&mut self) {
-        unsafe { ffw_decoder_free(self.ptr) }
+        unsafe { super::ffw_decoder_free(self.ptr) }
     }
 }
 
@@ -238,15 +208,15 @@ impl VideoEncoderBuilder {
     fn new(codec: &str) -> Result<VideoEncoderBuilder, Error> {
         let codec = CString::new(codec).expect("invalid codec name");
 
-        let ptr = unsafe { ffw_encoder_new(codec.as_ptr() as _) };
+        let ptr = unsafe { super::ffw_encoder_new(codec.as_ptr() as _) };
 
         if ptr.is_null() {
             return Err(Error::new("unknown codec"));
         }
 
         unsafe {
-            ffw_encoder_set_bit_rate(ptr, 0);
-            ffw_encoder_set_time_base(ptr, 1, 1000);
+            super::ffw_encoder_set_bit_rate(ptr, 0);
+            super::ffw_encoder_set_time_base(ptr, 1, 1000);
         }
 
         let res = VideoEncoderBuilder {
@@ -266,7 +236,7 @@ impl VideoEncoderBuilder {
     ) -> Result<VideoEncoderBuilder, Error> {
         assert!(codec_parameters.is_video_codec());
 
-        let ptr = unsafe { ffw_encoder_from_codec_parameters(codec_parameters.as_ptr()) };
+        let ptr = unsafe { super::ffw_encoder_from_codec_parameters(codec_parameters.as_ptr()) };
 
         if ptr.is_null() {
             return Err(Error::new("unable to create an encoder"));
@@ -277,9 +247,9 @@ impl VideoEncoderBuilder {
         let height;
 
         unsafe {
-            pixel_format = ffw_encoder_get_pixel_format(ptr) as _;
-            width = ffw_encoder_get_width(ptr) as _;
-            height = ffw_encoder_get_height(ptr) as _;
+            pixel_format = super::ffw_encoder_get_pixel_format(ptr) as _;
+            width = super::ffw_encoder_get_width(ptr) as _;
+            height = super::ffw_encoder_get_height(ptr) as _;
         }
 
         let res = VideoEncoderBuilder {
@@ -296,7 +266,7 @@ impl VideoEncoderBuilder {
     /// Set encoder bit rate. The default is 0 (i.e. automatic).
     pub fn bit_rate(self, bit_rate: u64) -> VideoEncoderBuilder {
         unsafe {
-            ffw_encoder_set_bit_rate(self.ptr, bit_rate as _);
+            super::ffw_encoder_set_bit_rate(self.ptr, bit_rate as _);
         }
 
         self
@@ -305,7 +275,7 @@ impl VideoEncoderBuilder {
     /// Set encoder time base as a rational number. The default is 1/1000.
     pub fn time_base(self, num: u32, den: u32) -> VideoEncoderBuilder {
         unsafe {
-            ffw_encoder_set_time_base(self.ptr, num as _, den as _);
+            super::ffw_encoder_set_time_base(self.ptr, num as _, den as _);
         }
 
         self
@@ -336,11 +306,11 @@ impl VideoEncoderBuilder {
         let height = self.height.ok_or(Error::new("height not set"))?;
 
         unsafe {
-            ffw_encoder_set_pixel_format(self.ptr, format);
-            ffw_encoder_set_width(self.ptr, width as _);
-            ffw_encoder_set_height(self.ptr, height as _);
+            super::ffw_encoder_set_pixel_format(self.ptr, format);
+            super::ffw_encoder_set_width(self.ptr, width as _);
+            super::ffw_encoder_set_height(self.ptr, height as _);
 
-            if ffw_encoder_open(self.ptr) != 0 {
+            if super::ffw_encoder_open(self.ptr) != 0 {
                 return Err(Error::new("unable to build the encoder"));
             }
         }
@@ -357,7 +327,7 @@ impl VideoEncoderBuilder {
 
 impl Drop for VideoEncoderBuilder {
     fn drop(&mut self) {
-        unsafe { ffw_encoder_free(self.ptr) }
+        unsafe { super::ffw_encoder_free(self.ptr) }
     }
 }
 
@@ -392,7 +362,7 @@ impl VideoEncoder {
     /// Push a given frame to the encoder.
     pub fn push(&mut self, frame: &VideoFrame) -> Result<(), CodecError> {
         unsafe {
-            match ffw_encoder_push_frame(self.ptr, frame.as_ptr()) {
+            match super::ffw_encoder_push_frame(self.ptr, frame.as_ptr()) {
                 1 => Ok(()),
                 0 => Err(CodecError::new(
                     ErrorKind::Again,
@@ -406,7 +376,7 @@ impl VideoEncoder {
     /// Flush the encoder.
     pub fn flush(&mut self) -> Result<(), CodecError> {
         unsafe {
-            match ffw_encoder_push_frame(self.ptr, ptr::null()) {
+            match super::ffw_encoder_push_frame(self.ptr, ptr::null()) {
                 1 => Ok(()),
                 0 => Err(CodecError::new(
                     ErrorKind::Again,
@@ -422,7 +392,7 @@ impl VideoEncoder {
         let mut pptr = ptr::null_mut();
 
         unsafe {
-            match ffw_encoder_take_packet(self.ptr, &mut pptr) {
+            match super::ffw_encoder_take_packet(self.ptr, &mut pptr) {
                 1 => {
                     if pptr.is_null() {
                         panic!("no packet received")
@@ -439,7 +409,7 @@ impl VideoEncoder {
 
 impl Drop for VideoEncoder {
     fn drop(&mut self) {
-        unsafe { ffw_encoder_free(self.ptr) }
+        unsafe { super::ffw_encoder_free(self.ptr) }
     }
 }
 
