@@ -412,6 +412,28 @@ err:
     return NULL;
 }
 
+AVCodecParameters* ffw_encoder_get_codec_parameters(const Encoder* encoder) {
+    AVCodecParameters* params;
+    int ret;
+
+    params = avcodec_parameters_alloc();
+    if (params == NULL) {
+        return NULL;
+    }
+
+    ret = avcodec_parameters_from_context(params, encoder->cc);
+    if (ret < 0) {
+        goto err;
+    }
+
+    return params;
+
+err:
+    avcodec_parameters_free(&params);
+
+    return NULL;
+}
+
 int ffw_encoder_get_pixel_format(const Encoder* encoder) {
     return encoder->cc->pix_fmt;
 }
@@ -435,6 +457,10 @@ int ffw_encoder_get_sample_rate(const Encoder* encoder) {
 
 uint64_t ffw_encoder_get_channel_layout(const Encoder* encoder) {
     return encoder->cc->channel_layout;
+}
+
+int ffw_encoder_get_frame_size(const Encoder* encoder) {
+    return encoder->cc->frame_size;
 }
 
 void ffw_encoder_set_time_base(Encoder* encoder, int num, int den) {

@@ -48,12 +48,14 @@ extern "C" {
 
     fn ffw_encoder_new(codec: *const c_char) -> *mut c_void;
     fn ffw_encoder_from_codec_parameters(params: *const c_void) -> *mut c_void;
+    fn ffw_encoder_get_codec_parameters(encoder: *const c_void) -> *mut c_void;
     fn ffw_encoder_get_pixel_format(encoder: *const c_void) -> c_int;
     fn ffw_encoder_get_width(encoder: *const c_void) -> c_int;
     fn ffw_encoder_get_height(encoder: *const c_void) -> c_int;
     fn ffw_encoder_get_sample_format(encoder: *const c_void) -> c_int;
     fn ffw_encoder_get_sample_rate(encoder: *const c_void) -> c_int;
     fn ffw_encoder_get_channel_layout(encoder: *const c_void) -> uint64_t;
+    fn ffw_encoder_get_frame_size(encoder: *const c_void) -> c_int;
     fn ffw_encoder_set_time_base(encoder: *mut c_void, num: c_int, den: c_int);
     fn ffw_encoder_set_bit_rate(encoder: *mut c_void, bit_rate: int64_t);
     fn ffw_encoder_set_pixel_format(encoder: *mut c_void, format: c_int);

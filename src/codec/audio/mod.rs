@@ -124,6 +124,17 @@ impl AudioDecoder {
         AudioDecoderBuilder::new(codec)
     }
 
+    /// Get codec parameters.
+    pub fn codec_parameters(&self) -> CodecParameters {
+        let ptr = unsafe { super::ffw_decoder_get_codec_parameters(self.ptr) };
+
+        if ptr.is_null() {
+            panic!("unable to allocate codec parameters");
+        }
+
+        unsafe { CodecParameters::from_raw_ptr(ptr) }
+    }
+
     /// Push a given packet to the decoder.
     pub fn push(&mut self, packet: &Packet) -> Result<(), CodecError> {
         unsafe {
@@ -169,17 +180,6 @@ impl AudioDecoder {
                 _ => Err(CodecError::new(ErrorKind::Error, "decoding error")),
             }
         }
-    }
-
-    /// Get codec parameters.
-    pub fn codec_parameters(&self) -> CodecParameters {
-        let ptr = unsafe { super::ffw_decoder_get_codec_parameters(self.ptr) };
-
-        if ptr.is_null() {
-            panic!("unable to allocate codec parameters");
-        }
-
-        unsafe { CodecParameters::from_raw_ptr(ptr) }
     }
 }
 
@@ -351,16 +351,42 @@ pub struct AudioEncoder {
 }
 
 impl AudioEncoder {
-    /// Get encoder builder for a given codec.
-    pub fn builder(codec: &str) -> Result<AudioEncoderBuilder, Error> {
-        AudioEncoderBuilder::new(codec)
-    }
-
     /// Create a new encoder builder from given codec parameters.
     pub fn from_codec_parameters(
         codec_parameters: &CodecParameters,
     ) -> Result<AudioEncoderBuilder, Error> {
         AudioEncoderBuilder::from_codec_parameters(codec_parameters)
+    }
+
+
+    /// Get encoder builder for a given codec.
+    pub fn builder(codec: &str) -> Result<AudioEncoderBuilder, Error> {
+        AudioEncoderBuilder::new(codec)
+    }
+
+    /// Get codec parameters.
+    pub fn codec_parameters(&self) -> CodecParameters {
+        let ptr = unsafe { super::ffw_encoder_get_codec_parameters(self.ptr) };
+
+        if ptr.is_null() {
+            panic!("unable to allocate codec parameters");
+        }
+
+        unsafe { CodecParameters::from_raw_ptr(ptr) }
+    }
+
+    /// Number of samples per audio channel in an audio frame. Each encoded
+    /// frame except the last one must contain exactly this number of samples.
+    /// The method returns None if the number of samples per frame is not
+    /// restricted.
+    pub fn samples_per_frame(&self) -> Option<usize> {
+        let res = unsafe { super::ffw_encoder_get_frame_size(self.ptr) as _ };
+
+        if res == 0 {
+            None
+        } else {
+            Some(res)
+        }
     }
 
     /// Push a given frame to the encoder.

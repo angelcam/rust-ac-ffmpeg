@@ -125,6 +125,17 @@ impl VideoDecoder {
         VideoDecoderBuilder::new(codec)
     }
 
+    /// Get codec parameters.
+    pub fn codec_parameters(&self) -> CodecParameters {
+        let ptr = unsafe { super::ffw_decoder_get_codec_parameters(self.ptr) };
+
+        if ptr.is_null() {
+            panic!("unable to allocate codec parameters");
+        }
+
+        unsafe { CodecParameters::from_raw_ptr(ptr) }
+    }
+
     /// Push a given packet to the decoder.
     pub fn push(&mut self, packet: &Packet) -> Result<(), CodecError> {
         unsafe {
@@ -170,17 +181,6 @@ impl VideoDecoder {
                 _ => Err(CodecError::new(ErrorKind::Error, "decoding error")),
             }
         }
-    }
-
-    /// Get codec parameters.
-    pub fn codec_parameters(&self) -> CodecParameters {
-        let ptr = unsafe { super::ffw_decoder_get_codec_parameters(self.ptr) };
-
-        if ptr.is_null() {
-            panic!("unable to allocate codec parameters");
-        }
-
-        unsafe { CodecParameters::from_raw_ptr(ptr) }
     }
 }
 
@@ -346,16 +346,27 @@ pub struct VideoEncoder {
 }
 
 impl VideoEncoder {
-    /// Get encoder builder for a given codec.
-    pub fn builder(codec: &str) -> Result<VideoEncoderBuilder, Error> {
-        VideoEncoderBuilder::new(codec)
-    }
-
     /// Create a new encoder from given codec parameters.
     pub fn from_codec_parameters(
         codec_parameters: &CodecParameters,
     ) -> Result<VideoEncoderBuilder, Error> {
         VideoEncoderBuilder::from_codec_parameters(codec_parameters)
+    }
+
+    /// Get encoder builder for a given codec.
+    pub fn builder(codec: &str) -> Result<VideoEncoderBuilder, Error> {
+        VideoEncoderBuilder::new(codec)
+    }
+
+    /// Get codec parameters.
+    pub fn codec_parameters(&self) -> CodecParameters {
+        let ptr = unsafe { super::ffw_encoder_get_codec_parameters(self.ptr) };
+
+        if ptr.is_null() {
+            panic!("unable to allocate codec parameters");
+        }
+
+        unsafe { CodecParameters::from_raw_ptr(ptr) }
     }
 
     /// Push a given frame to the encoder.
