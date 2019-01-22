@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.7.1 (2019-01-22)
+
+* Add audio resampler
+
+* Allow to take codec parameters from encoders and make frame size available for audio encoders
+
 ## v0.7.0 (2019-01-21)
 
 * Public API refinements

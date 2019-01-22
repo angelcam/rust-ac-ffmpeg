@@ -358,7 +358,6 @@ impl AudioEncoder {
         AudioEncoderBuilder::from_codec_parameters(codec_parameters)
     }
 
-
     /// Get encoder builder for a given codec.
     pub fn builder(codec: &str) -> Result<AudioEncoderBuilder, Error> {
         AudioEncoderBuilder::new(codec)
