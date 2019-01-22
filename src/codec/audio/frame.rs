@@ -14,10 +14,12 @@ extern "C" {
     fn ffw_frame_new_silence(
         channel_layout: uint64_t,
         sample_fmt: c_int,
+        sample_rate: c_int,
         nb_samples: c_int,
     ) -> *mut c_void;
     fn ffw_frame_format(frame: *const c_void) -> c_int;
     fn ffw_frame_nb_samples(frame: *const c_void) -> c_int;
+    fn ffw_frame_sample_rate(frame: *const c_void) -> c_int;
     fn ffw_frame_channels(frame: *const c_void) -> c_int;
     fn ffw_frame_channel_layout(frame: *const c_void) -> uint64_t;
     fn ffw_frame_pts(frame: *const c_void) -> int64_t;
@@ -80,9 +82,17 @@ impl AudioFrameMut {
     pub fn silence(
         channel_layout: ChannelLayout,
         sample_format: SampleFormat,
+        sample_rate: u32,
         samples: usize,
     ) -> AudioFrameMut {
-        let ptr = unsafe { ffw_frame_new_silence(channel_layout, sample_format, samples as _) };
+        let ptr = unsafe {
+            ffw_frame_new_silence(
+                channel_layout,
+                sample_format,
+                sample_rate as _,
+                samples as _,
+            )
+        };
 
         if ptr.is_null() {
             panic!("unable to allocate an audio frame");
@@ -99,6 +109,11 @@ impl AudioFrameMut {
     /// Get frame sample format.
     pub fn sample_format(&self) -> SampleFormat {
         unsafe { ffw_frame_format(self.ptr) }
+    }
+
+    /// Get frame sample rate.
+    pub fn sample_rate(&self) -> u32 {
+        unsafe { ffw_frame_sample_rate(self.ptr) as _ }
     }
 
     /// Get number of samples (per channel) in this frame.
@@ -164,6 +179,11 @@ impl AudioFrame {
     /// Get frame sample format.
     pub fn sample_format(&self) -> SampleFormat {
         unsafe { ffw_frame_format(self.ptr) }
+    }
+
+    /// Get frame sample rate.
+    pub fn sample_rate(&self) -> u32 {
+        unsafe { ffw_frame_sample_rate(self.ptr) as _ }
     }
 
     /// Get number of samples (per channel) in this frame.

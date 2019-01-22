@@ -17,6 +17,7 @@ fn main() {
         .file("src/format/muxer.c")
         .file("src/codec/mod.c")
         .file("src/codec/frame.c")
+        .file("src/codec/audio/resampler.c")
         .file("src/codec/video/scaler.c")
         .compile("ffwrapper");
 
@@ -31,6 +32,7 @@ fn main() {
     link("avcodec", ffmpeg_link_mode);
     link("avformat", ffmpeg_link_mode);
     link("avutil", ffmpeg_link_mode);
+    link("swresample", ffmpeg_link_mode);
     link("swscale", ffmpeg_link_mode);
 }
 

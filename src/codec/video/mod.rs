@@ -1,5 +1,4 @@
-mod frame;
-
+pub mod frame;
 pub mod scaler;
 
 use std::ptr;

@@ -1,4 +1,5 @@
 pub mod frame;
+pub mod resampler;
 
 use std::ptr;
 

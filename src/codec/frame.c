@@ -18,10 +18,10 @@ int ffw_sample_format_is_none(int format) {
     return format == AV_SAMPLE_FMT_NONE;
 }
 
-AVFrame* ffw_frame_new_silence(uint64_t, int, int);
+AVFrame* ffw_frame_new_silence(uint64_t, int, int, int);
 void ffw_frame_free(AVFrame*);
 
-AVFrame* ffw_frame_new_silence(uint64_t channel_layout, int sample_fmt, int nb_samples) {
+AVFrame* ffw_frame_new_silence(uint64_t channel_layout, int sample_fmt, int sample_rate, int nb_samples) {
     AVFrame* frame;
     int channels;
 
@@ -36,6 +36,7 @@ AVFrame* ffw_frame_new_silence(uint64_t channel_layout, int sample_fmt, int nb_s
     frame->channel_layout = channel_layout;
     frame->channels = channels;
     frame->format = sample_fmt;
+    frame->sample_rate = sample_rate;
     frame->nb_samples = nb_samples;
 
     if (av_frame_get_buffer(frame, 0) != 0) {
@@ -62,6 +63,10 @@ int ffw_frame_width(const AVFrame* frame) {
 
 int ffw_frame_height(const AVFrame* frame) {
     return frame->height;
+}
+
+int ffw_frame_sample_rate(const AVFrame* frame) {
+    return frame->sample_rate;
 }
 
 int ffw_frame_nb_samples(const AVFrame* frame) {
