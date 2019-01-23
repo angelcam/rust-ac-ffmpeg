@@ -13,6 +13,7 @@ use crate::codec::{CodecError, CodecParameters, ErrorKind};
 use crate::packet::Packet;
 
 pub use self::frame::{AudioFrame, AudioFrameMut, ChannelLayout, SampleFormat};
+pub use self::resampler::AudioResampler;
 
 /// Builder for the audio decoder.
 pub struct AudioDecoderBuilder {

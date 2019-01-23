@@ -73,6 +73,38 @@ int ffw_codec_parameters_is_video_codec(const AVCodecParameters* params) {
     return params->codec_type == AVMEDIA_TYPE_VIDEO;
 }
 
+int64_t ffw_codec_parameters_get_bit_rate(const AVCodecParameters* params) {
+    return params->bit_rate;
+}
+
+int ffw_codec_parameters_get_format(const AVCodecParameters* params) {
+    return params->format;
+}
+
+int ffw_codec_parameters_get_width(const AVCodecParameters* params) {
+    return params->width;
+}
+
+int ffw_codec_parameters_get_height(const AVCodecParameters* params) {
+    return params->height;
+}
+
+int ffw_codec_parameters_get_sample_rate(const AVCodecParameters* params) {
+    return params->sample_rate;
+}
+
+uint64_t ffw_codec_parameters_get_channel_layout(const AVCodecParameters* params) {
+    return params->channel_layout;
+}
+
+uint8_t* ffw_codec_parameters_get_extradata(AVCodecParameters* params) {
+    return params->extradata;
+}
+
+int ffw_codec_parameters_get_extradata_size(const AVCodecParameters* params) {
+    return params->extradata_size;
+}
+
 void ffw_codec_parameters_set_bit_rate(AVCodecParameters* params, int64_t bit_rate) {
     params->bit_rate = bit_rate;
 }
