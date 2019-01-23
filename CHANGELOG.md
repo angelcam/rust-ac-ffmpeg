@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.0 (2019-01-23)
+
+* Add audio resampler
+
+* Refactoring of the codec parameters model
+
 ## v0.7.1 (2019-01-22)
 
 * Add audio resampler
