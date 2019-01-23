@@ -1,13 +1,11 @@
-use std::fmt;
 use std::ptr;
-
-use std::fmt::{Display, Formatter};
 
 use libc::{c_int, c_void, uint64_t};
 
 use crate::Error;
 
 use crate::codec::audio::{AudioFrame, ChannelLayout, SampleFormat};
+use crate::codec::{CodecError, ErrorKind};
 
 extern "C" {
     fn ffw_audio_resampler_new(
@@ -22,53 +20,6 @@ extern "C" {
     fn ffw_audio_resampler_free(resampler: *mut c_void);
     fn ffw_audio_resampler_push_frame(resampler: *mut c_void, frame: *const c_void) -> c_int;
     fn ffw_audio_resampler_take_frame(resampler: *mut c_void, frame: *mut *mut c_void) -> c_int;
-}
-
-/// A type of an audio resampler error.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum ErrorKind {
-    /// An error.
-    Error,
-    /// An error indicating that another operation needs to be done before
-    /// continuing with the current operation.
-    Again,
-}
-
-/// An audio resampler error.
-#[derive(Debug, Clone)]
-pub struct AudioResamplerError {
-    kind: ErrorKind,
-    msg: String,
-}
-
-impl AudioResamplerError {
-    /// Create a new error.
-    pub fn new<T>(kind: ErrorKind, msg: T) -> AudioResamplerError
-    where
-        T: ToString,
-    {
-        AudioResamplerError {
-            kind: kind,
-            msg: msg.to_string(),
-        }
-    }
-
-    /// Get error kind.
-    pub fn kind(&self) -> ErrorKind {
-        self.kind
-    }
-}
-
-impl Display for AudioResamplerError {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        f.write_str(&self.msg)
-    }
-}
-
-impl std::error::Error for AudioResamplerError {
-    fn description(&self) -> &str {
-        &self.msg
-    }
 }
 
 /// Builder for the audio resampler.
@@ -198,6 +149,16 @@ impl AudioResamplerBuilder {
 }
 
 /// Audio resampler.
+///
+///  # Resampler operation
+/// 1. Push an audio frame to the resampler.
+/// 2. Take all frames from the resampler until you get None.
+/// 3. If there are more frames to be resampled, continue with 1.
+/// 4. Flush the resampler.
+/// 5. Take all frames from the resampler until you get None.
+///
+/// Note: The resampler does not handle frame timestamps in any way. Timestamps
+/// of the output frames are not set.
 pub struct AudioResampler {
     ptr: *mut c_void,
 
@@ -213,23 +174,23 @@ impl AudioResampler {
     }
 
     /// Push a given frame to the resampler.
-    pub fn push(&mut self, frame: &AudioFrame) -> Result<(), AudioResamplerError> {
+    pub fn push(&mut self, frame: &AudioFrame) -> Result<(), CodecError> {
         if frame.channel_layout() != self.source_channel_layout {
-            return Err(AudioResamplerError::new(
+            return Err(CodecError::new(
                 ErrorKind::Error,
                 "invalid frame, channel layout does not match",
             ));
         }
 
         if frame.sample_format() != self.source_sample_format {
-            return Err(AudioResamplerError::new(
+            return Err(CodecError::new(
                 ErrorKind::Error,
                 "invalid frame, sample format does not match",
             ));
         }
 
         if frame.sample_rate() != self.source_sample_rate {
-            return Err(AudioResamplerError::new(
+            return Err(CodecError::new(
                 ErrorKind::Error,
                 "invalid frame, sample rate does not match",
             ));
@@ -238,37 +199,31 @@ impl AudioResampler {
         unsafe {
             match ffw_audio_resampler_push_frame(self.ptr, frame.as_ptr()) {
                 1 => Ok(()),
-                0 => Err(AudioResamplerError::new(
+                0 => Err(CodecError::new(
                     ErrorKind::Again,
                     "all frames must be consumed before pushing a new frame",
                 )),
-                _ => Err(AudioResamplerError::new(
-                    ErrorKind::Error,
-                    "audio resampler error",
-                )),
+                _ => Err(CodecError::new(ErrorKind::Error, "audio resampler error")),
             }
         }
     }
 
     /// Flush the resampler.
-    pub fn flush(&mut self) -> Result<(), AudioResamplerError> {
+    pub fn flush(&mut self) -> Result<(), CodecError> {
         unsafe {
             match ffw_audio_resampler_push_frame(self.ptr, ptr::null()) {
                 1 => Ok(()),
-                0 => Err(AudioResamplerError::new(
+                0 => Err(CodecError::new(
                     ErrorKind::Again,
                     "all frames must be consumed before flushing",
                 )),
-                _ => Err(AudioResamplerError::new(
-                    ErrorKind::Error,
-                    "audio resampler error",
-                )),
+                _ => Err(CodecError::new(ErrorKind::Error, "audio resampler error")),
             }
         }
     }
 
     /// Take a frame from the resampler (if available).
-    pub fn take(&mut self) -> Result<Option<AudioFrame>, AudioResamplerError> {
+    pub fn take(&mut self) -> Result<Option<AudioFrame>, CodecError> {
         let mut fptr = ptr::null_mut();
 
         unsafe {
@@ -281,10 +236,7 @@ impl AudioResampler {
                     }
                 }
                 0 => Ok(None),
-                _ => Err(AudioResamplerError::new(
-                    ErrorKind::Error,
-                    "audio resampler error",
-                )),
+                _ => Err(CodecError::new(ErrorKind::Error, "audio resampler error")),
             }
         }
     }

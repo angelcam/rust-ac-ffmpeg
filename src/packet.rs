@@ -59,24 +59,24 @@ impl PacketMut {
     }
 
     /// Get packet presentation timestamp.
-    pub fn pts(&self) -> u64 {
+    pub fn pts(&self) -> i64 {
         unsafe { ffw_packet_get_pts(self.ptr) as _ }
     }
 
     /// Set packet presentation timestamp.
-    pub fn with_pts(self, pts: u64) -> PacketMut {
+    pub fn with_pts(self, pts: i64) -> PacketMut {
         unsafe { ffw_packet_set_pts(self.ptr, pts as _) }
 
         self
     }
 
     /// Get packet decoding timestamp.
-    pub fn dts(&self) -> u64 {
+    pub fn dts(&self) -> i64 {
         unsafe { ffw_packet_get_dts(self.ptr) as _ }
     }
 
     /// Set packet decoding timestamp.
-    pub fn with_dts(self, dts: u64) -> PacketMut {
+    pub fn with_dts(self, dts: i64) -> PacketMut {
         unsafe { ffw_packet_set_dts(self.ptr, dts as _) }
 
         self
@@ -190,24 +190,24 @@ impl Packet {
     }
 
     /// Get packet presentation timestamp.
-    pub fn pts(&self) -> u64 {
+    pub fn pts(&self) -> i64 {
         unsafe { ffw_packet_get_pts(self.ptr) as _ }
     }
 
     /// Set packet presentation timestamp.
-    pub fn with_pts(self, pts: u64) -> Packet {
+    pub fn with_pts(self, pts: i64) -> Packet {
         unsafe { ffw_packet_set_pts(self.ptr, pts as _) }
 
         self
     }
 
     /// Get packet decoding timestamp.
-    pub fn dts(&self) -> u64 {
+    pub fn dts(&self) -> i64 {
         unsafe { ffw_packet_get_dts(self.ptr) as _ }
     }
 
     /// Set packet decoding timestamp.
-    pub fn with_dts(self, dts: u64) -> Packet {
+    pub fn with_dts(self, dts: i64) -> Packet {
         unsafe { ffw_packet_set_dts(self.ptr, dts as _) }
 
         self

@@ -1,5 +1,6 @@
 pub mod frame;
 pub mod resampler;
+pub mod transcoder;
 
 use std::ptr;
 

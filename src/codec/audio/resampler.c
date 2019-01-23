@@ -10,6 +10,7 @@ typedef struct AudioResampler {
     int target_sample_format;
     int target_sample_rate;
     int target_frame_samples;
+    int source_sample_rate;
 
     int offset;
     int flush;
@@ -72,6 +73,7 @@ AudioResampler* ffw_audio_resampler_new(
     res->target_sample_format = target_sample_format;
     res->target_sample_rate = target_sample_rate;
     res->target_frame_samples = target_frame_samples;
+    res->source_sample_rate = source_sample_rate;
 
     res->offset = 0;
     res->flush = 0;
@@ -116,7 +118,9 @@ int ffw_audio_resampler_push_frame(AudioResampler* resampler, const AVFrame* fra
         if (resampler->target_frame_samples) {
             nb_samples = resampler->target_frame_samples;
         } else if (frame) {
-            nb_samples = frame->nb_samples;
+            nb_samples = 2 * frame->nb_samples
+                * resampler->target_sample_rate
+                / resampler->source_sample_rate;
         } else {
             nb_samples = swr_get_delay(
                 resampler->resample_context,

@@ -53,36 +53,40 @@ err:
     return NULL;
 }
 
-int ffw_frame_format(const AVFrame* frame) {
+int ffw_frame_get_format(const AVFrame* frame) {
     return frame->format;
 }
 
-int ffw_frame_width(const AVFrame* frame) {
+int ffw_frame_get_width(const AVFrame* frame) {
     return frame->width;
 }
 
-int ffw_frame_height(const AVFrame* frame) {
+int ffw_frame_get_height(const AVFrame* frame) {
     return frame->height;
 }
 
-int ffw_frame_sample_rate(const AVFrame* frame) {
+int ffw_frame_get_sample_rate(const AVFrame* frame) {
     return frame->sample_rate;
 }
 
-int ffw_frame_nb_samples(const AVFrame* frame) {
+int ffw_frame_get_nb_samples(const AVFrame* frame) {
     return frame->nb_samples;
 }
 
-int ffw_frame_channels(const AVFrame* frame) {
+int ffw_frame_get_channels(const AVFrame* frame) {
     return frame->channels;
 }
 
-uint64_t ffw_frame_channel_layout(const AVFrame* frame) {
+uint64_t ffw_frame_get_channel_layout(const AVFrame* frame) {
     return frame->channel_layout;
 }
 
-int64_t ffw_frame_pts(const AVFrame* frame) {
+int64_t ffw_frame_get_pts(const AVFrame* frame) {
     return frame->pts;
+}
+
+void ffw_frame_set_pts(AVFrame* frame, int64_t pts) {
+    frame->pts = pts;
 }
 
 AVFrame* ffw_frame_clone(const AVFrame* frame) {

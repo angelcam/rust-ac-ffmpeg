@@ -230,15 +230,8 @@ Decoder* ffw_decoder_from_codec_parameters(const AVCodecParameters* params) {
         goto err;
     }
 
-    if (params->extradata != NULL) {
-        res->cc->extradata = av_mallocz(params->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
-        if (res->cc->extradata == NULL) {
-            goto err;
-        }
-
-        memcpy(res->cc->extradata, params->extradata, params->extradata_size);
-
-        res->cc->extradata_size = params->extradata_size;
+    if (avcodec_parameters_to_context(res->cc, params) < 0) {
+        goto err;
     }
 
     if (avcodec_open2(res->cc, res->decoder, NULL) < 0) {

@@ -17,12 +17,13 @@ extern "C" {
         sample_rate: c_int,
         nb_samples: c_int,
     ) -> *mut c_void;
-    fn ffw_frame_format(frame: *const c_void) -> c_int;
-    fn ffw_frame_nb_samples(frame: *const c_void) -> c_int;
-    fn ffw_frame_sample_rate(frame: *const c_void) -> c_int;
-    fn ffw_frame_channels(frame: *const c_void) -> c_int;
-    fn ffw_frame_channel_layout(frame: *const c_void) -> uint64_t;
-    fn ffw_frame_pts(frame: *const c_void) -> int64_t;
+    fn ffw_frame_get_format(frame: *const c_void) -> c_int;
+    fn ffw_frame_get_nb_samples(frame: *const c_void) -> c_int;
+    fn ffw_frame_get_sample_rate(frame: *const c_void) -> c_int;
+    fn ffw_frame_get_channels(frame: *const c_void) -> c_int;
+    fn ffw_frame_get_channel_layout(frame: *const c_void) -> uint64_t;
+    fn ffw_frame_get_pts(frame: *const c_void) -> int64_t;
+    fn ffw_frame_set_pts(frame: *mut c_void, pts: int64_t);
     fn ffw_frame_clone(frame: *const c_void) -> *mut c_void;
     fn ffw_frame_free(frame: *mut c_void);
 }
@@ -108,32 +109,39 @@ impl AudioFrameMut {
 
     /// Get frame sample format.
     pub fn sample_format(&self) -> SampleFormat {
-        unsafe { ffw_frame_format(self.ptr) }
+        unsafe { ffw_frame_get_format(self.ptr) }
     }
 
     /// Get frame sample rate.
     pub fn sample_rate(&self) -> u32 {
-        unsafe { ffw_frame_sample_rate(self.ptr) as _ }
+        unsafe { ffw_frame_get_sample_rate(self.ptr) as _ }
     }
 
     /// Get number of samples (per channel) in this frame.
     pub fn samples(&self) -> usize {
-        unsafe { ffw_frame_nb_samples(self.ptr) as _ }
+        unsafe { ffw_frame_get_nb_samples(self.ptr) as _ }
     }
 
     /// Get number of channels.
     pub fn channels(&self) -> u32 {
-        unsafe { ffw_frame_channels(self.ptr) as _ }
+        unsafe { ffw_frame_get_channels(self.ptr) as _ }
     }
 
     /// Get channel layout.
     pub fn channel_layout(&self) -> ChannelLayout {
-        unsafe { ffw_frame_channel_layout(self.ptr) as _ }
+        unsafe { ffw_frame_get_channel_layout(self.ptr) as _ }
     }
 
     /// Get presentation timestamp.
     pub fn pts(&self) -> i64 {
-        unsafe { ffw_frame_pts(self.ptr) as _ }
+        unsafe { ffw_frame_get_pts(self.ptr) as _ }
+    }
+
+    /// Set presentation timestamp.
+    pub fn with_pts(self, pts: i64) -> AudioFrameMut {
+        unsafe { ffw_frame_set_pts(self.ptr, pts as _) }
+
+        self
     }
 
     /// Get raw pointer.
@@ -178,32 +186,39 @@ impl AudioFrame {
 
     /// Get frame sample format.
     pub fn sample_format(&self) -> SampleFormat {
-        unsafe { ffw_frame_format(self.ptr) }
+        unsafe { ffw_frame_get_format(self.ptr) }
     }
 
     /// Get frame sample rate.
     pub fn sample_rate(&self) -> u32 {
-        unsafe { ffw_frame_sample_rate(self.ptr) as _ }
+        unsafe { ffw_frame_get_sample_rate(self.ptr) as _ }
     }
 
     /// Get number of samples (per channel) in this frame.
     pub fn samples(&self) -> usize {
-        unsafe { ffw_frame_nb_samples(self.ptr) as _ }
+        unsafe { ffw_frame_get_nb_samples(self.ptr) as _ }
     }
 
     /// Get number of channels.
     pub fn channels(&self) -> u32 {
-        unsafe { ffw_frame_channels(self.ptr) as _ }
+        unsafe { ffw_frame_get_channels(self.ptr) as _ }
     }
 
     /// Get channel layout.
     pub fn channel_layout(&self) -> ChannelLayout {
-        unsafe { ffw_frame_channel_layout(self.ptr) as _ }
+        unsafe { ffw_frame_get_channel_layout(self.ptr) as _ }
     }
 
     /// Get presentation timestamp.
     pub fn pts(&self) -> i64 {
-        unsafe { ffw_frame_pts(self.ptr) as _ }
+        unsafe { ffw_frame_get_pts(self.ptr) as _ }
+    }
+
+    /// Set presentation timestamp.
+    pub fn with_pts(self, pts: i64) -> AudioFrame {
+        unsafe { ffw_frame_set_pts(self.ptr, pts as _) }
+
+        self
     }
 
     /// Get raw pointer.

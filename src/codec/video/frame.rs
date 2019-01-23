@@ -5,10 +5,11 @@ use libc::{c_int, c_void, int64_t};
 pub type PixelFormat = c_int;
 
 extern "C" {
-    fn ffw_frame_format(frame: *const c_void) -> c_int;
-    fn ffw_frame_width(frame: *const c_void) -> c_int;
-    fn ffw_frame_height(frame: *const c_void) -> c_int;
-    fn ffw_frame_pts(frame: *const c_void) -> int64_t;
+    fn ffw_frame_get_format(frame: *const c_void) -> c_int;
+    fn ffw_frame_get_width(frame: *const c_void) -> c_int;
+    fn ffw_frame_get_height(frame: *const c_void) -> c_int;
+    fn ffw_frame_get_pts(frame: *const c_void) -> int64_t;
+    fn ffw_frame_set_pts(frame: *mut c_void, pts: int64_t);
     fn ffw_frame_clone(frame: *const c_void) -> *mut c_void;
     fn ffw_frame_free(frame: *mut c_void);
 }
@@ -26,22 +27,29 @@ impl VideoFrameMut {
 
     /// Get frame pixel format.
     pub fn pixel_format(&self) -> PixelFormat {
-        unsafe { ffw_frame_format(self.ptr) }
+        unsafe { ffw_frame_get_format(self.ptr) }
     }
 
     /// Get frame width.
     pub fn width(&self) -> usize {
-        unsafe { ffw_frame_width(self.ptr) as _ }
+        unsafe { ffw_frame_get_width(self.ptr) as _ }
     }
 
     /// Get frame height.
     pub fn height(&self) -> usize {
-        unsafe { ffw_frame_height(self.ptr) as _ }
+        unsafe { ffw_frame_get_height(self.ptr) as _ }
     }
 
     /// Get presentation timestamp.
     pub fn pts(&self) -> i64 {
-        unsafe { ffw_frame_pts(self.ptr) as _ }
+        unsafe { ffw_frame_get_pts(self.ptr) as _ }
+    }
+
+    /// Set presentation timestamp.
+    pub fn with_pts(self, pts: i64) -> VideoFrameMut {
+        unsafe { ffw_frame_set_pts(self.ptr, pts as _) }
+
+        self
     }
 
     /// Get raw pointer.
@@ -86,22 +94,29 @@ impl VideoFrame {
 
     /// Get frame pixel format.
     pub fn pixel_format(&self) -> PixelFormat {
-        unsafe { ffw_frame_format(self.ptr) }
+        unsafe { ffw_frame_get_format(self.ptr) }
     }
 
     /// Get frame width.
     pub fn width(&self) -> usize {
-        unsafe { ffw_frame_width(self.ptr) as _ }
+        unsafe { ffw_frame_get_width(self.ptr) as _ }
     }
 
     /// Get frame height.
     pub fn height(&self) -> usize {
-        unsafe { ffw_frame_height(self.ptr) as _ }
+        unsafe { ffw_frame_get_height(self.ptr) as _ }
     }
 
     /// Get presentation timestamp.
     pub fn pts(&self) -> i64 {
-        unsafe { ffw_frame_pts(self.ptr) as _ }
+        unsafe { ffw_frame_get_pts(self.ptr) as _ }
+    }
+
+    /// Set presentation timestamp.
+    pub fn with_pts(self, pts: i64) -> VideoFrame {
+        unsafe { ffw_frame_set_pts(self.ptr, pts as _) }
+
+        self
     }
 
     /// Get raw pointer.

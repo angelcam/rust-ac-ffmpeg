@@ -350,6 +350,12 @@ impl AudioCodecParameters {
     }
 }
 
+impl AsRef<CodecParameters> for AudioCodecParameters {
+    fn as_ref(&self) -> &CodecParameters {
+        &self.inner
+    }
+}
+
 /// Builder for video codec parameters.
 pub struct VideoCodecParametersBuilder {
     inner: CodecParameters,
@@ -499,5 +505,11 @@ impl VideoCodecParameters {
     /// Convert this object into general codec parameters.
     pub fn into_codec_parameters(self) -> CodecParameters {
         self.inner
+    }
+}
+
+impl AsRef<CodecParameters> for VideoCodecParameters {
+    fn as_ref(&self) -> &CodecParameters {
+        &self.inner
     }
 }
