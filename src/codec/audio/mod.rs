@@ -9,7 +9,7 @@ use libc::c_void;
 
 use crate::Error;
 
-use crate::codec::{CodecError, CodecParameters, ErrorKind};
+use crate::codec::{AudioCodecParameters, CodecError, CodecParameters, ErrorKind};
 use crate::packet::Packet;
 
 pub use self::frame::{AudioFrame, AudioFrameMut, ChannelLayout, SampleFormat};
@@ -105,10 +105,8 @@ impl AudioDecoder {
 
     /// Create a new decoder from given codec parameters.
     pub fn from_codec_parameters(
-        codec_parameters: &CodecParameters,
+        codec_parameters: &AudioCodecParameters,
     ) -> Result<AudioDecoder, Error> {
-        assert!(codec_parameters.is_audio_codec());
-
         let ptr = unsafe { super::ffw_decoder_from_codec_parameters(codec_parameters.as_ptr()) };
 
         if ptr.is_null() {
@@ -126,14 +124,16 @@ impl AudioDecoder {
     }
 
     /// Get codec parameters.
-    pub fn codec_parameters(&self) -> CodecParameters {
+    pub fn codec_parameters(&self) -> AudioCodecParameters {
         let ptr = unsafe { super::ffw_decoder_get_codec_parameters(self.ptr) };
 
         if ptr.is_null() {
             panic!("unable to allocate codec parameters");
         }
 
-        unsafe { CodecParameters::from_raw_ptr(ptr) }
+        let params = unsafe { CodecParameters::from_raw_ptr(ptr) };
+
+        params.into_audio_codec_parameters().unwrap()
     }
 
     /// Push a given packet to the decoder.
@@ -231,10 +231,8 @@ impl AudioEncoderBuilder {
 
     /// Create a new encoder builder from given codec parameters.
     fn from_codec_parameters(
-        codec_parameters: &CodecParameters,
+        codec_parameters: &AudioCodecParameters,
     ) -> Result<AudioEncoderBuilder, Error> {
-        assert!(codec_parameters.is_audio_codec());
-
         let ptr = unsafe { super::ffw_encoder_from_codec_parameters(codec_parameters.as_ptr()) };
 
         if ptr.is_null() {
@@ -354,7 +352,7 @@ pub struct AudioEncoder {
 impl AudioEncoder {
     /// Create a new encoder builder from given codec parameters.
     pub fn from_codec_parameters(
-        codec_parameters: &CodecParameters,
+        codec_parameters: &AudioCodecParameters,
     ) -> Result<AudioEncoderBuilder, Error> {
         AudioEncoderBuilder::from_codec_parameters(codec_parameters)
     }
@@ -365,14 +363,16 @@ impl AudioEncoder {
     }
 
     /// Get codec parameters.
-    pub fn codec_parameters(&self) -> CodecParameters {
+    pub fn codec_parameters(&self) -> AudioCodecParameters {
         let ptr = unsafe { super::ffw_encoder_get_codec_parameters(self.ptr) };
 
         if ptr.is_null() {
             panic!("unable to allocate codec parameters");
         }
 
-        unsafe { CodecParameters::from_raw_ptr(ptr) }
+        let params = unsafe { CodecParameters::from_raw_ptr(ptr) };
+
+        params.into_audio_codec_parameters().unwrap()
     }
 
     /// Number of samples per audio channel in an audio frame. Each encoded

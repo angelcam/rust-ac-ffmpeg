@@ -9,7 +9,7 @@ use libc::c_void;
 
 use crate::Error;
 
-use crate::codec::{CodecError, CodecParameters, ErrorKind};
+use crate::codec::{CodecError, CodecParameters, ErrorKind, VideoCodecParameters};
 use crate::packet::Packet;
 
 pub use self::frame::{PixelFormat, VideoFrame, VideoFrameMut};
@@ -105,10 +105,8 @@ impl VideoDecoder {
 
     /// Create a new decoder from given codec parameters.
     pub fn from_codec_parameters(
-        codec_parameters: &CodecParameters,
+        codec_parameters: &VideoCodecParameters,
     ) -> Result<VideoDecoder, Error> {
-        assert!(codec_parameters.is_video_codec());
-
         let ptr = unsafe { super::ffw_decoder_from_codec_parameters(codec_parameters.as_ptr()) };
 
         if ptr.is_null() {
@@ -126,14 +124,16 @@ impl VideoDecoder {
     }
 
     /// Get codec parameters.
-    pub fn codec_parameters(&self) -> CodecParameters {
+    pub fn codec_parameters(&self) -> VideoCodecParameters {
         let ptr = unsafe { super::ffw_decoder_get_codec_parameters(self.ptr) };
 
         if ptr.is_null() {
             panic!("unable to allocate codec parameters");
         }
 
-        unsafe { CodecParameters::from_raw_ptr(ptr) }
+        let params = unsafe { CodecParameters::from_raw_ptr(ptr) };
+
+        params.into_video_codec_parameters().unwrap()
     }
 
     /// Push a given packet to the decoder.
@@ -231,10 +231,8 @@ impl VideoEncoderBuilder {
 
     /// Create a new encoder builder from given codec parameters.
     fn from_codec_parameters(
-        codec_parameters: &CodecParameters,
+        codec_parameters: &VideoCodecParameters,
     ) -> Result<VideoEncoderBuilder, Error> {
-        assert!(codec_parameters.is_video_codec());
-
         let ptr = unsafe { super::ffw_encoder_from_codec_parameters(codec_parameters.as_ptr()) };
 
         if ptr.is_null() {
@@ -348,7 +346,7 @@ pub struct VideoEncoder {
 impl VideoEncoder {
     /// Create a new encoder from given codec parameters.
     pub fn from_codec_parameters(
-        codec_parameters: &CodecParameters,
+        codec_parameters: &VideoCodecParameters,
     ) -> Result<VideoEncoderBuilder, Error> {
         VideoEncoderBuilder::from_codec_parameters(codec_parameters)
     }
@@ -359,14 +357,16 @@ impl VideoEncoder {
     }
 
     /// Get codec parameters.
-    pub fn codec_parameters(&self) -> CodecParameters {
+    pub fn codec_parameters(&self) -> VideoCodecParameters {
         let ptr = unsafe { super::ffw_encoder_get_codec_parameters(self.ptr) };
 
         if ptr.is_null() {
             panic!("unable to allocate codec parameters");
         }
 
-        unsafe { CodecParameters::from_raw_ptr(ptr) }
+        let params = unsafe { CodecParameters::from_raw_ptr(ptr) };
+
+        params.into_video_codec_parameters().unwrap()
     }
 
     /// Push a given frame to the encoder.
