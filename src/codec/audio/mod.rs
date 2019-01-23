@@ -15,6 +15,7 @@ use crate::packet::Packet;
 
 pub use self::frame::{AudioFrame, AudioFrameMut, ChannelLayout, SampleFormat};
 pub use self::resampler::AudioResampler;
+pub use self::transcoder::AudioTranscoder;
 
 /// Builder for the audio decoder.
 pub struct AudioDecoderBuilder {
