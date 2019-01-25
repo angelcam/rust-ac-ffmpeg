@@ -15,20 +15,15 @@ use crate::packet::Packet;
 /// 4. Flush the transcoder.
 /// 5. Take all packets from the transcoder until you get None.
 ///
-/// The output timestamp sequence always starts from 0 (note: there still
-/// might be packets with negative timestamps because of the initial padding
-/// of some codecs), timestamps of all output packets are in microseconds.
-///
-/// Timestamps of input packets must be set and they are expected to start
-/// from zero (except the initial padding, which will be skipped after
-/// decoding). Time base of the input packets does not matter.
+/// Timestamps of input packets are expected to be in microseconds. Timestamps
+/// of output packets will be in microseconds as well.
 pub struct AudioTranscoder {
     audio_decoder: AudioDecoder,
     audio_encoder: AudioEncoder,
     audio_resampler: AudioResampler,
 
+    input_sample_rate: u32,
     output_sample_rate: u32,
-    output_samples: u64,
 
     ready: VecDeque<Packet>,
 }
@@ -60,8 +55,8 @@ impl AudioTranscoder {
             audio_encoder: encoder,
             audio_resampler: resampler,
 
+            input_sample_rate: input.sample_rate(),
             output_sample_rate: output.sample_rate(),
-            output_samples: 0,
 
             ready: VecDeque::new(),
         };
@@ -115,6 +110,12 @@ impl AudioTranscoder {
         self.audio_decoder.push(packet)?;
 
         while let Some(frame) = self.audio_decoder.take()? {
+            // convert the frame timestamp from microseconds to 1 /
+            // source_sample_rate time base
+            let ts = frame.pts() * self.input_sample_rate as i64 / 1_000_000;
+
+            let frame = frame.with_pts(ts);
+
             // XXX: this is to skip the initial padding; a correct solution
             // would be to skip a given number of samples
             if frame.pts() >= 0 {
@@ -140,11 +141,7 @@ impl AudioTranscoder {
     /// Push a given frame to the internal encoder, take all encoded packets
     /// and push them to the internal ready queue.
     fn push_to_encoder(&mut self, frame: AudioFrame) -> Result<(), CodecError> {
-        let frame = frame.with_pts(self.output_samples as i64);
-
         self.audio_encoder.push(&frame)?;
-
-        self.output_samples += frame.samples() as u64;
 
         while let Some(packet) = self.audio_encoder.take()? {
             self.push_to_output(packet);
@@ -155,9 +152,11 @@ impl AudioTranscoder {
 
     /// Push a given packet to the output buffer.
     fn push_to_output(&mut self, packet: Packet) {
+        // convert the packet timestamp from 1 / output_sample_rate to
+        // microseconds
         let ts = packet.pts() * 1_000_000 / self.output_sample_rate as i64;
 
-        let packet = packet.with_stream_index(0).with_pts(ts).with_dts(ts);
+        let packet = packet.with_pts(ts).with_dts(ts);
 
         self.ready.push_back(packet);
     }

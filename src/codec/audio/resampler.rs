@@ -157,8 +157,9 @@ impl AudioResamplerBuilder {
 /// 4. Flush the resampler.
 /// 5. Take all frames from the resampler until you get None.
 ///
-/// Note: The resampler does not handle frame timestamps in any way. Timestamps
-/// of the output frames are not set.
+/// Timestamps of input frames are expected to be in 1 / source_sample_rate
+/// timebase. Timestamps of output frames will be in 1 / target_sample_rate
+/// timebase.
 pub struct AudioResampler {
     ptr: *mut c_void,
 
