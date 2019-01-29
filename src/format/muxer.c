@@ -14,14 +14,16 @@ AVOutputFormat* ffw_guess_output_format(
 
 typedef struct Muxer {
     AVFormatContext* fc;
+    AVDictionary* options;
     int initialized;
 } Muxer;
 
 Muxer* ffw_muxer_new();
 unsigned ffw_muxer_get_nb_streams(const Muxer*);
 int ffw_muxer_new_stream(Muxer*, const AVCodecParameters*);
-int ffw_muxer_init(Muxer*, AVIOContext*, AVOutputFormat*, AVDictionary**);
+int ffw_muxer_init(Muxer*, AVIOContext*, AVOutputFormat*);
 int ffw_muxer_get_option(Muxer*, const char*, uint8_t**);
+int ffw_muxer_set_initial_option(Muxer*, const char*, const char*);
 int ffw_muxer_set_option(Muxer*, const char*, const char*);
 int ffw_muxer_write_frame(Muxer*, AVPacket*);
 int ffw_muxer_interleaved_write_frame(Muxer*, AVPacket*);
@@ -34,6 +36,7 @@ Muxer* ffw_muxer_new() {
     }
 
     muxer->fc = NULL;
+    muxer->options = NULL;
     muxer->initialized = 0;
 
     muxer->fc = avformat_alloc_context();
@@ -73,31 +76,26 @@ int ffw_muxer_new_stream(Muxer* muxer, const AVCodecParameters* params) {
 int ffw_muxer_init(
     Muxer* muxer,
     AVIOContext* avio_context,
-    AVOutputFormat* format,
-    AVDictionary** options) {
+    AVOutputFormat* format) {
     int ret;
 
     muxer->fc->pb = avio_context;
     muxer->fc->oformat = format;
 
-    ret = avformat_write_header(muxer->fc, options);
+    ret = avformat_write_header(muxer->fc, &muxer->options);
     if (ret < 0) {
         return ret;
     }
 
     muxer->initialized = 1;
 
+    av_dict_free(&muxer->options);
+
     return ret;
 }
 
-int ffw_muxer_get_option(Muxer* muxer, const char* key, uint8_t** out) {
-    int ret = av_opt_get(muxer->fc, key, AV_OPT_SEARCH_CHILDREN | AV_OPT_ALLOW_NULL, out);
-    if (ret == AVERROR_OPTION_NOT_FOUND) {
-        *out = NULL;
-        return 0;
-    }
-
-    return ret;
+int ffw_muxer_set_initial_option(Muxer* muxer, const char* key, const char* value) {
+    return av_dict_set(&muxer->options, key, value, 0);
 }
 
 int ffw_muxer_set_option(Muxer* muxer, const char* key, const char* value) {
@@ -165,6 +163,7 @@ void ffw_muxer_free(Muxer* muxer) {
     }
 
     avformat_free_context(muxer->fc);
+    av_dict_free(&muxer->options);
 
     free(muxer);
 }

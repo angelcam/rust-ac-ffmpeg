@@ -1,6 +1,6 @@
 use std::ptr;
 
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
 use libc::{c_char, c_int, c_uint, c_void};
 
@@ -17,19 +17,15 @@ extern "C" {
         mime_type: *const c_char,
     ) -> *mut c_void;
 
-    fn av_free(ptr: *mut c_void);
-
     fn ffw_muxer_new() -> *mut c_void;
     fn ffw_muxer_get_nb_streams(muxer: *const c_void) -> c_uint;
     fn ffw_muxer_new_stream(muxer: *mut c_void, params: *const c_void) -> c_int;
-    fn ffw_muxer_init(
+    fn ffw_muxer_init(muxer: *mut c_void, io_context: *mut c_void, format: *mut c_void) -> c_int;
+    fn ffw_muxer_set_initial_option(
         muxer: *mut c_void,
-        io_context: *mut c_void,
-        format: *mut c_void,
-        options: *mut c_void,
+        key: *const c_char,
+        value: *const c_char,
     ) -> c_int;
-    fn ffw_muxer_get_option(muxer: *mut c_void, key: *const c_char, out: *mut *mut c_char)
-        -> c_int;
     fn ffw_muxer_set_option(muxer: *mut c_void, key: *const c_char, value: *const c_char) -> c_int;
     fn ffw_muxer_write_frame(muxer: *mut c_void, packet: *mut c_void) -> c_int;
     fn ffw_muxer_interleaved_write_frame(muxer: *mut c_void, packet: *mut c_void) -> c_int;
@@ -68,6 +64,25 @@ impl MuxerBuilder {
         Ok(())
     }
 
+    /// Set a muxer option.
+    pub fn set_option<V>(self, name: &str, value: V) -> MuxerBuilder
+    where
+        V: ToString,
+    {
+        let name = CString::new(name).expect("invalid option name");
+        let value = CString::new(value.to_string()).expect("invalid option value");
+
+        let ret = unsafe {
+            ffw_muxer_set_initial_option(self.ptr, name.as_ptr() as _, value.as_ptr() as _)
+        };
+
+        if ret < 0 {
+            panic!("invalid option");
+        }
+
+        self
+    }
+
     /// Set the muxer to do the interleaving automatically. It is disabled by
     /// default.
     pub fn interleaved(mut self, interleaved: bool) -> MuxerBuilder {
@@ -87,7 +102,7 @@ impl MuxerBuilder {
         let io_context_ptr = io_context.as_mut_ptr();
         let format_ptr = format.ptr;
 
-        let res = unsafe { ffw_muxer_init(self.ptr, io_context_ptr, format_ptr, ptr::null_mut()) };
+        let res = unsafe { ffw_muxer_init(self.ptr, io_context_ptr, format_ptr) };
 
         if res < 0 {
             return Err(Error::new("unable to initialize the muxer"));
@@ -131,38 +146,6 @@ impl Muxer<()> {
 }
 
 impl<T> Muxer<T> {
-    /// Get option.
-    pub fn get_option(&self, name: &str) -> Option<String> {
-        let name = CString::new(name).expect("invalid option name");
-
-        let mut value = ptr::null_mut() as *mut c_char;
-
-        let value_ptr = &mut value as *mut *mut c_char;
-
-        unsafe {
-            let ret = ffw_muxer_get_option(self.ptr, name.as_ptr() as _, value_ptr);
-
-            if ret < 0 {
-                if !value.is_null() {
-                    av_free(value as _);
-                }
-
-                panic!("invalid option");
-            } else if value.is_null() {
-                None
-            } else {
-                let v = CStr::from_ptr(value as _)
-                    .to_str()
-                    .expect("option is not UTF-8 encoded")
-                    .to_string();
-
-                av_free(value as _);
-
-                Some(v)
-            }
-        }
-    }
-
     /// Set an option.
     pub fn set_option<V>(&mut self, name: &str, value: V)
     where
