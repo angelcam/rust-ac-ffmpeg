@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.9.0 (2019-01-30)
+
+* Unification of the decoder interface
+
+* Remove the Muxer::get\_option method and allow setting options in MuxerBuilder
+
+* Fix timestamp handling in audio resampler and audio transcoder and add gap/overlap compensation to the resampler
+
 ## v0.8.0 (2019-01-23)
 
 * Add audio resampler
