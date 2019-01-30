@@ -1,14 +1,16 @@
 use std::ptr;
 
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 
 use libc::{c_char, c_int, c_void, int64_t, uint64_t};
 
 extern "C" {
     fn ffw_get_channel_layout_by_name(name: *const c_char) -> uint64_t;
+    fn ffw_get_channel_layout_channels(layout: uint64_t) -> c_int;
     fn ffw_get_default_channel_layour(channels: c_int) -> uint64_t;
 
     fn ffw_get_sample_format_by_name(name: *const c_char) -> c_int;
+    fn ffw_get_sample_format_name(format: c_int) -> *const c_char;
     fn ffw_sample_format_is_none(format: c_int) -> c_int;
 
     fn ffw_frame_new_silence(
@@ -32,16 +34,16 @@ extern "C" {
 pub type ChannelLayout = uint64_t;
 
 /// Get channel layout with a given name.
-pub fn get_channel_layout(name: &str) -> Option<ChannelLayout> {
+pub fn get_channel_layout(name: &str) -> ChannelLayout {
     let name = CString::new(name).expect("invalid channel layout name");
 
     let layout = unsafe { ffw_get_channel_layout_by_name(name.as_ptr() as _) };
 
     if layout == 0 {
-        None
-    } else {
-        Some(layout)
+        panic!("no such channel layout");
     }
+
+    layout
 }
 
 /// Get default channel layout for a given number of channels.
@@ -55,21 +57,41 @@ pub fn get_default_channel_layout(channels: u32) -> Option<ChannelLayout> {
     }
 }
 
+/// Get number of channels of a given channel layout.
+pub fn get_channel_layout_channels(layout: ChannelLayout) -> u32 {
+    unsafe { ffw_get_channel_layout_channels(layout) as _ }
+}
+
 /// Audio sample format.
 pub type SampleFormat = c_int;
 
 /// Get audio sample format with a given name.
-pub fn get_sample_format(name: &str) -> Option<SampleFormat> {
+pub fn get_sample_format(name: &str) -> SampleFormat {
     let name = CString::new(name).expect("invalid sample format name");
 
     unsafe {
         let format = ffw_get_sample_format_by_name(name.as_ptr() as _);
 
-        if ffw_sample_format_is_none(format) == 0 {
-            Some(format)
-        } else {
-            None
+        if ffw_sample_format_is_none(format) != 0 {
+            panic!("no such sample format");
         }
+
+        format
+    }
+}
+
+/// Get name of a given sample format.
+pub fn get_sample_format_name(format: SampleFormat) -> &'static str {
+    unsafe {
+        let ptr = ffw_get_sample_format_name(format);
+
+        if ptr.is_null() {
+            panic!("invalid sample format");
+        }
+
+        let name = CStr::from_ptr(ptr as _);
+
+        name.to_str().unwrap()
     }
 }
 

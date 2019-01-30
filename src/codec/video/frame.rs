@@ -1,10 +1,14 @@
 use std::ptr;
 
-use libc::{c_int, c_void, int64_t};
+use std::ffi::{CStr, CString};
 
-pub type PixelFormat = c_int;
+use libc::{c_char, c_int, c_void, int64_t};
 
 extern "C" {
+    fn ffw_get_pixel_format_by_name(name: *const c_char) -> c_int;
+    fn ffw_pixel_format_is_none(format: c_int) -> c_int;
+    fn ffw_get_pixel_format_name(format: c_int) -> *const c_char;
+
     fn ffw_frame_get_format(frame: *const c_void) -> c_int;
     fn ffw_frame_get_width(frame: *const c_void) -> c_int;
     fn ffw_frame_get_height(frame: *const c_void) -> c_int;
@@ -12,6 +16,39 @@ extern "C" {
     fn ffw_frame_set_pts(frame: *mut c_void, pts: int64_t);
     fn ffw_frame_clone(frame: *const c_void) -> *mut c_void;
     fn ffw_frame_free(frame: *mut c_void);
+}
+
+/// Pixel format.
+pub type PixelFormat = c_int;
+
+/// Get pixel format with a given name.
+pub fn get_pixel_format(name: &str) -> PixelFormat {
+    let name = CString::new(name).expect("invalid pixel format name");
+
+    unsafe {
+        let format = ffw_get_pixel_format_by_name(name.as_ptr() as _);
+
+        if ffw_pixel_format_is_none(format) != 0 {
+            panic!("no such pixel format");
+        }
+
+        format
+    }
+}
+
+/// Get name of a given pixel format.
+pub fn get_pixel_format_name(format: PixelFormat) -> &'static str {
+    unsafe {
+        let ptr = ffw_get_pixel_format_name(format);
+
+        if ptr.is_null() {
+            panic!("invalid pixel format");
+        }
+
+        let name = CStr::from_ptr(ptr as _);
+
+        name.to_str().unwrap()
+    }
 }
 
 /// Mutable video frame.

@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.10.0 (2019-01-30)
+
+* Update the API for dealing with channel layouts, sample formats and pixel formats
+
 ## v0.9.0 (2019-01-30)
 
 * Unification of the decoder interface

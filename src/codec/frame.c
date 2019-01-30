@@ -1,5 +1,7 @@
 #include<libavutil/channel_layout.h>
 #include<libavutil/frame.h>
+#include<libavutil/pixdesc.h>
+#include<libavutil/pixfmt.h>
 #include<libavutil/samplefmt.h>
 
 uint64_t ffw_get_channel_layout_by_name(const char* name) {
@@ -10,12 +12,32 @@ uint64_t ffw_get_default_channel_layour(int channels) {
     return av_get_default_channel_layout(channels);
 }
 
+int ffw_get_channel_layout_channels(uint64_t layout) {
+    return av_get_channel_layout_nb_channels(layout);
+}
+
 int ffw_get_sample_format_by_name(const char* name) {
     return av_get_sample_fmt(name);
 }
 
+const char* ffw_get_sample_format_name(int format) {
+    return av_get_sample_fmt_name(format);
+}
+
 int ffw_sample_format_is_none(int format) {
     return format == AV_SAMPLE_FMT_NONE;
+}
+
+int ffw_get_pixel_format_by_name(const char* name) {
+    return av_get_pix_fmt(name);
+}
+
+const char* ffw_get_pixel_format_name(int format) {
+    return av_get_pix_fmt_name(format);
+}
+
+int ffw_pixel_format_is_none(int format) {
+    return format == AV_PIX_FMT_NONE;
 }
 
 AVFrame* ffw_frame_new_silence(uint64_t, int, int, int);
