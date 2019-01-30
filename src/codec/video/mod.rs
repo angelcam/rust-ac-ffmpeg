@@ -9,7 +9,7 @@ use libc::c_void;
 
 use crate::Error;
 
-use crate::codec::{CodecError, CodecParameters, ErrorKind, VideoCodecParameters};
+use crate::codec::{CodecError, CodecParameters, Decoder, ErrorKind, VideoCodecParameters};
 use crate::packet::Packet;
 
 pub use self::frame::{PixelFormat, VideoFrame, VideoFrameMut};
@@ -122,9 +122,14 @@ impl VideoDecoder {
     pub fn builder(codec: &str) -> Result<VideoDecoderBuilder, Error> {
         VideoDecoderBuilder::new(codec)
     }
+}
+
+impl Decoder for VideoDecoder {
+    type CodecParameters = VideoCodecParameters;
+    type Frame = VideoFrame;
 
     /// Get codec parameters.
-    pub fn codec_parameters(&self) -> VideoCodecParameters {
+    fn codec_parameters(&self) -> VideoCodecParameters {
         let ptr = unsafe { super::ffw_decoder_get_codec_parameters(self.ptr) };
 
         if ptr.is_null() {
@@ -137,7 +142,7 @@ impl VideoDecoder {
     }
 
     /// Push a given packet to the decoder.
-    pub fn push(&mut self, packet: &Packet) -> Result<(), CodecError> {
+    fn push(&mut self, packet: &Packet) -> Result<(), CodecError> {
         unsafe {
             match super::ffw_decoder_push_packet(self.ptr, packet.as_ptr()) {
                 1 => Ok(()),
@@ -151,7 +156,7 @@ impl VideoDecoder {
     }
 
     /// Flush the decoder.
-    pub fn flush(&mut self) -> Result<(), CodecError> {
+    fn flush(&mut self) -> Result<(), CodecError> {
         unsafe {
             match super::ffw_decoder_push_packet(self.ptr, ptr::null()) {
                 1 => Ok(()),
@@ -165,7 +170,7 @@ impl VideoDecoder {
     }
 
     /// Take the next decoded frame from the decoder.
-    pub fn take(&mut self) -> Result<Option<VideoFrame>, CodecError> {
+    fn take(&mut self) -> Result<Option<VideoFrame>, CodecError> {
         let mut fptr = ptr::null_mut();
 
         unsafe {

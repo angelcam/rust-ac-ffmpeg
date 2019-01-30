@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use crate::Error;
 
 use crate::codec::audio::{AudioDecoder, AudioEncoder, AudioFrame, AudioResampler};
-use crate::codec::{AudioCodecParameters, CodecError, ErrorKind};
+use crate::codec::{AudioCodecParameters, CodecError, Decoder, ErrorKind};
 use crate::packet::Packet;
 
 /// Audio transcoder.

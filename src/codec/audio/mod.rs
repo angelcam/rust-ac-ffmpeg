@@ -10,7 +10,7 @@ use libc::c_void;
 
 use crate::Error;
 
-use crate::codec::{AudioCodecParameters, CodecError, CodecParameters, ErrorKind};
+use crate::codec::{AudioCodecParameters, CodecError, CodecParameters, Decoder, ErrorKind};
 use crate::packet::Packet;
 
 pub use self::frame::{AudioFrame, AudioFrameMut, ChannelLayout, SampleFormat};
@@ -124,9 +124,14 @@ impl AudioDecoder {
     pub fn builder(codec: &str) -> Result<AudioDecoderBuilder, Error> {
         AudioDecoderBuilder::new(codec)
     }
+}
+
+impl Decoder for AudioDecoder {
+    type CodecParameters = AudioCodecParameters;
+    type Frame = AudioFrame;
 
     /// Get codec parameters.
-    pub fn codec_parameters(&self) -> AudioCodecParameters {
+    fn codec_parameters(&self) -> AudioCodecParameters {
         let ptr = unsafe { super::ffw_decoder_get_codec_parameters(self.ptr) };
 
         if ptr.is_null() {
@@ -139,7 +144,7 @@ impl AudioDecoder {
     }
 
     /// Push a given packet to the decoder.
-    pub fn push(&mut self, packet: &Packet) -> Result<(), CodecError> {
+    fn push(&mut self, packet: &Packet) -> Result<(), CodecError> {
         unsafe {
             match super::ffw_decoder_push_packet(self.ptr, packet.as_ptr()) {
                 1 => Ok(()),
@@ -153,7 +158,7 @@ impl AudioDecoder {
     }
 
     /// Flush the decoder.
-    pub fn flush(&mut self) -> Result<(), CodecError> {
+    fn flush(&mut self) -> Result<(), CodecError> {
         unsafe {
             match super::ffw_decoder_push_packet(self.ptr, ptr::null()) {
                 1 => Ok(()),
@@ -167,7 +172,7 @@ impl AudioDecoder {
     }
 
     /// Take the next decoded frame from the decoder.
-    pub fn take(&mut self) -> Result<Option<AudioFrame>, CodecError> {
+    fn take(&mut self) -> Result<Option<AudioFrame>, CodecError> {
         let mut fptr = ptr::null_mut();
 
         unsafe {

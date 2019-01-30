@@ -14,6 +14,7 @@ use crate::Error;
 
 use crate::codec::audio::{ChannelLayout, SampleFormat};
 use crate::codec::video::PixelFormat;
+use crate::packet::Packet;
 
 extern "C" {
     fn ffw_audio_codec_parameters_new(codec: *const c_char) -> *mut c_void;
@@ -512,4 +513,22 @@ impl AsRef<CodecParameters> for VideoCodecParameters {
     fn as_ref(&self) -> &CodecParameters {
         &self.inner
     }
+}
+
+/// Common trait for decoders.
+pub trait Decoder {
+    type CodecParameters;
+    type Frame;
+
+    /// Get codec parameters.
+    fn codec_parameters(&self) -> Self::CodecParameters;
+
+    /// Push a given packet to the decoder.
+    fn push(&mut self, packet: &Packet) -> Result<(), CodecError>;
+
+    /// Flush the decoder.
+    fn flush(&mut self) -> Result<(), CodecError>;
+
+    /// Take the next frame from the decoder.
+    fn take(&mut self) -> Result<Option<Self::Frame>, CodecError>;
 }
