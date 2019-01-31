@@ -9,6 +9,7 @@ extern "C" {
     fn ffw_pixel_format_is_none(format: c_int) -> c_int;
     fn ffw_get_pixel_format_name(format: c_int) -> *const c_char;
 
+    fn ffw_frame_new_black(pixel_format: c_int, width: c_int, height: c_int) -> *mut c_void;
     fn ffw_frame_get_format(frame: *const c_void) -> c_int;
     fn ffw_frame_get_width(frame: *const c_void) -> c_int;
     fn ffw_frame_get_height(frame: *const c_void) -> c_int;
@@ -57,6 +58,17 @@ pub struct VideoFrameMut {
 }
 
 impl VideoFrameMut {
+    /// Create a black video frame.
+    pub fn black(pixel_format: PixelFormat, width: usize, height: usize) -> VideoFrameMut {
+        let ptr = unsafe { ffw_frame_new_black(pixel_format, width as _, height as _) };
+
+        if ptr.is_null() {
+            panic!("unable to allocate a video frame");
+        }
+
+        VideoFrameMut { ptr: ptr }
+    }
+
     /// Create a new video frame from its raw representation.
     pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> VideoFrameMut {
         VideoFrameMut { ptr: ptr }

@@ -1,5 +1,6 @@
 #include<libavutil/channel_layout.h>
 #include<libavutil/frame.h>
+#include<libavutil/imgutils.h>
 #include<libavutil/pixdesc.h>
 #include<libavutil/pixfmt.h>
 #include<libavutil/samplefmt.h>
@@ -41,6 +42,7 @@ int ffw_pixel_format_is_none(int format) {
 }
 
 AVFrame* ffw_frame_new_silence(uint64_t, int, int, int);
+AVFrame* ffw_frame_new_black(int, int, int);
 void ffw_frame_free(AVFrame*);
 
 AVFrame* ffw_frame_new_silence(uint64_t channel_layout, int sample_fmt, int sample_rate, int nb_samples) {
@@ -66,6 +68,47 @@ AVFrame* ffw_frame_new_silence(uint64_t channel_layout, int sample_fmt, int samp
     }
 
     av_samples_set_silence(frame->extended_data, 0, nb_samples, channels, sample_fmt);
+
+    return frame;
+
+err:
+    ffw_frame_free(frame);
+
+    return NULL;
+}
+
+AVFrame* ffw_frame_new_black(int pixel_format, int width, int height) {
+    AVFrame* frame;
+    uint8_t* data[4];
+    ptrdiff_t linesize[4];
+
+    frame = av_frame_alloc();
+
+    if (frame == NULL) {
+        return NULL;
+    }
+
+    frame->format = pixel_format;
+    frame->width = width;
+    frame->height = height;
+
+    if (av_frame_get_buffer(frame, 0) != 0) {
+        goto err;
+    }
+
+    data[0] = frame->data[0];
+    data[1] = frame->data[1];
+    data[2] = frame->data[2];
+    data[3] = frame->data[3];
+
+    linesize[0] = frame->linesize[0];
+    linesize[1] = frame->linesize[1];
+    linesize[2] = frame->linesize[2];
+    linesize[3] = frame->linesize[3];
+
+    if (av_image_fill_black(data, linesize, pixel_format, AVCOL_RANGE_MPEG, width, height) < 0) {
+        goto err;
+    }
 
     return frame;
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.10.1 (2019-01-31)
+
+* Add a method for creating black video frames
+
+* Fix output packet DTS in the audio transcoder
+
 ## v0.10.0 (2019-01-30)
 
 * Update the API for dealing with channel layouts, sample formats and pixel formats

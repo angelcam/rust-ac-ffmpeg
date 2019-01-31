@@ -154,9 +154,10 @@ impl AudioTranscoder {
     fn push_to_output(&mut self, packet: Packet) {
         // convert the packet timestamp from 1 / output_sample_rate to
         // microseconds
-        let ts = packet.pts() * 1_000_000 / self.output_sample_rate as i64;
+        let pts = packet.pts() * 1_000_000 / self.output_sample_rate as i64;
+        let dts = packet.dts() * 1_000_000 / self.output_sample_rate as i64;
 
-        let packet = packet.with_pts(ts).with_dts(ts);
+        let packet = packet.with_pts(pts).with_dts(dts);
 
         self.ready.push_back(packet);
     }
