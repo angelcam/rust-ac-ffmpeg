@@ -73,6 +73,24 @@ int ffw_codec_parameters_is_video_codec(const AVCodecParameters* params) {
     return params->codec_type == AVMEDIA_TYPE_VIDEO;
 }
 
+const char* ffw_codec_parameters_get_decoder_name(const AVCodecParameters* params) {
+    AVCodec* codec = avcodec_find_decoder(params->codec_id);
+    if (!codec) {
+        return NULL;
+    }
+
+    return codec->name;
+}
+
+const char* ffw_codec_parameters_get_encoder_name(const AVCodecParameters* params) {
+    AVCodec* codec = avcodec_find_encoder(params->codec_id);
+    if (!codec) {
+        return NULL;
+    }
+
+    return codec->name;
+}
+
 int64_t ffw_codec_parameters_get_bit_rate(const AVCodecParameters* params) {
     return params->bit_rate;
 }

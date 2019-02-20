@@ -5,7 +5,7 @@ use std::fmt;
 use std::ptr;
 use std::slice;
 
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::fmt::{Display, Formatter};
 
 use libc::{c_char, c_int, c_void, int64_t, uint64_t, uint8_t};
@@ -22,6 +22,8 @@ extern "C" {
     fn ffw_codec_parameters_clone(params: *const c_void) -> *mut c_void;
     fn ffw_codec_parameters_is_audio_codec(params: *const c_void) -> c_int;
     fn ffw_codec_parameters_is_video_codec(params: *const c_void) -> c_int;
+    fn ffw_codec_parameters_get_decoder_name(params: *const c_void) -> *const c_char;
+    fn ffw_codec_parameters_get_encoder_name(params: *const c_void) -> *const c_char;
     fn ffw_codec_parameters_get_bit_rate(params: *const c_void) -> int64_t;
     fn ffw_codec_parameters_get_format(params: *const c_void) -> c_int;
     fn ffw_codec_parameters_get_width(params: *const c_void) -> c_int;
@@ -151,6 +153,38 @@ impl CodecParameters {
     /// Check if these codec parameters are for a video codec.
     pub fn is_video_codec(&self) -> bool {
         unsafe { ffw_codec_parameters_is_video_codec(self.ptr) != 0 }
+    }
+
+    /// Get name of the decoder that is able to decode this codec or None
+    /// if the decoder is not available.
+    pub fn decoder_name(&self) -> Option<&'static str> {
+        unsafe {
+            let ptr = ffw_codec_parameters_get_decoder_name(self.ptr);
+
+            if ptr.is_null() {
+                None
+            } else {
+                let name = CStr::from_ptr(ptr as _);
+
+                Some(name.to_str().unwrap())
+            }
+        }
+    }
+
+    /// Get name of the encoder that is able to produce encoding of this codec
+    /// or None if the encoder is not available.
+    pub fn encoder_name(&self) -> Option<&'static str> {
+        unsafe {
+            let ptr = ffw_codec_parameters_get_encoder_name(self.ptr);
+
+            if ptr.is_null() {
+                None
+            } else {
+                let name = CStr::from_ptr(ptr as _);
+
+                Some(name.to_str().unwrap())
+            }
+        }
     }
 
     /// Convert this object into audio codec parameters (if possible).

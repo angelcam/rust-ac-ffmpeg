@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.10.2 (2019-02-20)
+
+* Add methods for getting decoder/encoder name from codec parameters
+
 ## v0.10.1 (2019-01-31)
 
 * Add a method for creating black video frames
