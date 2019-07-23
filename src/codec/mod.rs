@@ -8,7 +8,7 @@ use std::slice;
 use std::ffi::{CStr, CString};
 use std::fmt::{Display, Formatter};
 
-use libc::{c_char, c_int, c_void, int64_t, uint64_t, uint8_t};
+use libc::{c_char, c_int, c_void};
 
 use crate::Error;
 
@@ -24,23 +24,23 @@ extern "C" {
     fn ffw_codec_parameters_is_video_codec(params: *const c_void) -> c_int;
     fn ffw_codec_parameters_get_decoder_name(params: *const c_void) -> *const c_char;
     fn ffw_codec_parameters_get_encoder_name(params: *const c_void) -> *const c_char;
-    fn ffw_codec_parameters_get_bit_rate(params: *const c_void) -> int64_t;
+    fn ffw_codec_parameters_get_bit_rate(params: *const c_void) -> i64;
     fn ffw_codec_parameters_get_format(params: *const c_void) -> c_int;
     fn ffw_codec_parameters_get_width(params: *const c_void) -> c_int;
     fn ffw_codec_parameters_get_height(params: *const c_void) -> c_int;
     fn ffw_codec_parameters_get_sample_rate(params: *const c_void) -> c_int;
-    fn ffw_codec_parameters_get_channel_layout(params: *const c_void) -> uint64_t;
+    fn ffw_codec_parameters_get_channel_layout(params: *const c_void) -> u64;
     fn ffw_codec_parameters_get_extradata(params: *mut c_void) -> *mut c_void;
     fn ffw_codec_parameters_get_extradata_size(params: *const c_void) -> c_int;
-    fn ffw_codec_parameters_set_bit_rate(params: *mut c_void, bit_rate: int64_t);
+    fn ffw_codec_parameters_set_bit_rate(params: *mut c_void, bit_rate: i64);
     fn ffw_codec_parameters_set_format(params: *mut c_void, format: c_int);
     fn ffw_codec_parameters_set_width(params: *mut c_void, width: c_int);
     fn ffw_codec_parameters_set_height(params: *mut c_void, height: c_int);
     fn ffw_codec_parameters_set_sample_rate(params: *mut c_void, rate: c_int);
-    fn ffw_codec_parameters_set_channel_layout(params: *mut c_void, layout: uint64_t);
+    fn ffw_codec_parameters_set_channel_layout(params: *mut c_void, layout: u64);
     fn ffw_codec_parameters_set_extradata(
         params: *mut c_void,
-        extradata: *const uint8_t,
+        extradata: *const u8,
         size: c_int,
     ) -> c_int;
     fn ffw_codec_parameters_free(params: *mut c_void);
@@ -49,7 +49,7 @@ extern "C" {
     fn ffw_decoder_from_codec_parameters(params: *const c_void) -> *mut c_void;
     fn ffw_decoder_set_extradata(
         decoder: *mut c_void,
-        extradata: *const uint8_t,
+        extradata: *const u8,
         size: c_int,
     ) -> c_int;
     fn ffw_decoder_open(decoder: *mut c_void) -> c_int;
@@ -66,16 +66,16 @@ extern "C" {
     fn ffw_encoder_get_height(encoder: *const c_void) -> c_int;
     fn ffw_encoder_get_sample_format(encoder: *const c_void) -> c_int;
     fn ffw_encoder_get_sample_rate(encoder: *const c_void) -> c_int;
-    fn ffw_encoder_get_channel_layout(encoder: *const c_void) -> uint64_t;
+    fn ffw_encoder_get_channel_layout(encoder: *const c_void) -> u64;
     fn ffw_encoder_get_frame_size(encoder: *const c_void) -> c_int;
     fn ffw_encoder_set_time_base(encoder: *mut c_void, num: c_int, den: c_int);
-    fn ffw_encoder_set_bit_rate(encoder: *mut c_void, bit_rate: int64_t);
+    fn ffw_encoder_set_bit_rate(encoder: *mut c_void, bit_rate: i64);
     fn ffw_encoder_set_pixel_format(encoder: *mut c_void, format: c_int);
     fn ffw_encoder_set_width(encoder: *mut c_void, width: c_int);
     fn ffw_encoder_set_height(encoder: *mut c_void, height: c_int);
     fn ffw_encoder_set_sample_format(encoder: *mut c_void, format: c_int);
     fn ffw_encoder_set_sample_rate(encoder: *mut c_void, sample_rate: c_int);
-    fn ffw_encoder_set_channel_layout(encoder: *mut c_void, channel_layout: uint64_t);
+    fn ffw_encoder_set_channel_layout(encoder: *mut c_void, channel_layout: u64);
     fn ffw_encoder_open(encoder: *mut c_void) -> c_int;
     fn ffw_encoder_push_frame(encoder: *mut c_void, frame: *const c_void) -> c_int;
     fn ffw_encoder_take_packet(encoder: *mut c_void, packet: *mut *mut c_void) -> c_int;

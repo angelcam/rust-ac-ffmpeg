@@ -9,7 +9,7 @@ uint64_t ffw_get_channel_layout_by_name(const char* name) {
     return av_get_channel_layout(name);
 }
 
-uint64_t ffw_get_default_channel_layour(int channels) {
+uint64_t ffw_get_default_channel_layout(int channels) {
     return av_get_default_channel_layout(channels);
 }
 

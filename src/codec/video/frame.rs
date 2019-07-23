@@ -2,7 +2,7 @@ use std::ptr;
 
 use std::ffi::{CStr, CString};
 
-use libc::{c_char, c_int, c_void, int64_t};
+use libc::{c_char, c_int, c_void};
 
 extern "C" {
     fn ffw_get_pixel_format_by_name(name: *const c_char) -> c_int;
@@ -13,8 +13,8 @@ extern "C" {
     fn ffw_frame_get_format(frame: *const c_void) -> c_int;
     fn ffw_frame_get_width(frame: *const c_void) -> c_int;
     fn ffw_frame_get_height(frame: *const c_void) -> c_int;
-    fn ffw_frame_get_pts(frame: *const c_void) -> int64_t;
-    fn ffw_frame_set_pts(frame: *mut c_void, pts: int64_t);
+    fn ffw_frame_get_pts(frame: *const c_void) -> i64;
+    fn ffw_frame_set_pts(frame: *mut c_void, pts: i64);
     fn ffw_frame_clone(frame: *const c_void) -> *mut c_void;
     fn ffw_frame_free(frame: *mut c_void);
 }
@@ -91,12 +91,12 @@ impl VideoFrameMut {
 
     /// Get presentation timestamp.
     pub fn pts(&self) -> i64 {
-        unsafe { ffw_frame_get_pts(self.ptr) as _ }
+        unsafe { ffw_frame_get_pts(self.ptr) }
     }
 
     /// Set presentation timestamp.
     pub fn with_pts(self, pts: i64) -> VideoFrameMut {
-        unsafe { ffw_frame_set_pts(self.ptr, pts as _) }
+        unsafe { ffw_frame_set_pts(self.ptr, pts) }
 
         self
     }
@@ -158,12 +158,12 @@ impl VideoFrame {
 
     /// Get presentation timestamp.
     pub fn pts(&self) -> i64 {
-        unsafe { ffw_frame_get_pts(self.ptr) as _ }
+        unsafe { ffw_frame_get_pts(self.ptr) }
     }
 
     /// Set presentation timestamp.
     pub fn with_pts(self, pts: i64) -> VideoFrame {
-        unsafe { ffw_frame_set_pts(self.ptr, pts as _) }
+        unsafe { ffw_frame_set_pts(self.ptr, pts) }
 
         self
     }

@@ -5,13 +5,13 @@ use std::io::{Read, Write};
 
 use bytes::{Bytes, BytesMut};
 
-use libc::{c_int, c_void, int64_t, uint8_t};
+use libc::{c_int, c_void};
 
 type ReadPacket =
-    extern "C" fn(opaque: *mut c_void, buffer: *mut uint8_t, buffer_size: c_int) -> c_int;
+    extern "C" fn(opaque: *mut c_void, buffer: *mut u8, buffer_size: c_int) -> c_int;
 type WritePacket =
-    extern "C" fn(opaque: *mut c_void, buffer: *mut uint8_t, buffer_size: c_int) -> c_int;
-type Seek = extern "C" fn(opaque: *mut c_void, offset: int64_t, whence: c_int) -> int64_t;
+    extern "C" fn(opaque: *mut c_void, buffer: *mut u8, buffer_size: c_int) -> c_int;
+type Seek = extern "C" fn(opaque: *mut c_void, offset: i64, whence: c_int) -> i64;
 
 extern "C" {
     fn ffw_io_context_new(
@@ -69,7 +69,7 @@ unsafe impl Sync for IOContext {}
 /// A ReadPacket function for the IOReader.
 extern "C" fn io_reader_read_packet<T>(
     opaque: *mut c_void,
-    buffer: *mut uint8_t,
+    buffer: *mut u8,
     buffer_size: c_int,
 ) -> c_int
 where
@@ -79,7 +79,7 @@ where
 
     let input = unsafe { &mut *input_ptr };
 
-    let buffer = unsafe { slice::from_raw_parts_mut(buffer as *mut u8, buffer_size as usize) };
+    let buffer = unsafe { slice::from_raw_parts_mut(buffer, buffer_size as usize) };
 
     match input.read(buffer) {
         Ok(n) => {
@@ -322,7 +322,7 @@ impl Reader for AsyncMemReader {}
 /// A WritePacket function for the IOWriter.
 extern "C" fn io_writer_write_packet<T>(
     opaque: *mut c_void,
-    buffer: *mut uint8_t,
+    buffer: *mut u8,
     buffer_size: c_int,
 ) -> c_int
 where
@@ -333,7 +333,7 @@ where
     let output = unsafe { &mut *output_ptr };
 
     if !buffer.is_null() && buffer_size > 0 {
-        let buffer = unsafe { slice::from_raw_parts(buffer as *mut u8, buffer_size as usize) };
+        let buffer = unsafe { slice::from_raw_parts(buffer, buffer_size as usize) };
 
         match output.write(buffer) {
             Ok(n) => {
