@@ -7,10 +7,8 @@ use bytes::{Bytes, BytesMut};
 
 use libc::{c_int, c_void};
 
-type ReadPacket =
-    extern "C" fn(opaque: *mut c_void, buffer: *mut u8, buffer_size: c_int) -> c_int;
-type WritePacket =
-    extern "C" fn(opaque: *mut c_void, buffer: *mut u8, buffer_size: c_int) -> c_int;
+type ReadPacket = extern "C" fn(opaque: *mut c_void, buffer: *mut u8, buffer_size: c_int) -> c_int;
+type WritePacket = extern "C" fn(opaque: *mut c_void, buffer: *mut u8, buffer_size: c_int) -> c_int;
 type Seek = extern "C" fn(opaque: *mut c_void, offset: i64, whence: c_int) -> i64;
 
 extern "C" {
