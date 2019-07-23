@@ -29,23 +29,11 @@ extern "C" {
     fn ffw_io_error_posix(error: c_int) -> c_int;
 }
 
-/// Common trait for readable IO contexts.
-pub trait Reader {
-    /// Get a pointer to the underlying AVIOContext.
-    fn as_ptr(&self) -> *const c_void;
+/// Marker trait for readable IOs.
+pub trait Reader {}
 
-    /// Get a mut pointer to the underlying AVIOContext.
-    fn as_mut_ptr(&mut self) -> *mut c_void;
-}
-
-/// Common trait for writable IO contexts.
-pub trait Writer {
-    /// Get a pointer to the underlying AVIOContext.
-    fn as_ptr(&self) -> *const c_void;
-
-    /// Get a mut pointer to the underlying AVIOContext.
-    fn as_mut_ptr(&mut self) -> *mut c_void;
-}
+/// Marker trait for writable IOs.
+pub trait Writer {}
 
 /// IO context.
 pub struct IOContext {
@@ -55,7 +43,7 @@ pub struct IOContext {
 impl IOContext {
     /// Create a new IO context from its raw representation.
     pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> Self {
-        IOContext { ptr: ptr }
+        IOContext { ptr }
     }
 
     /// Get a pointer to the underlying AVIOContext.
@@ -168,15 +156,19 @@ where
     }
 }
 
-impl<T> Reader for IOReader<T> {
-    fn as_ptr(&self) -> *const c_void {
-        self.io_context.as_ptr()
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut c_void {
-        self.io_context.as_mut_ptr()
+impl<T> AsRef<IOContext> for IOReader<T> {
+    fn as_ref(&self) -> &IOContext {
+        &self.io_context
     }
 }
+
+impl<T> AsMut<IOContext> for IOReader<T> {
+    fn as_mut(&mut self) -> &mut IOContext {
+        &mut self.io_context
+    }
+}
+
+impl<T> Reader for IOReader<T> {}
 
 /// Helper struct.
 struct BytesReader {
@@ -269,15 +261,19 @@ impl From<Bytes> for MemReader {
     }
 }
 
-impl Reader for MemReader {
-    fn as_ptr(&self) -> *const c_void {
-        self.inner.as_ptr()
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut c_void {
-        self.inner.as_mut_ptr()
+impl AsRef<IOContext> for MemReader {
+    fn as_ref(&self) -> &IOContext {
+        self.inner.as_ref()
     }
 }
+
+impl AsMut<IOContext> for MemReader {
+    fn as_mut(&mut self) -> &mut IOContext {
+        self.inner.as_mut()
+    }
+}
+
+impl Reader for MemReader {}
 
 /// An AVIO reader that takes everything from memory. This reader allows asynchronous operation.
 /// You can push more data (if available). You also need to call the close method in order to tell
@@ -309,15 +305,19 @@ impl Default for AsyncMemReader {
     }
 }
 
-impl Reader for AsyncMemReader {
-    fn as_ptr(&self) -> *const c_void {
-        self.inner.as_ptr()
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut c_void {
-        self.inner.as_mut_ptr()
+impl AsRef<IOContext> for AsyncMemReader {
+    fn as_ref(&self) -> &IOContext {
+        self.inner.as_ref()
     }
 }
+
+impl AsMut<IOContext> for AsyncMemReader {
+    fn as_mut(&mut self) -> &mut IOContext {
+        self.inner.as_mut()
+    }
+}
+
+impl Reader for AsyncMemReader {}
 
 /// A WritePacket function for the IOWriter.
 extern "C" fn io_writer_write_packet<T>(
@@ -421,15 +421,19 @@ where
     }
 }
 
-impl<T> Writer for IOWriter<T> {
-    fn as_ptr(&self) -> *const c_void {
-        self.io_context.as_ptr()
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut c_void {
-        self.io_context.as_mut_ptr()
+impl<T> AsRef<IOContext> for IOWriter<T> {
+    fn as_ref(&self) -> &IOContext {
+        &self.io_context
     }
 }
+
+impl<T> AsMut<IOContext> for IOWriter<T> {
+    fn as_mut(&mut self) -> &mut IOContext {
+        &mut self.io_context
+    }
+}
+
+impl<T> Writer for IOWriter<T> {}
 
 /// Helper struct.
 struct BytesMutWriter {
@@ -483,12 +487,16 @@ impl Default for MemWriter {
     }
 }
 
-impl Writer for MemWriter {
-    fn as_ptr(&self) -> *const c_void {
-        self.inner.as_ptr()
-    }
-
-    fn as_mut_ptr(&mut self) -> *mut c_void {
-        self.inner.as_mut_ptr()
+impl AsRef<IOContext> for MemWriter {
+    fn as_ref(&self) -> &IOContext {
+        self.inner.as_ref()
     }
 }
+
+impl AsMut<IOContext> for MemWriter {
+    fn as_mut(&mut self) -> &mut IOContext {
+        self.inner.as_mut()
+    }
+}
+
+impl Writer for MemWriter {}
