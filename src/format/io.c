@@ -44,19 +44,3 @@ void ffw_io_context_free(AVIOContext* context) {
 
     av_freep(&context);
 }
-
-int ffw_io_error_eof() {
-    return AVERROR_EOF;
-}
-
-int ffw_io_error_would_block() {
-    return AVERROR(EWOULDBLOCK);
-}
-
-int ffw_io_error_unknown() {
-    return AVERROR_UNKNOWN;
-}
-
-int ffw_io_error_posix(int error) {
-    return AVERROR(error);
-}

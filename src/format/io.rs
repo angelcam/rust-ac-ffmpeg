@@ -21,10 +21,6 @@ extern "C" {
         seek: Option<Seek>,
     ) -> *mut c_void;
     fn ffw_io_context_free(context: *mut c_void);
-    fn ffw_io_error_eof() -> c_int;
-    fn ffw_io_error_would_block() -> c_int;
-    fn ffw_io_error_unknown() -> c_int;
-    fn ffw_io_error_posix(error: c_int) -> c_int;
 }
 
 /// Marker trait for readable IOs.
@@ -84,16 +80,16 @@ where
             if n > 0 {
                 n as c_int
             } else {
-                unsafe { ffw_io_error_eof() }
+                unsafe { crate::ffw_error_eof() }
             }
         }
         Err(err) => {
             if let Some(code) = err.raw_os_error() {
-                unsafe { ffw_io_error_posix(code as _) }
+                unsafe { crate::ffw_error_from_posix(code as _) }
             } else if err.kind() == io::ErrorKind::WouldBlock {
-                unsafe { ffw_io_error_would_block() }
+                unsafe { crate::ffw_error_would_block() }
             } else {
-                unsafe { ffw_io_error_unknown() }
+                unsafe { crate::ffw_error_unknown() }
             }
         }
     }
@@ -338,26 +334,26 @@ where
                 if n > 0 {
                     n as c_int
                 } else {
-                    unsafe { ffw_io_error_eof() }
+                    unsafe { crate::ffw_error_eof() }
                 }
             }
             Err(err) => {
                 if let Some(code) = err.raw_os_error() {
-                    unsafe { ffw_io_error_posix(code as _) }
+                    unsafe { crate::ffw_error_from_posix(code as _) }
                 } else if err.kind() == io::ErrorKind::WouldBlock {
-                    unsafe { ffw_io_error_would_block() }
+                    unsafe { crate::ffw_error_would_block() }
                 } else {
-                    unsafe { ffw_io_error_unknown() }
+                    unsafe { crate::ffw_error_unknown() }
                 }
             }
         }
     } else if let Err(err) = output.flush() {
         if let Some(code) = err.raw_os_error() {
-            unsafe { ffw_io_error_posix(code) }
+            unsafe { crate::ffw_error_from_posix(code) }
         } else if err.kind() == io::ErrorKind::WouldBlock {
-            unsafe { ffw_io_error_would_block() }
+            unsafe { crate::ffw_error_would_block() }
         } else {
-            unsafe { ffw_io_error_unknown() }
+            unsafe { crate::ffw_error_unknown() }
         }
     } else {
         0

@@ -62,12 +62,12 @@ int ffw_muxer_new_stream(Muxer* muxer, const AVCodecParameters* params) {
 
     s = avformat_new_stream(muxer->fc, NULL);
     if (s == NULL) {
-        return -1;
+        return AVERROR(ENOMEM);
     }
 
     ret = avcodec_parameters_copy(s->codecpar, params);
     if (ret < 0) {
-        return -1;
+        return ret;
     }
 
     return s->index;
@@ -99,12 +99,7 @@ int ffw_muxer_set_initial_option(Muxer* muxer, const char* key, const char* valu
 }
 
 int ffw_muxer_set_option(Muxer* muxer, const char* key, const char* value) {
-    int ret = av_opt_set(muxer->fc, key, value, AV_OPT_SEARCH_CHILDREN);
-    if (ret == AVERROR_OPTION_NOT_FOUND) {
-        return 0;
-    }
-
-    return ret;
+    return av_opt_set(muxer->fc, key, value, AV_OPT_SEARCH_CHILDREN);
 }
 
 static int ffw_rescale_packet_timestamps(Muxer* muxer, AVPacket* packet) {
@@ -120,7 +115,7 @@ static int ffw_rescale_packet_timestamps(Muxer* muxer, AVPacket* packet) {
     stream_index = packet->stream_index;
 
     if (stream_index > muxer->fc->nb_streams) {
-        return -1;
+        return AVERROR(EINVAL);
     }
 
     stream = muxer->fc->streams[stream_index];
