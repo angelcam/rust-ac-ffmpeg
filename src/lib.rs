@@ -3,6 +3,7 @@ pub mod format;
 pub mod packet;
 
 use std::fmt;
+use std::io;
 
 use std::ffi::CStr;
 use std::fmt::{Display, Formatter};
@@ -10,7 +11,7 @@ use std::sync::RwLock;
 
 use lazy_static::lazy_static;
 
-use libc::{c_char, c_int};
+use libc::{c_char, c_int, size_t};
 
 lazy_static! {
     /// Log callback.
@@ -21,6 +22,13 @@ lazy_static! {
 
 extern "C" {
     fn ffw_set_log_callback(callback: extern "C" fn(c_int, *const c_char));
+
+    fn ffw_error_eof() -> c_int;
+    fn ffw_error_would_block() -> c_int;
+    fn ffw_error_unknown() -> c_int;
+    fn ffw_error_from_posix(error: c_int) -> c_int;
+    fn ffw_error_to_posix(error: c_int) -> c_int;
+    fn ffw_error_get_error_string(error: c_int, buffer: *mut c_char, buffer_size: size_t);
 }
 
 /// A C function passed to the native library as a log callback. The function
@@ -81,6 +89,7 @@ where
 #[derive(Debug, Clone)]
 pub struct Error {
     msg: String,
+    code: Option<c_int>,
 }
 
 impl Error {
@@ -91,6 +100,39 @@ impl Error {
     {
         Error {
             msg: msg.to_string(),
+            code: None,
+        }
+    }
+
+    /// Convert this error into a standard IO error (if possible).
+    pub fn to_io_error(&self) -> Option<io::Error> {
+        self.code.map(|code| {
+            let posix = unsafe { ffw_error_to_posix(code) };
+
+            io::Error::from_raw_os_error(posix as _)
+        })
+    }
+
+    /// Create a new FFmpeg error from a given FFmpeg error code.
+    fn from_raw_error_code(code: c_int) -> Error {
+        let mut buffer = [0u8; 256];
+
+        let buffer_ptr = buffer.as_mut_ptr();
+        let buffer_len = buffer.len();
+
+        unsafe {
+            ffw_error_get_error_string(code, buffer_ptr as _, buffer_len as _);
+        }
+
+        let msg = CStr::from_bytes_with_nul(&buffer)
+            .expect("null terminated error string expected")
+            .to_str()
+            .expect("UTF-8 encoded error string expected")
+            .to_string();
+
+        Error {
+            msg,
+            code: Some(code),
         }
     }
 }

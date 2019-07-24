@@ -48,17 +48,17 @@ impl MuxerBuilder {
         }
 
         MuxerBuilder {
-            ptr: ptr,
+            ptr,
             interleaved: false,
         }
     }
 
     /// Add a new stream with given parameters.
     pub fn add_stream(&mut self, params: &CodecParameters) -> Result<(), Error> {
-        let res = unsafe { ffw_muxer_new_stream(self.ptr, params.as_ptr()) };
+        let ret = unsafe { ffw_muxer_new_stream(self.ptr, params.as_ptr()) };
 
-        if res < 0 {
-            return Err(Error::new("unable to create a new stream"));
+        if ret < 0 {
+            return Err(Error::from_raw_error_code(ret));
         }
 
         Ok(())
@@ -77,7 +77,7 @@ impl MuxerBuilder {
         };
 
         if ret < 0 {
-            panic!("invalid option");
+            panic!("unable to allocate an option");
         }
 
         self
@@ -102,10 +102,10 @@ impl MuxerBuilder {
         let io_context_ptr = io_context.as_mut().as_mut_ptr();
         let format_ptr = format.ptr;
 
-        let res = unsafe { ffw_muxer_init(self.ptr, io_context_ptr, format_ptr) };
+        let ret = unsafe { ffw_muxer_init(self.ptr, io_context_ptr, format_ptr) };
 
-        if res < 0 {
-            return Err(Error::new("unable to initialize the muxer"));
+        if ret < 0 {
+            return Err(Error::from_raw_error_code(ret));
         }
 
         let muxer_ptr = self.ptr;
@@ -114,7 +114,7 @@ impl MuxerBuilder {
 
         let res = Muxer {
             ptr: muxer_ptr,
-            io_context: io_context,
+            io_context,
             interleaved: self.interleaved,
         };
 
@@ -147,7 +147,7 @@ impl Muxer<()> {
 
 impl<T> Muxer<T> {
     /// Set an option.
-    pub fn set_option<V>(&mut self, name: &str, value: V)
+    pub fn set_option<V>(&mut self, name: &str, value: V) -> Result<(), Error>
     where
         V: ToString,
     {
@@ -158,7 +158,9 @@ impl<T> Muxer<T> {
             unsafe { ffw_muxer_set_option(self.ptr, name.as_ptr() as _, value.as_ptr() as _) };
 
         if ret < 0 {
-            panic!("invalid option");
+            Err(Error::from_raw_error_code(ret))
+        } else {
+            Ok(())
         }
     }
 
@@ -170,7 +172,7 @@ impl<T> Muxer<T> {
 
         assert!(packet.stream_index() < nb_streams);
 
-        let res = unsafe {
+        let ret = unsafe {
             if self.interleaved {
                 ffw_muxer_interleaved_write_frame(self.ptr, packet.as_mut_ptr())
             } else {
@@ -178,8 +180,8 @@ impl<T> Muxer<T> {
             }
         };
 
-        if res < 0 {
-            Err(Error::new("unable to write a given packet"))
+        if ret < 0 {
+            Err(Error::from_raw_error_code(ret))
         } else {
             Ok(())
         }
@@ -187,7 +189,7 @@ impl<T> Muxer<T> {
 
     /// Flush the muxer.
     pub fn flush(&mut self) -> Result<(), Error> {
-        let res = unsafe {
+        let ret = unsafe {
             if self.interleaved {
                 ffw_muxer_interleaved_write_frame(self.ptr, ptr::null_mut())
             } else {
@@ -195,8 +197,8 @@ impl<T> Muxer<T> {
             }
         };
 
-        if res < 0 {
-            Err(Error::new("unable to flush the muxer"))
+        if ret < 0 {
+            Err(Error::from_raw_error_code(ret))
         } else {
             Ok(())
         }
