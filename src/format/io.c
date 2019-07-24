@@ -4,6 +4,10 @@ typedef int read_packet_t(void*, uint8_t*, int);
 typedef int write_packet_t(void*, uint8_t*, int);
 typedef int64_t seek_t(void*, int64_t, int);
 
+int ffw_io_is_avseek_size(int whence) {
+    return whence & AVSEEK_SIZE;
+}
+
 AVIOContext * ffw_io_context_new(
     int buffer_size,
     int write_flag,
@@ -42,5 +46,5 @@ void ffw_io_context_free(AVIOContext* context) {
         av_freep(&context->buffer);
     }
 
-    av_freep(&context);
+    avio_context_free(&context);
 }

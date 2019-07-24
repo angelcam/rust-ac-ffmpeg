@@ -1,13 +1,14 @@
 use std::ptr;
 
 use std::ffi::CString;
+use std::io::Write;
 
 use libc::{c_char, c_int, c_uint, c_void};
 
 use crate::Error;
 
 use crate::codec::CodecParameters;
-use crate::format::io::{IOContext, Writer};
+use crate::format::io::IO;
 use crate::packet::Packet;
 
 extern "C" {
@@ -95,11 +96,11 @@ impl MuxerBuilder {
     /// # Arguments
     /// * `io_context` - an AVIO writer
     /// * `format` - an output format
-    pub fn build<T>(mut self, mut io_context: T, format: OutputFormat) -> Result<Muxer<T>, Error>
+    pub fn build<T>(mut self, mut io: IO<T>, format: OutputFormat) -> Result<Muxer<T>, Error>
     where
-        T: Writer + AsMut<IOContext>,
+        T: Write,
     {
-        let io_context_ptr = io_context.as_mut().as_mut_ptr();
+        let io_context_ptr = io.io_context_mut().as_mut_ptr();
         let format_ptr = format.ptr;
 
         let ret = unsafe { ffw_muxer_init(self.ptr, io_context_ptr, format_ptr) };
@@ -114,7 +115,7 @@ impl MuxerBuilder {
 
         let res = Muxer {
             ptr: muxer_ptr,
-            io_context,
+            io,
             interleaved: self.interleaved,
         };
 
@@ -134,7 +135,7 @@ unsafe impl Sync for MuxerBuilder {}
 /// Muxer.
 pub struct Muxer<T> {
     ptr: *mut c_void,
-    io_context: T,
+    io: IO<T>,
     interleaved: bool,
 }
 
@@ -205,13 +206,13 @@ impl<T> Muxer<T> {
     }
 
     /// Get reference to the underlying IO.
-    pub fn io(&self) -> &T {
-        &self.io_context
+    pub fn io(&self) -> &IO<T> {
+        &self.io
     }
 
     /// Get mutable reference to the underlying IO.
-    pub fn io_mut(&mut self) -> &mut T {
-        &mut self.io_context
+    pub fn io_mut(&mut self) -> &mut IO<T> {
+        &mut self.io
     }
 }
 
