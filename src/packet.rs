@@ -1,7 +1,7 @@
 use std::ptr;
 use std::slice;
 
-use libc::{c_int, c_void, int64_t};
+use libc::{c_int, c_void};
 
 extern "C" {
     fn ffw_packet_alloc() -> *mut c_void;
@@ -10,10 +10,10 @@ extern "C" {
     fn ffw_packet_free(packet: *mut c_void);
     fn ffw_packet_get_size(packet: *const c_void) -> c_int;
     fn ffw_packet_get_data(packet: *mut c_void) -> *mut c_void;
-    fn ffw_packet_get_pts(packet: *const c_void) -> int64_t;
-    fn ffw_packet_set_pts(packet: *mut c_void, pts: int64_t);
-    fn ffw_packet_get_dts(packet: *const c_void) -> int64_t;
-    fn ffw_packet_set_dts(packet: *mut c_void, pts: int64_t);
+    fn ffw_packet_get_pts(packet: *const c_void) -> i64;
+    fn ffw_packet_set_pts(packet: *mut c_void, pts: i64);
+    fn ffw_packet_get_dts(packet: *const c_void) -> i64;
+    fn ffw_packet_set_dts(packet: *mut c_void, pts: i64);
     fn ffw_packet_is_key(packet: *const c_void) -> c_int;
     fn ffw_packet_set_key(packet: *mut c_void, key: c_int);
     fn ffw_packet_get_stream_index(packet: *const c_void) -> c_int;
@@ -60,24 +60,24 @@ impl PacketMut {
 
     /// Get packet presentation timestamp.
     pub fn pts(&self) -> i64 {
-        unsafe { ffw_packet_get_pts(self.ptr) as _ }
+        unsafe { ffw_packet_get_pts(self.ptr) }
     }
 
     /// Set packet presentation timestamp.
     pub fn with_pts(self, pts: i64) -> PacketMut {
-        unsafe { ffw_packet_set_pts(self.ptr, pts as _) }
+        unsafe { ffw_packet_set_pts(self.ptr, pts) }
 
         self
     }
 
     /// Get packet decoding timestamp.
     pub fn dts(&self) -> i64 {
-        unsafe { ffw_packet_get_dts(self.ptr) as _ }
+        unsafe { ffw_packet_get_dts(self.ptr) }
     }
 
     /// Set packet decoding timestamp.
     pub fn with_dts(self, dts: i64) -> PacketMut {
-        unsafe { ffw_packet_set_dts(self.ptr, dts as _) }
+        unsafe { ffw_packet_set_dts(self.ptr, dts) }
 
         self
     }
@@ -191,24 +191,24 @@ impl Packet {
 
     /// Get packet presentation timestamp.
     pub fn pts(&self) -> i64 {
-        unsafe { ffw_packet_get_pts(self.ptr) as _ }
+        unsafe { ffw_packet_get_pts(self.ptr) }
     }
 
     /// Set packet presentation timestamp.
     pub fn with_pts(self, pts: i64) -> Packet {
-        unsafe { ffw_packet_set_pts(self.ptr, pts as _) }
+        unsafe { ffw_packet_set_pts(self.ptr, pts) }
 
         self
     }
 
     /// Get packet decoding timestamp.
     pub fn dts(&self) -> i64 {
-        unsafe { ffw_packet_get_dts(self.ptr) as _ }
+        unsafe { ffw_packet_get_dts(self.ptr) }
     }
 
     /// Set packet decoding timestamp.
     pub fn with_dts(self, dts: i64) -> Packet {
-        unsafe { ffw_packet_set_dts(self.ptr, dts as _) }
+        unsafe { ffw_packet_set_dts(self.ptr, dts) }
 
         self
     }

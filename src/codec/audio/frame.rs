@@ -2,19 +2,19 @@ use std::ptr;
 
 use std::ffi::{CStr, CString};
 
-use libc::{c_char, c_int, c_void, int64_t, uint64_t};
+use libc::{c_char, c_int, c_void};
 
 extern "C" {
-    fn ffw_get_channel_layout_by_name(name: *const c_char) -> uint64_t;
-    fn ffw_get_channel_layout_channels(layout: uint64_t) -> c_int;
-    fn ffw_get_default_channel_layour(channels: c_int) -> uint64_t;
+    fn ffw_get_channel_layout_by_name(name: *const c_char) -> u64;
+    fn ffw_get_channel_layout_channels(layout: u64) -> c_int;
+    fn ffw_get_default_channel_layout(channels: c_int) -> u64;
 
     fn ffw_get_sample_format_by_name(name: *const c_char) -> c_int;
     fn ffw_get_sample_format_name(format: c_int) -> *const c_char;
     fn ffw_sample_format_is_none(format: c_int) -> c_int;
 
     fn ffw_frame_new_silence(
-        channel_layout: uint64_t,
+        channel_layout: u64,
         sample_fmt: c_int,
         sample_rate: c_int,
         nb_samples: c_int,
@@ -23,15 +23,15 @@ extern "C" {
     fn ffw_frame_get_nb_samples(frame: *const c_void) -> c_int;
     fn ffw_frame_get_sample_rate(frame: *const c_void) -> c_int;
     fn ffw_frame_get_channels(frame: *const c_void) -> c_int;
-    fn ffw_frame_get_channel_layout(frame: *const c_void) -> uint64_t;
-    fn ffw_frame_get_pts(frame: *const c_void) -> int64_t;
-    fn ffw_frame_set_pts(frame: *mut c_void, pts: int64_t);
+    fn ffw_frame_get_channel_layout(frame: *const c_void) -> u64;
+    fn ffw_frame_get_pts(frame: *const c_void) -> i64;
+    fn ffw_frame_set_pts(frame: *mut c_void, pts: i64);
     fn ffw_frame_clone(frame: *const c_void) -> *mut c_void;
     fn ffw_frame_free(frame: *mut c_void);
 }
 
 /// Channel layout;
-pub type ChannelLayout = uint64_t;
+pub type ChannelLayout = u64;
 
 /// Get channel layout with a given name.
 pub fn get_channel_layout(name: &str) -> ChannelLayout {
@@ -48,7 +48,7 @@ pub fn get_channel_layout(name: &str) -> ChannelLayout {
 
 /// Get default channel layout for a given number of channels.
 pub fn get_default_channel_layout(channels: u32) -> Option<ChannelLayout> {
-    let layout = unsafe { ffw_get_default_channel_layour(channels as _) };
+    let layout = unsafe { ffw_get_default_channel_layout(channels as _) };
 
     if layout == 0 {
         None
@@ -156,12 +156,12 @@ impl AudioFrameMut {
 
     /// Get presentation timestamp.
     pub fn pts(&self) -> i64 {
-        unsafe { ffw_frame_get_pts(self.ptr) as _ }
+        unsafe { ffw_frame_get_pts(self.ptr) }
     }
 
     /// Set presentation timestamp.
     pub fn with_pts(self, pts: i64) -> AudioFrameMut {
-        unsafe { ffw_frame_set_pts(self.ptr, pts as _) }
+        unsafe { ffw_frame_set_pts(self.ptr, pts) }
 
         self
     }
@@ -233,12 +233,12 @@ impl AudioFrame {
 
     /// Get presentation timestamp.
     pub fn pts(&self) -> i64 {
-        unsafe { ffw_frame_get_pts(self.ptr) as _ }
+        unsafe { ffw_frame_get_pts(self.ptr) }
     }
 
     /// Set presentation timestamp.
     pub fn with_pts(self, pts: i64) -> AudioFrame {
-        unsafe { ffw_frame_set_pts(self.ptr, pts as _) }
+        unsafe { ffw_frame_set_pts(self.ptr, pts) }
 
         self
     }

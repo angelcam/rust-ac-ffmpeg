@@ -1,6 +1,6 @@
 use std::ptr;
 
-use libc::{c_int, c_void, uint64_t};
+use libc::{c_int, c_void};
 
 use crate::Error;
 
@@ -9,11 +9,11 @@ use crate::codec::{CodecError, ErrorKind};
 
 extern "C" {
     fn ffw_audio_resampler_new(
-        target_channel_layout: uint64_t,
+        target_channel_layout: u64,
         target_sample_format: c_int,
         target_sample_rate: c_int,
         target_frame_samples: c_int,
-        source_channel_layout: uint64_t,
+        source_channel_layout: u64,
         source_sample_format: c_int,
         source_sample_rate: c_int,
     ) -> *mut c_void;

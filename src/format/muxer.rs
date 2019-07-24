@@ -7,7 +7,7 @@ use libc::{c_char, c_int, c_uint, c_void};
 use crate::Error;
 
 use crate::codec::CodecParameters;
-use crate::format::io::Writer;
+use crate::format::io::{IOContext, Writer};
 use crate::packet::Packet;
 
 extern "C" {
@@ -97,9 +97,9 @@ impl MuxerBuilder {
     /// * `format` - an output format
     pub fn build<T>(mut self, mut io_context: T, format: OutputFormat) -> Result<Muxer<T>, Error>
     where
-        T: Writer,
+        T: Writer + AsMut<IOContext>,
     {
-        let io_context_ptr = io_context.as_mut_ptr();
+        let io_context_ptr = io_context.as_mut().as_mut_ptr();
         let format_ptr = format.ptr;
 
         let res = unsafe { ffw_muxer_init(self.ptr, io_context_ptr, format_ptr) };
