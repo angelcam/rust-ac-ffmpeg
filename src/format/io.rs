@@ -288,6 +288,14 @@ impl MemWriter {
     }
 }
 
+impl Default for MemWriter {
+    fn default() -> Self {
+        Self {
+            data: BytesMut::new(),
+        }
+    }
+}
+
 impl Write for MemWriter {
     fn write(&mut self, buffer: &[u8]) -> Result<usize, io::Error> {
         self.data.extend_from_slice(buffer);
