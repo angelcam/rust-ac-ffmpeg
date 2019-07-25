@@ -3,6 +3,8 @@ use std::slice;
 
 use std::io::{Read, Seek, SeekFrom, Write};
 
+use bytes::BytesMut;
+
 use libc::{c_int, c_void};
 
 type ReadPacketCallback =
@@ -270,5 +272,30 @@ where
     /// Create a new IO from a given stream.
     pub fn from_seekable_write_stream(stream: T) -> Self {
         Self::new(stream, None, Some(io_write_packet::<T>), Some(io_seek::<T>))
+    }
+}
+
+/// Writer that puts everything in memory. It also allows taking the data on
+/// the fly.
+pub struct MemWriter {
+    data: BytesMut,
+}
+
+impl MemWriter {
+    /// Take data from the writer.
+    pub fn take_data(&mut self) -> BytesMut {
+        self.data.take()
+    }
+}
+
+impl Write for MemWriter {
+    fn write(&mut self, buffer: &[u8]) -> Result<usize, io::Error> {
+        self.data.extend_from_slice(buffer);
+
+        Ok(buffer.len())
+    }
+
+    fn flush(&mut self) -> Result<(), io::Error> {
+        Ok(())
     }
 }
