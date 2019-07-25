@@ -11,3 +11,7 @@ libc        = "0.2"
 
 [build-dependencies]
 cc = "1.0"
+
+[[example]]
+name = "transmuxer"
+crate-type = ["bin"]

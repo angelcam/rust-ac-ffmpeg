@@ -21,13 +21,10 @@ int ffw_demuxer_read_frame(Demuxer* demuxer, AVPacket** packet);
 void ffw_demuxer_free(Demuxer* demuxer);
 
 Demuxer* ffw_demuxer_new() {
-    Demuxer* demuxer = malloc(sizeof(Demuxer));
+    Demuxer* demuxer = calloc(1, sizeof(Demuxer));
     if (!demuxer) {
         return NULL;
     }
-
-    demuxer->fc = NULL;
-    demuxer->options = NULL;
 
     demuxer->fc = avformat_alloc_context();
     if (!demuxer->fc) {
