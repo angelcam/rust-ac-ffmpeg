@@ -250,6 +250,11 @@ impl<T> DemuxerWithCodecParameters<T> {
     pub fn codec_parameters(&self) -> &[CodecParameters] {
         &self.codec_parameters
     }
+
+    /// Deconstruct this object into a plain demuxer and codec parameters.
+    pub fn deconstruct(self) -> (Demuxer<T>, Vec<CodecParameters>) {
+        (self.inner, self.codec_parameters)
+    }
 }
 
 impl<T> AsRef<Demuxer<T>> for DemuxerWithCodecParameters<T> {
