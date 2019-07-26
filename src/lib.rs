@@ -120,15 +120,14 @@ impl Error {
         let buffer_ptr = buffer.as_mut_ptr();
         let buffer_len = buffer.len();
 
-        unsafe {
+        let msg = unsafe {
             ffw_error_get_error_string(code, buffer_ptr as _, buffer_len as _);
-        }
 
-        let msg = CStr::from_bytes_with_nul(&buffer)
-            .expect("null terminated error string expected")
-            .to_str()
-            .expect("UTF-8 encoded error string expected")
-            .to_string();
+            CStr::from_ptr(buffer.as_ptr() as _)
+                .to_str()
+                .expect("UTF-8 encoded error string expected")
+                .to_string()
+        };
 
         Error {
             msg,

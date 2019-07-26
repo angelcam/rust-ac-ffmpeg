@@ -14,6 +14,7 @@ fn main() {
         .file("src/error.c")
         .file("src/logger.c")
         .file("src/packet.c")
+        .file("src/format/demuxer.c")
         .file("src/format/io.c")
         .file("src/format/muxer.c")
         .file("src/codec/mod.c")

@@ -1,33 +1,31 @@
 use std::io;
 use std::slice;
 
-use std::io::{Read, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 
-use bytes::{Bytes, BytesMut};
+use bytes::BytesMut;
 
 use libc::{c_int, c_void};
 
-type ReadPacket = extern "C" fn(opaque: *mut c_void, buffer: *mut u8, buffer_size: c_int) -> c_int;
-type WritePacket = extern "C" fn(opaque: *mut c_void, buffer: *mut u8, buffer_size: c_int) -> c_int;
-type Seek = extern "C" fn(opaque: *mut c_void, offset: i64, whence: c_int) -> i64;
+type ReadPacketCallback =
+    extern "C" fn(opaque: *mut c_void, buffer: *mut u8, buffer_size: c_int) -> c_int;
+type WritePacketCallback =
+    extern "C" fn(opaque: *mut c_void, buffer: *mut u8, buffer_size: c_int) -> c_int;
+type SeekCallback = extern "C" fn(opaque: *mut c_void, offset: i64, whence: c_int) -> i64;
 
 extern "C" {
+    fn ffw_io_is_avseek_size(whence: c_int) -> c_int;
+
     fn ffw_io_context_new(
         buffer_size: c_int,
         write_flag: c_int,
         opaque: *mut c_void,
-        read_packet: Option<ReadPacket>,
-        write_packet: Option<WritePacket>,
-        seek: Option<Seek>,
+        read_packet: Option<ReadPacketCallback>,
+        write_packet: Option<WritePacketCallback>,
+        seek: Option<SeekCallback>,
     ) -> *mut c_void;
     fn ffw_io_context_free(context: *mut c_void);
 }
-
-/// Marker trait for readable IOs.
-pub trait Reader {}
-
-/// Marker trait for writable IOs.
-pub trait Writer {}
 
 /// IO context.
 pub struct IOContext {
@@ -60,12 +58,50 @@ impl Drop for IOContext {
 unsafe impl Send for IOContext {}
 unsafe impl Sync for IOContext {}
 
-/// A ReadPacket function for the IOReader.
-extern "C" fn io_reader_read_packet<T>(
-    opaque: *mut c_void,
-    buffer: *mut u8,
-    buffer_size: c_int,
-) -> c_int
+/// Helper function to get the length of a seekable stream. It will be replaced
+/// by `Seek::stream_len()` once it gets stabilized.
+fn get_seekable_length<T>(seekable: &mut T) -> Result<u64, std::io::Error>
+where
+    T: Seek,
+{
+    let current_position = seekable.seek(SeekFrom::Current(0))?;
+    let end_position = seekable.seek(SeekFrom::End(0))?;
+
+    seekable.seek(SeekFrom::Start(current_position))?;
+
+    Ok(end_position)
+}
+
+/// A SeekCallback function for the IO.
+extern "C" fn io_seek<T>(opaque: *mut c_void, offset: i64, whence: c_int) -> i64
+where
+    T: Seek,
+{
+    let input_ptr = opaque as *mut T;
+
+    let input = unsafe { &mut *input_ptr };
+
+    let is_avseek_size = unsafe { ffw_io_is_avseek_size(whence) != 0 };
+
+    let seek = if is_avseek_size {
+        get_seekable_length(input)
+    } else {
+        input.seek(SeekFrom::Start(offset as u64))
+    };
+
+    let res = match seek {
+        Ok(len) => len as i64,
+        Err(err) => err
+            .raw_os_error()
+            .map(|code| unsafe { crate::ffw_error_from_posix(code as _) })
+            .unwrap_or(unsafe { crate::ffw_error_unknown() }) as i64,
+    };
+
+    res
+}
+
+/// A ReadPacketCallback function for the IO.
+extern "C" fn io_read_packet<T>(opaque: *mut c_void, buffer: *mut u8, buffer_size: c_int) -> c_int
 where
     T: Read,
 {
@@ -95,230 +131,8 @@ where
     }
 }
 
-/// An AVIO reader that reads data from a given input.
-pub struct IOReader<T> {
-    io_context: IOContext,
-    input: Box<T>,
-}
-
-impl<T> IOReader<T>
-where
-    T: Read,
-{
-    /// Create a new AVIO reader from a given input.
-    pub fn new(input: T) -> Self {
-        Self::from(Box::new(input))
-    }
-
-    /// Get reference to the underlying input.
-    pub fn input(&self) -> &T {
-        self.input.as_ref()
-    }
-
-    /// Get mutable reference to the underlying input.
-    pub fn input_mut(&mut self) -> &mut T {
-        self.input.as_mut()
-    }
-}
-
-impl<T> From<Box<T>> for IOReader<T>
-where
-    T: Read,
-{
-    fn from(mut input: Box<T>) -> Self {
-        let input_ptr = input.as_mut() as *mut T;
-        let opaque_ptr = input_ptr as *mut c_void;
-
-        let io_context = unsafe {
-            ffw_io_context_new(
-                4096,
-                0,
-                opaque_ptr,
-                Some(io_reader_read_packet::<T>),
-                None,
-                None,
-            )
-        };
-
-        if io_context.is_null() {
-            panic!("unable to allocate an AVIO context");
-        }
-
-        let io_context = unsafe { IOContext::from_raw_ptr(io_context) };
-
-        Self { io_context, input }
-    }
-}
-
-impl<T> AsRef<IOContext> for IOReader<T> {
-    fn as_ref(&self) -> &IOContext {
-        &self.io_context
-    }
-}
-
-impl<T> AsMut<IOContext> for IOReader<T> {
-    fn as_mut(&mut self) -> &mut IOContext {
-        &mut self.io_context
-    }
-}
-
-impl<T> Reader for IOReader<T> {}
-
-/// Helper struct.
-struct BytesReader {
-    data: Bytes,
-    closed: bool,
-}
-
-impl BytesReader {
-    /// Push more data to the reader.
-    fn push_data<T>(&mut self, data: T)
-    where
-        T: AsRef<[u8]>,
-    {
-        if self.closed {
-            panic!("unable to push more data, the input has been already closed");
-        }
-
-        self.data.extend_from_slice(data.as_ref());
-    }
-
-    /// Close the reader.
-    fn close(&mut self) {
-        self.closed = true;
-    }
-}
-
-impl Default for BytesReader {
-    fn default() -> Self {
-        Self::from(Bytes::new())
-    }
-}
-
-impl From<Bytes> for BytesReader {
-    fn from(data: Bytes) -> Self {
-        Self {
-            data,
-            closed: false,
-        }
-    }
-}
-
-impl Read for BytesReader {
-    fn read(&mut self, buffer: &mut [u8]) -> Result<usize, io::Error> {
-        if self.data.is_empty() {
-            if self.closed {
-                return Ok(0);
-            } else {
-                return Err(io::Error::from(io::ErrorKind::WouldBlock));
-            }
-        }
-
-        let available = self.data.len();
-        let capacity = buffer.len();
-
-        let take = available.min(capacity);
-
-        let data = self.data.split_to(take);
-        let buffer = &mut buffer[..take];
-
-        buffer.copy_from_slice(data.as_ref());
-
-        Ok(take)
-    }
-}
-
-/// An AVIO reader that takes everything from memory.
-pub struct MemReader {
-    inner: IOReader<BytesReader>,
-}
-
-impl MemReader {
-    /// Create a new memory reader for given data.
-    pub fn new<T>(data: T) -> Self
-    where
-        T: AsRef<[u8]>,
-    {
-        Self::from(Bytes::from(data.as_ref()))
-    }
-}
-
-impl From<Bytes> for MemReader {
-    fn from(data: Bytes) -> Self {
-        let mut reader = BytesReader::from(data);
-
-        reader.close();
-
-        Self {
-            inner: IOReader::new(reader),
-        }
-    }
-}
-
-impl AsRef<IOContext> for MemReader {
-    fn as_ref(&self) -> &IOContext {
-        self.inner.as_ref()
-    }
-}
-
-impl AsMut<IOContext> for MemReader {
-    fn as_mut(&mut self) -> &mut IOContext {
-        self.inner.as_mut()
-    }
-}
-
-impl Reader for MemReader {}
-
-/// An AVIO reader that takes everything from memory. This reader allows asynchronous operation.
-/// You can push more data (if available). You also need to call the close method in order to tell
-/// the consumer that there will be no more data.
-pub struct AsyncMemReader {
-    inner: IOReader<BytesReader>,
-}
-
-impl AsyncMemReader {
-    /// Push more data to the input.
-    pub fn push_data<T>(&mut self, data: T)
-    where
-        T: AsRef<[u8]>,
-    {
-        self.inner.input_mut().push_data(data)
-    }
-
-    /// Close the input.
-    pub fn close(&mut self) {
-        self.inner.input_mut().close()
-    }
-}
-
-impl Default for AsyncMemReader {
-    fn default() -> Self {
-        Self {
-            inner: IOReader::new(BytesReader::default()),
-        }
-    }
-}
-
-impl AsRef<IOContext> for AsyncMemReader {
-    fn as_ref(&self) -> &IOContext {
-        self.inner.as_ref()
-    }
-}
-
-impl AsMut<IOContext> for AsyncMemReader {
-    fn as_mut(&mut self) -> &mut IOContext {
-        self.inner.as_mut()
-    }
-}
-
-impl Reader for AsyncMemReader {}
-
-/// A WritePacket function for the IOWriter.
-extern "C" fn io_writer_write_packet<T>(
-    opaque: *mut c_void,
-    buffer: *mut u8,
-    buffer_size: c_int,
-) -> c_int
+/// A WritePacketCallback function for the IO.
+extern "C" fn io_write_packet<T>(opaque: *mut c_void, buffer: *mut u8, buffer_size: c_int) -> c_int
 where
     T: Write,
 {
@@ -360,48 +174,34 @@ where
     }
 }
 
-/// An AVIO writer that writes data into a given output.
-pub struct IOWriter<T> {
+/// An AVIO IO that connects FFmpeg AVIO context with Rust streams.
+pub struct IO<T> {
     io_context: IOContext,
-    output: Box<T>,
+    stream: Box<T>,
 }
 
-impl<T> IOWriter<T>
-where
-    T: Write,
-{
-    /// Create a new AVIO writer from a given output.
-    pub fn new(output: T) -> Self {
-        Self::from(Box::new(output))
-    }
+impl<T> IO<T> {
+    /// Create a new IO.
+    fn new(
+        stream: T,
+        read_packet: Option<ReadPacketCallback>,
+        write_packet: Option<WritePacketCallback>,
+        seek: Option<SeekCallback>,
+    ) -> Self {
+        let mut stream = Box::new(stream);
+        let stream_ptr = stream.as_mut() as *mut T;
+        let opaque_ptr = stream_ptr as *mut c_void;
 
-    /// Get reference to the underlying output.
-    pub fn output(&self) -> &T {
-        self.output.as_ref()
-    }
-
-    /// Get mutable reference to the underlying output.
-    pub fn output_mut(&mut self) -> &mut T {
-        self.output.as_mut()
-    }
-}
-
-impl<T> From<Box<T>> for IOWriter<T>
-where
-    T: Write,
-{
-    fn from(mut output: Box<T>) -> Self {
-        let output_ptr = output.as_mut() as *mut T;
-        let opaque_ptr = output_ptr as *mut c_void;
+        let write_flag = if write_packet.is_some() { 1 } else { 0 };
 
         let io_context = unsafe {
             ffw_io_context_new(
                 4096,
-                1,
+                write_flag,
                 opaque_ptr,
-                None,
-                Some(io_writer_write_packet::<T>),
-                None,
+                read_packet,
+                write_packet,
+                seek,
             )
         };
 
@@ -411,86 +211,99 @@ where
 
         let io_context = unsafe { IOContext::from_raw_ptr(io_context) };
 
-        Self { io_context, output }
+        Self { io_context, stream }
     }
-}
 
-impl<T> AsRef<IOContext> for IOWriter<T> {
-    fn as_ref(&self) -> &IOContext {
+    /// Get reference to the underlying IO context.
+    pub fn io_context(&self) -> &IOContext {
         &self.io_context
     }
-}
 
-impl<T> AsMut<IOContext> for IOWriter<T> {
-    fn as_mut(&mut self) -> &mut IOContext {
+    /// Get mutable reference to the underlying IO context.
+    pub fn io_context_mut(&mut self) -> &mut IOContext {
         &mut self.io_context
     }
-}
 
-impl<T> Writer for IOWriter<T> {}
+    /// Get reference to the underlying stream.
+    pub fn stream(&self) -> &T {
+        self.stream.as_ref()
+    }
 
-/// Helper struct.
-struct BytesMutWriter {
-    inner: BytesMut,
-}
-
-impl BytesMutWriter {
-    /// Take the currently buffered data.
-    fn take_data(&mut self) -> BytesMut {
-        self.inner.take()
+    /// Get mutable reference to the underlying stream.
+    pub fn stream_mut(&mut self) -> &mut T {
+        self.stream.as_mut()
     }
 }
 
-impl Default for BytesMutWriter {
-    fn default() -> Self {
-        Self {
-            inner: BytesMut::new(),
-        }
+impl<T> IO<T>
+where
+    T: Read,
+{
+    /// Create a new IO from a given stream.
+    pub fn from_read_stream(stream: T) -> Self {
+        Self::new(stream, Some(io_read_packet::<T>), None, None)
     }
 }
 
-impl Write for BytesMutWriter {
-    fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
-        self.inner.extend_from_slice(buf);
-
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> Result<(), io::Error> {
-        Ok(())
+impl<T> IO<T>
+where
+    T: Read + Seek,
+{
+    /// Create a new IO from a given stream.
+    pub fn from_seekable_read_stream(stream: T) -> Self {
+        Self::new(stream, Some(io_read_packet::<T>), None, Some(io_seek::<T>))
     }
 }
 
-/// An AVIO writer that puts everything into memory.
+impl<T> IO<T>
+where
+    T: Write,
+{
+    /// Create a new IO from a given stream.
+    pub fn from_write_stream(stream: T) -> Self {
+        Self::new(stream, None, Some(io_write_packet::<T>), None)
+    }
+}
+
+impl<T> IO<T>
+where
+    T: Write + Seek,
+{
+    /// Create a new IO from a given stream.
+    pub fn from_seekable_write_stream(stream: T) -> Self {
+        Self::new(stream, None, Some(io_write_packet::<T>), Some(io_seek::<T>))
+    }
+}
+
+/// Writer that puts everything in memory. It also allows taking the data on
+/// the fly.
 pub struct MemWriter {
-    inner: IOWriter<BytesMutWriter>,
+    data: BytesMut,
 }
 
 impl MemWriter {
-    /// Take the currently buffered output data.
+    /// Take data from the writer.
     pub fn take_data(&mut self) -> BytesMut {
-        self.inner.output_mut().take_data()
+        self.data.take()
     }
 }
 
 impl Default for MemWriter {
     fn default() -> Self {
         Self {
-            inner: IOWriter::new(BytesMutWriter::default()),
+            data: BytesMut::new(),
         }
     }
 }
 
-impl AsRef<IOContext> for MemWriter {
-    fn as_ref(&self) -> &IOContext {
-        self.inner.as_ref()
+impl Write for MemWriter {
+    fn write(&mut self, buffer: &[u8]) -> Result<usize, io::Error> {
+        self.data.extend_from_slice(buffer);
+
+        Ok(buffer.len())
+    }
+
+    fn flush(&mut self) -> Result<(), io::Error> {
+        Ok(())
     }
 }
-
-impl AsMut<IOContext> for MemWriter {
-    fn as_mut(&mut self) -> &mut IOContext {
-        self.inner.as_mut()
-    }
-}
-
-impl Writer for MemWriter {}
