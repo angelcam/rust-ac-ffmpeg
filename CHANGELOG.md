@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.11.0 (2019-07-26)
+
+* Add demuxer
+
+* Refactor of the format::io module
+
+* Improve error handling
+
 ## v0.10.2 (2019-02-20)
 
 * Add methods for getting decoder/encoder name from codec parameters
