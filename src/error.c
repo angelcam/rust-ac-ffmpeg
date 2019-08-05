@@ -1,6 +1,10 @@
 #include <libavutil/common.h>
 #include <libavutil/error.h>
 
+int ffw_error_again() {
+    return AVERROR(EAGAIN);
+}
+
 int ffw_error_eof() {
     return AVERROR_EOF;
 }
