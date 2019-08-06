@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.11.1 (2019-08-06)
+
+* Add bitstream filters
+
 ## v0.11.0 (2019-07-26)
 
 * Add demuxer
