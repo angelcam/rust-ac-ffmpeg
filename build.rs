@@ -17,6 +17,7 @@ fn main() {
         .file("src/format/demuxer.c")
         .file("src/format/io.c")
         .file("src/format/muxer.c")
+        .file("src/codec/bsf.c")
         .file("src/codec/mod.c")
         .file("src/codec/frame.c")
         .file("src/codec/audio/resampler.c")
