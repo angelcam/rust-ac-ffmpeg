@@ -1,6 +1,6 @@
 [package]
 name = "ac-ffmpeg"
-version = "0.11.1"
+version = "0.11.2"
 authors = ["Ondrej Perutka <ondrej.perutka@angelcam.com>"]
 edition = "2018"
 

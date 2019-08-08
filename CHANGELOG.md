@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.11.2 (2019-08-08)
+
+* Add missing `impl Send` and `impl Sync` for the bitstream filter
+
 ## v0.11.1 (2019-08-06)
 
 * Add bitstream filters
