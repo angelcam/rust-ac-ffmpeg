@@ -4,9 +4,9 @@ use std::ffi::CString;
 
 use libc::{c_char, c_int, c_void};
 
-use crate::Error;
-use crate::packet::Packet;
 use crate::codec::CodecParameters;
+use crate::packet::Packet;
+use crate::Error;
 
 extern "C" {
     fn ffw_bsf_new(name: *const c_char, context: *mut *mut c_void) -> c_int;
@@ -31,9 +31,7 @@ impl BitstreamFilterBuilder {
 
         let mut ptr = ptr::null_mut();
 
-        let ret = unsafe {
-            ffw_bsf_new(name.as_ptr() as _, &mut ptr)
-        };
+        let ret = unsafe { ffw_bsf_new(name.as_ptr() as _, &mut ptr) };
 
         if ret < 0 {
             return Err(Error::from_raw_error_code(ret));
@@ -48,9 +46,8 @@ impl BitstreamFilterBuilder {
 
     /// Set input codec parameters.
     pub fn input_codec_parameters(self, codec_parameters: &CodecParameters) -> Self {
-        let ret = unsafe {
-            ffw_bsf_set_input_codec_parameters(self.ptr, codec_parameters.as_ptr())
-        };
+        let ret =
+            unsafe { ffw_bsf_set_input_codec_parameters(self.ptr, codec_parameters.as_ptr()) };
 
         if ret < 0 {
             panic!("unable to set input codec parameters");
@@ -61,9 +58,8 @@ impl BitstreamFilterBuilder {
 
     /// Set output codec parameters.
     pub fn output_codec_parameters(self, codec_parameters: &CodecParameters) -> Self {
-        let ret = unsafe {
-            ffw_bsf_set_output_codec_parameters(self.ptr, codec_parameters.as_ptr())
-        };
+        let ret =
+            unsafe { ffw_bsf_set_output_codec_parameters(self.ptr, codec_parameters.as_ptr()) };
 
         if ret < 0 {
             panic!("unable to set output codec parameters");
@@ -74,9 +70,7 @@ impl BitstreamFilterBuilder {
 
     /// Build the bitstream filter.
     pub fn build(mut self) -> Result<BitstreamFilter, Error> {
-        let ret = unsafe {
-            ffw_bsf_init(self.ptr)
-        };
+        let ret = unsafe { ffw_bsf_init(self.ptr) };
 
         if ret < 0 {
             return Err(Error::from_raw_error_code(ret));
@@ -92,11 +86,12 @@ impl BitstreamFilterBuilder {
 
 impl Drop for BitstreamFilterBuilder {
     fn drop(&mut self) {
-        unsafe {
-            ffw_bsf_free(self.ptr)
-        }
+        unsafe { ffw_bsf_free(self.ptr) }
     }
 }
+
+unsafe impl Send for BitstreamFilterBuilder {}
+unsafe impl Sync for BitstreamFilterBuilder {}
 
 /// A bitstream filter.
 ///
@@ -118,9 +113,7 @@ impl BitstreamFilter {
 
     /// Push a given packet to the filter.
     pub fn push(&mut self, mut packet: Packet) -> Result<(), Error> {
-        let ret = unsafe {
-            ffw_bsf_push(self.ptr, packet.as_mut_ptr())
-        };
+        let ret = unsafe { ffw_bsf_push(self.ptr, packet.as_mut_ptr()) };
 
         if ret < 0 {
             return Err(Error::from_raw_error_code(ret));
@@ -131,9 +124,7 @@ impl BitstreamFilter {
 
     /// Flush the filter.
     pub fn flush(&mut self) -> Result<(), Error> {
-        let ret = unsafe {
-            ffw_bsf_flush(self.ptr)
-        };
+        let ret = unsafe { ffw_bsf_flush(self.ptr) };
 
         if ret < 0 {
             return Err(Error::from_raw_error_code(ret));
@@ -166,8 +157,9 @@ impl BitstreamFilter {
 
 impl Drop for BitstreamFilter {
     fn drop(&mut self) {
-        unsafe {
-            ffw_bsf_free(self.ptr)
-        }
+        unsafe { ffw_bsf_free(self.ptr) }
     }
 }
+
+unsafe impl Send for BitstreamFilter {}
+unsafe impl Sync for BitstreamFilter {}
