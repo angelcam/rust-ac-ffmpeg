@@ -66,7 +66,7 @@ pub struct Plane<'a> {
     phantom: PhantomData<&'a ()>,
 }
 
-impl<'a> Plane<'a> {
+impl Plane<'_> {
     /// Create a new plane.
     fn new(frame: *mut c_void, index: usize) -> Self {
         Self {
@@ -88,6 +88,18 @@ impl<'a> Plane<'a> {
         }
     }
 
+    /// Get mutable plane data.
+    pub fn data_mut(&mut self) -> &mut [u8] {
+        let line_size = self.line_size();
+        let line_count = self.line_count();
+
+        unsafe {
+            let data = ffw_frame_get_plane_data(self.frame, self.index as _);
+
+            slice::from_raw_parts_mut(data, line_size * line_count)
+        }
+    }
+
     /// Get a single line.
     pub fn line(&self, index: usize) -> Option<&[u8]> {
         if index < self.line_count() {
@@ -101,12 +113,33 @@ impl<'a> Plane<'a> {
         }
     }
 
+    /// Get a single mutable line.
+    pub fn line_mut(&mut self, index: usize) -> Option<&mut [u8]> {
+        if index < self.line_count() {
+            let line_size = self.line_size();
+            let data = self.data_mut();
+            let offset = index * line_size;
+
+            Some(&mut data[offset..offset + line_size])
+        } else {
+            None
+        }
+    }
+
     /// Get an iterator over all lines.
     pub fn lines(&self) -> LinesIter {
         let line_size = self.line_size();
         let data = self.data();
 
         LinesIter::new(data.chunks(line_size))
+    }
+
+    /// Get an iterator over all mutable lines.
+    pub fn lines_mut(&mut self) -> LinesIterMut {
+        let line_size = self.line_size();
+        let data = self.data_mut();
+
+        LinesIterMut::new(data.chunks_mut(line_size))
     }
 
     /// Get line size (note: the line size don't necessarily need to be equal to picture width).
@@ -138,61 +171,6 @@ impl<'a> Iterator for LinesIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next()
-    }
-}
-
-/// Mutable picture plane (i.e. a planar array of pixel components).
-pub struct PlaneMut<'a> {
-    plane: Plane<'a>,
-}
-
-impl<'a> PlaneMut<'a> {
-    /// Create a new plane.
-    fn new(frame: *mut c_void, index: usize) -> Self {
-        Self {
-            plane: Plane::new(frame, index),
-        }
-    }
-
-    /// Get mutable plane data.
-    pub fn data_mut(&mut self) -> &mut [u8] {
-        let line_size = self.line_size();
-        let line_count = self.line_count();
-
-        unsafe {
-            let data = ffw_frame_get_plane_data(self.frame, self.index as _);
-
-            slice::from_raw_parts_mut(data, line_size * line_count)
-        }
-    }
-
-    /// Get a single mutable line.
-    pub fn line_mut(&mut self, index: usize) -> Option<&mut [u8]> {
-        if index < self.line_count() {
-            let line_size = self.line_size();
-            let data = self.data_mut();
-            let offset = index * line_size;
-
-            Some(&mut data[offset..offset + line_size])
-        } else {
-            None
-        }
-    }
-
-    /// Get an iterator over all mutable lines.
-    pub fn lines_mut(&mut self) -> LinesIterMut {
-        let line_size = self.line_size();
-        let data = self.data_mut();
-
-        LinesIterMut::new(data.chunks_mut(line_size))
-    }
-}
-
-impl<'a> Deref for PlaneMut<'a> {
-    type Target = Plane<'a>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.plane
     }
 }
 
@@ -257,7 +235,7 @@ impl<'a> Deref for Planes<'a> {
 
 /// A collection of mutable picture planes.
 pub struct PlanesMut<'a> {
-    inner: [PlaneMut<'a>; 4],
+    inner: [Plane<'a>; 4],
 }
 
 impl<'a> From<&'a mut VideoFrameMut> for PlanesMut<'a> {
@@ -265,10 +243,10 @@ impl<'a> From<&'a mut VideoFrameMut> for PlanesMut<'a> {
         // NOTE: creating multiple mutable references to the frame is safe here because the planes
         // are distinct
         let inner = [
-            PlaneMut::new(frame.ptr, 0),
-            PlaneMut::new(frame.ptr, 1),
-            PlaneMut::new(frame.ptr, 2),
-            PlaneMut::new(frame.ptr, 3),
+            Plane::new(frame.ptr, 0),
+            Plane::new(frame.ptr, 1),
+            Plane::new(frame.ptr, 2),
+            Plane::new(frame.ptr, 3),
         ];
 
         Self { inner }
@@ -276,7 +254,7 @@ impl<'a> From<&'a mut VideoFrameMut> for PlanesMut<'a> {
 }
 
 impl<'a> Deref for PlanesMut<'a> {
-    type Target = [PlaneMut<'a>];
+    type Target = [Plane<'a>];
 
     fn deref(&self) -> &Self::Target {
         &self.inner
