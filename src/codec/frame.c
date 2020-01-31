@@ -161,3 +161,23 @@ AVFrame* ffw_frame_clone(const AVFrame* frame) {
 void ffw_frame_free(AVFrame* frame) {
     av_frame_free(&frame);
 }
+
+size_t ffw_frame_get_line_size(const AVFrame* frame, size_t plane) {
+    return frame->linesize[plane];
+}
+
+size_t ffw_frame_get_line_count(const AVFrame* frame, size_t plane) {
+     // XXX: This is a bit hack-ish. Unfortunately, FFmpeg does not have a function for this. The
+    // code has been copy-pasted from av_image_fill_pointers().
+
+    const AVPixFmtDescriptor* desc = av_pix_fmt_desc_get(frame->format);
+
+    int s = (plane == 1 || plane == 2) ? desc->log2_chroma_h : 0;
+    int h = (frame->height + (1 << s) - 1) >> s;
+
+    return h;
+}
+
+uint8_t* ffw_frame_get_plane_data(AVFrame* frame, size_t index) {
+    return frame->extended_data[index];
+}
