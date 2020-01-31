@@ -121,12 +121,12 @@ impl AudioFrameMut {
             panic!("unable to allocate an audio frame");
         }
 
-        AudioFrameMut { ptr: ptr }
+        AudioFrameMut { ptr }
     }
 
     /// Create a new audio frame from its raw representation.
     pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> AudioFrameMut {
-        AudioFrameMut { ptr: ptr }
+        AudioFrameMut { ptr }
     }
 
     /// Get frame sample format.
@@ -182,7 +182,7 @@ impl AudioFrameMut {
 
         self.ptr = ptr::null_mut();
 
-        AudioFrame { ptr: ptr }
+        AudioFrame { ptr }
     }
 }
 
@@ -203,7 +203,7 @@ pub struct AudioFrame {
 impl AudioFrame {
     /// Create a new audio frame from its raw representation.
     pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> AudioFrame {
-        AudioFrame { ptr: ptr }
+        AudioFrame { ptr }
     }
 
     /// Get frame sample format.
@@ -257,7 +257,7 @@ impl Clone for AudioFrame {
             panic!("unable to clone a frame");
         }
 
-        AudioFrame { ptr: ptr }
+        AudioFrame { ptr }
     }
 }
 

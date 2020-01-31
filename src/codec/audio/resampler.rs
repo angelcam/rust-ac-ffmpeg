@@ -98,23 +98,23 @@ impl AudioResamplerBuilder {
     pub fn build(self) -> Result<AudioResampler, Error> {
         let source_channel_layout = self
             .source_channel_layout
-            .ok_or(Error::new("source channel layout was not set"))?;
+            .ok_or_else(|| Error::new("source channel layout was not set"))?;
         let source_sample_format = self
             .source_sample_format
-            .ok_or(Error::new("source sample format was not set"))?;
+            .ok_or_else(|| Error::new("source sample format was not set"))?;
         let source_sample_rate = self
             .source_sample_rate
-            .ok_or(Error::new("source sample rate was not set"))?;
+            .ok_or_else(|| Error::new("source sample rate was not set"))?;
 
         let target_channel_layout = self
             .target_channel_layout
-            .ok_or(Error::new("target channel layout was not set"))?;
+            .ok_or_else(|| Error::new("target channel layout was not set"))?;
         let target_sample_format = self
             .target_sample_format
-            .ok_or(Error::new("target sample format was not set"))?;
+            .ok_or_else(|| Error::new("target sample format was not set"))?;
         let target_sample_rate = self
             .target_sample_rate
-            .ok_or(Error::new("target sample rate was not set"))?;
+            .ok_or_else(|| Error::new("target sample rate was not set"))?;
 
         let target_frame_samples = self.target_frame_samples.unwrap_or(0);
 
@@ -137,11 +137,11 @@ impl AudioResamplerBuilder {
         }
 
         let res = AudioResampler {
-            ptr: ptr,
+            ptr,
 
-            source_channel_layout: source_channel_layout,
-            source_sample_format: source_sample_format,
-            source_sample_rate: source_sample_rate,
+            source_channel_layout,
+            source_sample_format,
+            source_sample_rate,
         };
 
         Ok(res)

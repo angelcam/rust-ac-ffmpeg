@@ -89,15 +89,13 @@ where
         input.seek(SeekFrom::Start(offset as u64))
     };
 
-    let res = match seek {
+    match seek {
         Ok(len) => len as i64,
         Err(err) => err
             .raw_os_error()
             .map(|code| unsafe { crate::ffw_error_from_posix(code as _) })
             .unwrap_or(unsafe { crate::ffw_error_unknown() }) as i64,
-    };
-
-    res
+    }
 }
 
 /// A ReadPacketCallback function for the IO.

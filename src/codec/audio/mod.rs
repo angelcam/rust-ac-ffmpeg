@@ -33,7 +33,7 @@ impl AudioDecoderBuilder {
             return Err(Error::new("unknown codec"));
         }
 
-        let res = AudioDecoderBuilder { ptr: ptr };
+        let res = AudioDecoderBuilder { ptr };
 
         Ok(res)
     }
@@ -72,7 +72,7 @@ impl AudioDecoderBuilder {
 
         self.ptr = ptr::null_mut();
 
-        let res = AudioDecoder { ptr: ptr };
+        let res = AudioDecoder { ptr };
 
         Ok(res)
     }
@@ -115,7 +115,7 @@ impl AudioDecoder {
             return Err(Error::new("unable to create a decoder"));
         }
 
-        let res = AudioDecoder { ptr: ptr };
+        let res = AudioDecoder { ptr };
 
         Ok(res)
     }
@@ -226,7 +226,7 @@ impl AudioEncoderBuilder {
         }
 
         let res = AudioEncoderBuilder {
-            ptr: ptr,
+            ptr,
 
             sample_format: None,
             sample_rate: None,
@@ -257,7 +257,7 @@ impl AudioEncoderBuilder {
         }
 
         let res = AudioEncoderBuilder {
-            ptr: ptr,
+            ptr,
 
             sample_format: Some(sample_format),
             sample_rate: Some(sample_rate),
@@ -307,13 +307,15 @@ impl AudioEncoderBuilder {
     pub fn build(mut self) -> Result<AudioEncoder, Error> {
         let sample_format = self
             .sample_format
-            .ok_or(Error::new("sample format not set"))?;
+            .ok_or_else(|| Error::new("sample format not set"))?;
 
-        let sample_rate = self.sample_rate.ok_or(Error::new("sample rate not set"))?;
+        let sample_rate = self
+            .sample_rate
+            .ok_or_else(|| Error::new("sample rate not set"))?;
 
         let channel_layout = self
             .channel_layout
-            .ok_or(Error::new("channel layout not set"))?;
+            .ok_or_else(|| Error::new("channel layout not set"))?;
 
         unsafe {
             super::ffw_encoder_set_sample_format(self.ptr, sample_format as _);
@@ -329,7 +331,7 @@ impl AudioEncoderBuilder {
 
         self.ptr = ptr::null_mut();
 
-        let res = AudioEncoder { ptr: ptr };
+        let res = AudioEncoder { ptr };
 
         Ok(res)
     }

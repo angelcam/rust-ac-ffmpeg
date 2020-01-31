@@ -242,7 +242,7 @@ impl OutputFormat {
             return None;
         }
 
-        let res = OutputFormat { ptr: ptr };
+        let res = OutputFormat { ptr };
 
         Some(res)
     }
@@ -259,7 +259,7 @@ impl OutputFormat {
             return None;
         }
 
-        let res = OutputFormat { ptr: ptr };
+        let res = OutputFormat { ptr };
 
         Some(res)
     }
@@ -276,7 +276,7 @@ impl OutputFormat {
             return None;
         }
 
-        let res = OutputFormat { ptr: ptr };
+        let res = OutputFormat { ptr };
 
         Some(res)
     }

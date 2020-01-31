@@ -103,7 +103,7 @@ impl CodecError {
         T: ToString,
     {
         CodecError {
-            kind: kind,
+            kind,
             msg: msg.to_string(),
         }
     }
@@ -134,7 +134,7 @@ pub struct CodecParameters {
 impl CodecParameters {
     /// Create codec parameters from a given raw representation.
     pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> CodecParameters {
-        CodecParameters { ptr: ptr }
+        CodecParameters { ptr }
     }
 
     /// Get raw pointer to the underlying object.
@@ -221,7 +221,7 @@ impl Clone for CodecParameters {
             panic!("unable to clone codec parameters");
         }
 
-        CodecParameters { ptr: ptr }
+        CodecParameters { ptr }
     }
 }
 

@@ -31,7 +31,7 @@ impl VideoDecoderBuilder {
             return Err(Error::new("unknown codec"));
         }
 
-        let res = VideoDecoderBuilder { ptr: ptr };
+        let res = VideoDecoderBuilder { ptr };
 
         Ok(res)
     }
@@ -70,7 +70,7 @@ impl VideoDecoderBuilder {
 
         self.ptr = ptr::null_mut();
 
-        let res = VideoDecoder { ptr: ptr };
+        let res = VideoDecoder { ptr };
 
         Ok(res)
     }
@@ -113,7 +113,7 @@ impl VideoDecoder {
             return Err(Error::new("unable to create a decoder"));
         }
 
-        let res = VideoDecoder { ptr: ptr };
+        let res = VideoDecoder { ptr };
 
         Ok(res)
     }
@@ -224,7 +224,7 @@ impl VideoEncoderBuilder {
         }
 
         let res = VideoEncoderBuilder {
-            ptr: ptr,
+            ptr,
 
             format: None,
             width: None,
@@ -255,7 +255,7 @@ impl VideoEncoderBuilder {
         }
 
         let res = VideoEncoderBuilder {
-            ptr: ptr,
+            ptr,
 
             format: Some(pixel_format),
             width: Some(width),
@@ -303,9 +303,11 @@ impl VideoEncoderBuilder {
 
     /// Build the encoder.
     pub fn build(mut self) -> Result<VideoEncoder, Error> {
-        let format = self.format.ok_or(Error::new("pixel format not set"))?;
-        let width = self.width.ok_or(Error::new("width not set"))?;
-        let height = self.height.ok_or(Error::new("height not set"))?;
+        let format = self
+            .format
+            .ok_or_else(|| Error::new("pixel format not set"))?;
+        let width = self.width.ok_or_else(|| Error::new("width not set"))?;
+        let height = self.height.ok_or_else(|| Error::new("height not set"))?;
 
         unsafe {
             super::ffw_encoder_set_pixel_format(self.ptr, format);
@@ -321,7 +323,7 @@ impl VideoEncoderBuilder {
 
         self.ptr = ptr::null_mut();
 
-        let res = VideoEncoder { ptr: ptr };
+        let res = VideoEncoder { ptr };
 
         Ok(res)
     }

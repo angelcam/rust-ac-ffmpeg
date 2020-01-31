@@ -36,11 +36,11 @@ pub enum Algorithm {
 
 impl Algorithm {
     /// Get algorithm ID.
-    fn id(&self) -> usize {
+    fn id(self) -> usize {
         match self {
-            &Algorithm::FastBilinear => ALG_ID_FAST_BILINEAR,
-            &Algorithm::Bilinear => ALG_ID_BILINEAR,
-            &Algorithm::Bicubic => ALG_ID_BICUBIC,
+            Algorithm::FastBilinear => ALG_ID_FAST_BILINEAR,
+            Algorithm::Bilinear => ALG_ID_BILINEAR,
+            Algorithm::Bicubic => ALG_ID_BICUBIC,
         }
     }
 }
@@ -74,7 +74,7 @@ impl VideoFrameScalerBuilder {
             twidth: 0,
             theight: 0,
 
-            flags: flags,
+            flags,
         }
     }
 
@@ -156,7 +156,7 @@ impl VideoFrameScalerBuilder {
         }
 
         let res = VideoFrameScaler {
-            ptr: ptr,
+            ptr,
 
             sformat: self.sformat,
             swidth: self.swidth as _,

@@ -140,9 +140,7 @@ impl BitstreamFilter {
         unsafe {
             let ret = ffw_bsf_take(self.ptr, &mut pptr);
 
-            if ret == crate::ffw_error_again() {
-                Ok(None)
-            } else if ret == crate::ffw_error_eof() {
+            if ret == crate::ffw_error_again() || ret == crate::ffw_error_eof() {
                 Ok(None)
             } else if ret < 0 {
                 Err(Error::from_raw_error_code(ret))

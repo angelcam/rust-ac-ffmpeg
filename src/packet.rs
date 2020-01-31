@@ -30,19 +30,17 @@ impl PacketMut {
     /// Create a new packet of a given size.
     pub fn new(size: usize) -> PacketMut {
         unsafe {
-            let ptr;
-
-            if size == 0 {
-                ptr = ffw_packet_alloc();
+            let ptr = if size == 0 {
+                ffw_packet_alloc()
             } else {
-                ptr = ffw_packet_new(size as c_int);
-            }
+                ffw_packet_new(size as c_int)
+            };
 
             if ptr.is_null() {
                 panic!("unable to allocate a packet");
             }
 
-            PacketMut { ptr: ptr }
+            PacketMut { ptr }
         }
     }
 
@@ -138,7 +136,7 @@ impl PacketMut {
 
         self.ptr = ptr::null_mut();
 
-        Packet { ptr: ptr }
+        Packet { ptr }
     }
 }
 
@@ -174,7 +172,7 @@ pub struct Packet {
 impl Packet {
     /// Create a new immutable packet from its raw representation.
     pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> Packet {
-        Packet { ptr: ptr }
+        Packet { ptr }
     }
 
     /// Get stream index.
@@ -256,7 +254,7 @@ impl Packet {
 
         self.ptr = ptr::null_mut();
 
-        PacketMut { ptr: ptr }
+        PacketMut { ptr }
     }
 }
 
@@ -268,7 +266,7 @@ impl Clone for Packet {
             panic!("unable to clone a packet");
         }
 
-        Packet { ptr: ptr }
+        Packet { ptr }
     }
 }
 
