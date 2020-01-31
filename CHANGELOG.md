@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.12.0 (2020-01-31)
+
+* Add interface for video frame planes
+
 ## v0.11.2 (2019-08-08)
 
 * Add missing `impl Send` and `impl Sync` for the bitstream filter
