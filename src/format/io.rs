@@ -3,7 +3,7 @@ use std::slice;
 
 use std::io::{Read, Seek, SeekFrom, Write};
 
-use bytes::BytesMut;
+use bytes::Bytes;
 
 use libc::{c_int, c_void};
 
@@ -276,21 +276,23 @@ where
 /// Writer that puts everything in memory. It also allows taking the data on
 /// the fly.
 pub struct MemWriter {
-    data: BytesMut,
+    data: Vec<u8>,
 }
 
 impl MemWriter {
     /// Take data from the writer.
-    pub fn take_data(&mut self) -> BytesMut {
-        self.data.take()
+    pub fn take_data(&mut self) -> Bytes {
+        let res = Bytes::from(self.data.as_slice());
+
+        self.data.clear();
+
+        res
     }
 }
 
 impl Default for MemWriter {
     fn default() -> Self {
-        Self {
-            data: BytesMut::new(),
-        }
+        Self { data: Vec::new() }
     }
 }
 
