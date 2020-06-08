@@ -177,6 +177,7 @@ void ffw_codec_parameters_free(AVCodecParameters* params) {
 
 typedef struct Decoder {
     struct AVCodec* decoder;
+    struct AVDictionary* options;
     struct AVCodecContext* cc;
     struct AVFrame* frame;
 } Decoder;
@@ -184,6 +185,7 @@ typedef struct Decoder {
 Decoder* ffw_decoder_new(const char* codec);
 Decoder* ffw_decoder_from_codec_parameters(const AVCodecParameters* params);
 int ffw_decoder_set_extradata(Decoder* decoder, const uint8_t* extradata, int size);
+int ffw_decoder_set_initial_option(Decoder* decoder, const char* key, const char* value);
 int ffw_decoder_open(Decoder* decoder);
 int ffw_decoder_push_packet(Decoder* decoder, const AVPacket* packet);
 int ffw_decoder_take_frame(Decoder* decoder, AVFrame** frame);
@@ -202,6 +204,7 @@ Decoder* ffw_decoder_new(const char* codec) {
     }
 
     res->decoder = decoder;
+    res->options = NULL;
     res->cc = NULL;
     res->frame = NULL;
 
@@ -235,6 +238,7 @@ Decoder* ffw_decoder_from_codec_parameters(const AVCodecParameters* params) {
     }
 
     res->decoder = decoder;
+    res->options = NULL;
     res->cc = NULL;
     res->frame = NULL;
 
@@ -249,10 +253,6 @@ Decoder* ffw_decoder_from_codec_parameters(const AVCodecParameters* params) {
     }
 
     if (avcodec_parameters_to_context(res->cc, params) < 0) {
-        goto err;
-    }
-
-    if (avcodec_open2(res->cc, res->decoder, NULL) < 0) {
         goto err;
     }
 
@@ -287,8 +287,12 @@ int ffw_decoder_set_extradata(Decoder* decoder, const uint8_t* extradata, int si
     return 0;
 }
 
+int ffw_decoder_set_initial_option(Decoder* decoder, const char* key, const char* value) {
+    return av_dict_set(&decoder->options, key, value, 0);
+}
+
 int ffw_decoder_open(Decoder* decoder) {
-    return avcodec_open2(decoder->cc, decoder->decoder, NULL);
+    return avcodec_open2(decoder->cc, decoder->decoder, &decoder->options);
 }
 
 int ffw_decoder_push_packet(Decoder* decoder, const AVPacket* packet) {
@@ -354,11 +358,12 @@ void ffw_decoder_free(Decoder* decoder) {
     }
 
     avcodec_free_context(&decoder->cc);
-
+    av_dict_free(&decoder->options);
     free(decoder);
 }
 
 typedef struct Encoder {
+    struct AVDictionary* options;
     struct AVCodecContext* cc;
     struct AVCodec* codec;
     struct AVPacket* packet;
@@ -380,6 +385,7 @@ void ffw_encoder_set_height(Encoder* encoder, int height);
 void ffw_encoder_set_sample_format(Encoder* encoder, int format);
 void ffw_encoder_set_sample_rate(Encoder* encoder, int sample_rate);
 void ffw_encoder_set_channel_layout(Encoder* encoder, uint64_t channel_layout);
+int ffw_encoder_set_initial_option(Encoder* encoder, const char* key, const char* value);
 int ffw_encoder_open(Encoder* encoder);
 int ffw_encoder_push_frame(Encoder* encoder, const AVFrame* frame);
 int ffw_encoder_take_packet(Encoder* encoder, AVPacket** packet);
@@ -397,6 +403,7 @@ Encoder* ffw_encoder_new(const char* codec) {
     }
 
     res->codec = encoder;
+    res->options = NULL;
     res->cc = NULL;
     res->packet = NULL;
 
@@ -430,6 +437,7 @@ Encoder* ffw_encoder_from_codec_parameters(const AVCodecParameters* params) {
     }
 
     res->codec = encoder;
+    res->options = NULL;
     res->cc = NULL;
     res->packet = NULL;
 
@@ -540,8 +548,12 @@ void ffw_encoder_set_channel_layout(Encoder* encoder, uint64_t channel_layout) {
     encoder->cc->channels = av_get_channel_layout_nb_channels(channel_layout);
 }
 
+int ffw_encoder_set_initial_option(Encoder* encoder, const char* key, const char* value) {
+    return av_dict_set(&encoder->options, key, value, 0);
+}
+
 int ffw_encoder_open(Encoder* encoder) {
-    return avcodec_open2(encoder->cc, encoder->codec, NULL);
+    return avcodec_open2(encoder->cc, encoder->codec, &encoder->options);
 }
 
 int ffw_encoder_push_frame(Encoder* encoder, const AVFrame* frame) {
@@ -577,5 +589,6 @@ void ffw_encoder_free(Encoder* encoder) {
 
     av_packet_free(&encoder->packet);
     avcodec_free_context(&encoder->cc);
+    av_dict_free(&encoder->options);
     free(encoder);
 }

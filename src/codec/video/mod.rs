@@ -36,6 +36,40 @@ impl VideoDecoderBuilder {
         Ok(res)
     }
 
+    /// Create a new builder from given codec parameters.
+    fn from_codec_parameters(
+        codec_parameters: &VideoCodecParameters,
+    ) -> Result<VideoDecoderBuilder, Error> {
+        let ptr = unsafe { super::ffw_decoder_from_codec_parameters(codec_parameters.as_ptr()) };
+
+        if ptr.is_null() {
+            return Err(Error::new("unable to create a decoder"));
+        }
+
+        let res = VideoDecoderBuilder { ptr };
+
+        Ok(res)
+    }
+
+    /// Set a decoder option.
+    pub fn set_option<V>(self, name: &str, value: V) -> VideoDecoderBuilder
+    where
+        V: ToString,
+    {
+        let name = CString::new(name).expect("invalid option name");
+        let value = CString::new(value.to_string()).expect("invalid option value");
+
+        let ret = unsafe {
+            super::ffw_decoder_set_initial_option(self.ptr, name.as_ptr() as _, value.as_ptr() as _)
+        };
+
+        if ret < 0 {
+            panic!("unable to allocate an option");
+        }
+
+        self
+    }
+
     /// Set codec extradata.
     pub fn extradata(self, data: Option<&[u8]>) -> VideoDecoderBuilder {
         let ptr;
@@ -103,19 +137,11 @@ impl VideoDecoder {
         VideoDecoderBuilder::new(codec).and_then(|builder| builder.build())
     }
 
-    /// Create a new decoder from given codec parameters.
+    /// Create a new video decoder builder from given codec parameters.
     pub fn from_codec_parameters(
         codec_parameters: &VideoCodecParameters,
-    ) -> Result<VideoDecoder, Error> {
-        let ptr = unsafe { super::ffw_decoder_from_codec_parameters(codec_parameters.as_ptr()) };
-
-        if ptr.is_null() {
-            return Err(Error::new("unable to create a decoder"));
-        }
-
-        let res = VideoDecoder { ptr };
-
-        Ok(res)
+    ) -> Result<VideoDecoderBuilder, Error> {
+        VideoDecoderBuilder::from_codec_parameters(codec_parameters)
     }
 
     /// Get decoder builder for a given codec.
@@ -263,6 +289,25 @@ impl VideoEncoderBuilder {
         };
 
         Ok(res)
+    }
+
+    /// Set an encoder option.
+    pub fn set_option<V>(self, name: &str, value: V) -> VideoEncoderBuilder
+    where
+        V: ToString,
+    {
+        let name = CString::new(name).expect("invalid option name");
+        let value = CString::new(value.to_string()).expect("invalid option value");
+
+        let ret = unsafe {
+            super::ffw_encoder_set_initial_option(self.ptr, name.as_ptr() as _, value.as_ptr() as _)
+        };
+
+        if ret < 0 {
+            panic!("unable to allocate an option");
+        }
+
+        self
     }
 
     /// Set encoder bit rate. The default is 0 (i.e. automatic).

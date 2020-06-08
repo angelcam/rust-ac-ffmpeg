@@ -38,6 +38,40 @@ impl AudioDecoderBuilder {
         Ok(res)
     }
 
+    /// Create a new builder from given codec parameters.
+    fn from_codec_parameters(
+        codec_parameters: &AudioCodecParameters,
+    ) -> Result<AudioDecoderBuilder, Error> {
+        let ptr = unsafe { super::ffw_decoder_from_codec_parameters(codec_parameters.as_ptr()) };
+
+        if ptr.is_null() {
+            return Err(Error::new("unable to create a decoder"));
+        }
+
+        let res = AudioDecoderBuilder { ptr };
+
+        Ok(res)
+    }
+
+    /// Set a decoder option.
+    pub fn set_option<V>(self, name: &str, value: V) -> AudioDecoderBuilder
+    where
+        V: ToString,
+    {
+        let name = CString::new(name).expect("invalid option name");
+        let value = CString::new(value.to_string()).expect("invalid option value");
+
+        let ret = unsafe {
+            super::ffw_decoder_set_initial_option(self.ptr, name.as_ptr() as _, value.as_ptr() as _)
+        };
+
+        if ret < 0 {
+            panic!("unable to allocate an option");
+        }
+
+        self
+    }
+
     /// Set codec extradata.
     pub fn extradata(self, data: Option<&[u8]>) -> AudioDecoderBuilder {
         let ptr;
@@ -108,16 +142,8 @@ impl AudioDecoder {
     /// Create a new decoder from given codec parameters.
     pub fn from_codec_parameters(
         codec_parameters: &AudioCodecParameters,
-    ) -> Result<AudioDecoder, Error> {
-        let ptr = unsafe { super::ffw_decoder_from_codec_parameters(codec_parameters.as_ptr()) };
-
-        if ptr.is_null() {
-            return Err(Error::new("unable to create a decoder"));
-        }
-
-        let res = AudioDecoder { ptr };
-
-        Ok(res)
+    ) -> Result<AudioDecoderBuilder, Error> {
+        AudioDecoderBuilder::from_codec_parameters(codec_parameters)
     }
 
     /// Get decoder builder for a given codec.
@@ -265,6 +291,25 @@ impl AudioEncoderBuilder {
         };
 
         Ok(res)
+    }
+
+    /// Set an encoder option.
+    pub fn set_option<V>(self, name: &str, value: V) -> AudioEncoderBuilder
+    where
+        V: ToString,
+    {
+        let name = CString::new(name).expect("invalid option name");
+        let value = CString::new(value.to_string()).expect("invalid option value");
+
+        let ret = unsafe {
+            super::ffw_encoder_set_initial_option(self.ptr, name.as_ptr() as _, value.as_ptr() as _)
+        };
+
+        if ret < 0 {
+            panic!("unable to allocate an option");
+        }
+
+        self
     }
 
     /// Set encoder bit rate. The default is 0 (i.e. automatic).

@@ -49,6 +49,11 @@ extern "C" {
     fn ffw_decoder_new(codec: *const c_char) -> *mut c_void;
     fn ffw_decoder_from_codec_parameters(params: *const c_void) -> *mut c_void;
     fn ffw_decoder_set_extradata(decoder: *mut c_void, extradata: *const u8, size: c_int) -> c_int;
+    fn ffw_decoder_set_initial_option(
+        decoder: *mut c_void,
+        key: *const c_char,
+        value: *const c_char,
+    ) -> c_int;
     fn ffw_decoder_open(decoder: *mut c_void) -> c_int;
     fn ffw_decoder_push_packet(decoder: *mut c_void, packet: *const c_void) -> c_int;
     fn ffw_decoder_take_frame(decoder: *mut c_void, frame: *mut *mut c_void) -> c_int;
@@ -73,6 +78,11 @@ extern "C" {
     fn ffw_encoder_set_sample_format(encoder: *mut c_void, format: c_int);
     fn ffw_encoder_set_sample_rate(encoder: *mut c_void, sample_rate: c_int);
     fn ffw_encoder_set_channel_layout(encoder: *mut c_void, channel_layout: u64);
+    fn ffw_encoder_set_initial_option(
+        encoder: *mut c_void,
+        key: *const c_char,
+        value: *const c_char,
+    ) -> c_int;
     fn ffw_encoder_open(encoder: *mut c_void) -> c_int;
     fn ffw_encoder_push_frame(encoder: *mut c_void, frame: *const c_void) -> c_int;
     fn ffw_encoder_take_packet(encoder: *mut c_void, packet: *mut *mut c_void) -> c_int;

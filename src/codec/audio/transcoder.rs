@@ -2,9 +2,90 @@ use std::collections::VecDeque;
 
 use crate::Error;
 
-use crate::codec::audio::{AudioDecoder, AudioEncoder, AudioFrame, AudioResampler};
+use crate::codec::audio::{
+    AudioDecoder, AudioDecoderBuilder, AudioEncoder, AudioEncoderBuilder, AudioFrame,
+    AudioResampler,
+};
 use crate::codec::{AudioCodecParameters, CodecError, Decoder, ErrorKind};
 use crate::packet::Packet;
+
+/// Builder for the AudioTranscoder.
+pub struct AudioTranscoderBuilder {
+    input: AudioCodecParameters,
+    output: AudioCodecParameters,
+
+    decoder_builder: AudioDecoderBuilder,
+    encoder_builder: AudioEncoderBuilder,
+}
+
+impl AudioTranscoderBuilder {
+    /// Create a new builder.
+    fn new(input: AudioCodecParameters, output: AudioCodecParameters) -> Result<Self, Error> {
+        let decoder_builder = AudioDecoder::from_codec_parameters(&input)?;
+        let encoder_builder = AudioEncoder::from_codec_parameters(&output)?;
+
+        let res = Self {
+            input,
+            output,
+
+            decoder_builder,
+            encoder_builder,
+        };
+
+        Ok(res)
+    }
+
+    /// Set a decoder option.
+    pub fn set_decoder_option<V>(mut self, name: &str, value: V) -> Self
+    where
+        V: ToString,
+    {
+        self.decoder_builder = self.decoder_builder.set_option(name, value);
+        self
+    }
+
+    /// Set an encoder option.
+    pub fn set_encoder_option<V>(mut self, name: &str, value: V) -> Self
+    where
+        V: ToString,
+    {
+        self.encoder_builder = self.encoder_builder.set_option(name, value);
+        self
+    }
+
+    /// Build the transcoder.
+    pub fn build(self) -> Result<AudioTranscoder, Error> {
+        let decoder = self.decoder_builder.build()?;
+
+        let encoder = self
+            .encoder_builder
+            .time_base(1, self.output.sample_rate())
+            .build()?;
+
+        let resampler = AudioResampler::builder()
+            .source_channel_layout(self.input.channel_layout())
+            .source_sample_format(self.input.sample_format())
+            .source_sample_rate(self.input.sample_rate())
+            .target_channel_layout(self.output.channel_layout())
+            .target_sample_format(self.output.sample_format())
+            .target_sample_rate(self.output.sample_rate())
+            .target_frame_samples(encoder.samples_per_frame())
+            .build()?;
+
+        let res = AudioTranscoder {
+            audio_decoder: decoder,
+            audio_encoder: encoder,
+            audio_resampler: resampler,
+
+            input_sample_rate: self.input.sample_rate(),
+            output_sample_rate: self.output.sample_rate(),
+
+            ready: VecDeque::new(),
+        };
+
+        Ok(res)
+    }
+}
 
 /// Audio transcoder.
 ///
@@ -34,34 +115,15 @@ impl AudioTranscoder {
         input: &AudioCodecParameters,
         output: &AudioCodecParameters,
     ) -> Result<AudioTranscoder, Error> {
-        let decoder = AudioDecoder::from_codec_parameters(input)?;
+        AudioTranscoderBuilder::new(input.clone(), output.clone())?.build()
+    }
 
-        let encoder = AudioEncoder::from_codec_parameters(output)?
-            .time_base(1, output.sample_rate())
-            .build()?;
-
-        let resampler = AudioResampler::builder()
-            .source_channel_layout(input.channel_layout())
-            .source_sample_format(input.sample_format())
-            .source_sample_rate(input.sample_rate())
-            .target_channel_layout(output.channel_layout())
-            .target_sample_format(output.sample_format())
-            .target_sample_rate(output.sample_rate())
-            .target_frame_samples(encoder.samples_per_frame())
-            .build()?;
-
-        let res = AudioTranscoder {
-            audio_decoder: decoder,
-            audio_encoder: encoder,
-            audio_resampler: resampler,
-
-            input_sample_rate: input.sample_rate(),
-            output_sample_rate: output.sample_rate(),
-
-            ready: VecDeque::new(),
-        };
-
-        Ok(res)
+    /// Create a new transcoder builder for a given input and output.
+    pub fn builder(
+        input: AudioCodecParameters,
+        output: AudioCodecParameters,
+    ) -> Result<AudioTranscoderBuilder, Error> {
+        AudioTranscoderBuilder::new(input, output)
     }
 
     /// Get codec parameters of the transcoded stream.
