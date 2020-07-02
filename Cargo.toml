@@ -5,13 +5,9 @@ authors = ["Ondrej Perutka <ondrej.perutka@angelcam.com>"]
 edition = "2018"
 
 [dependencies]
-bytes       = "0.4"
-lazy_static = "1.2"
+bytes       = "0.5"
+lazy_static = "1.4"
 libc        = "0.2"
 
 [build-dependencies]
 cc = "1.0"
-
-[[example]]
-name = "transmuxer"
-crate-type = ["bin"]

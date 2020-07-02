@@ -3,7 +3,7 @@ use std::slice;
 
 use std::io::{Read, Seek, SeekFrom, Write};
 
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 
 use libc::{c_int, c_void};
 
@@ -282,11 +282,11 @@ pub struct MemWriter {
 impl MemWriter {
     /// Take data from the writer.
     pub fn take_data(&mut self) -> Bytes {
-        let res = Bytes::from(self.data.as_slice());
+        let res = BytesMut::from(self.data.as_slice());
 
         self.data.clear();
 
-        res
+        res.freeze()
     }
 }
 
