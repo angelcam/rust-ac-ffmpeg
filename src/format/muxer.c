@@ -1,9 +1,9 @@
-#include<libavformat/avformat.h>
-#include<libavformat/avio.h>
-#include<libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavformat/avio.h>
+#include <libavcodec/avcodec.h>
 #include <libavutil/opt.h>
 
-#include<stdlib.h>
+#include <stdlib.h>
 
 AVOutputFormat* ffw_guess_output_format(
     const char* short_name,

@@ -1,7 +1,7 @@
-#include<libavutil/frame.h>
-#include<libswscale/swscale.h>
+#include <libavutil/frame.h>
+#include <libswscale/swscale.h>
 
-#include<stdlib.h>
+#include <stdlib.h>
 
 typedef struct FrameScaler {
     struct SwsContext* scale_context;
