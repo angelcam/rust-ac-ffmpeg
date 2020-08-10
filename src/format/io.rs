@@ -1,10 +1,9 @@
-use std::io;
-use std::slice;
-
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::{
+    io::{self, Read, Seek, SeekFrom, Write},
+    slice,
+};
 
 use bytes::{Bytes, BytesMut};
-
 use libc::{c_int, c_void};
 
 type ReadPacketCallback =
@@ -28,7 +27,7 @@ extern "C" {
 }
 
 /// IO context.
-pub struct IOContext {
+pub(crate) struct IOContext {
     ptr: *mut c_void,
 }
 
@@ -36,11 +35,6 @@ impl IOContext {
     /// Create a new IO context from its raw representation.
     pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> Self {
         IOContext { ptr }
-    }
-
-    /// Get a pointer to the underlying AVIOContext.
-    pub fn as_ptr(&self) -> *const c_void {
-        self.ptr
     }
 
     /// Get a mut pointer to the underlying AVIOContext.
@@ -212,13 +206,8 @@ impl<T> IO<T> {
         Self { io_context, stream }
     }
 
-    /// Get reference to the underlying IO context.
-    pub fn io_context(&self) -> &IOContext {
-        &self.io_context
-    }
-
     /// Get mutable reference to the underlying IO context.
-    pub fn io_context_mut(&mut self) -> &mut IOContext {
+    pub(crate) fn io_context_mut(&mut self) -> &mut IOContext {
         &mut self.io_context
     }
 

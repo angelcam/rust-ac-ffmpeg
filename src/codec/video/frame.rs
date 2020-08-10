@@ -1,12 +1,16 @@
-use std::ptr;
-use std::slice;
-
-use std::ffi::{CStr, CString};
-use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
-use std::slice::{Chunks, ChunksMut};
+use std::{
+    ffi::{CStr, CString},
+    fmt::{self, Display, Formatter},
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+    ptr,
+    slice::{self, Chunks, ChunksMut},
+    str::FromStr,
+};
 
 use libc::{c_char, c_int, c_void, size_t};
+
+use crate::time::{TimeBase, Timestamp};
 
 extern "C" {
     fn ffw_get_pixel_format_by_name(name: *const c_char) -> c_int;
@@ -26,37 +30,72 @@ extern "C" {
     fn ffw_frame_free(frame: *mut c_void);
 }
 
-/// Pixel format.
-pub type PixelFormat = c_int;
+/// An error indicating an unknown pixel format.
+#[derive(Debug, Copy, Clone)]
+pub struct UnknownPixelFormat;
 
-/// Get pixel format with a given name.
-pub fn get_pixel_format(name: &str) -> PixelFormat {
-    let name = CString::new(name).expect("invalid pixel format name");
-
-    unsafe {
-        let format = ffw_get_pixel_format_by_name(name.as_ptr() as _);
-
-        if ffw_pixel_format_is_none(format) != 0 {
-            panic!("no such pixel format");
-        }
-
-        format
+impl Display for UnknownPixelFormat {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        f.write_str("unknown pixel format")
     }
 }
 
-/// Get name of a given pixel format.
-pub fn get_pixel_format_name(format: PixelFormat) -> &'static str {
-    unsafe {
-        let ptr = ffw_get_pixel_format_name(format);
+impl std::error::Error for UnknownPixelFormat {}
 
-        if ptr.is_null() {
-            panic!("invalid pixel format");
-        }
+/// Pixel format.
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub struct PixelFormat(c_int);
 
-        let name = CStr::from_ptr(ptr as _);
-
-        name.to_str().unwrap()
+impl PixelFormat {
+    /// Create a pixel format value from a given raw representation.
+    pub(crate) fn from_raw(v: c_int) -> Self {
+        Self(v)
     }
+
+    /// Get the raw value.
+    pub(crate) fn into_raw(self) -> c_int {
+        let Self(format) = self;
+
+        format
+    }
+
+    /// Get name of the pixel format.
+    pub fn name(self) -> &'static str {
+        unsafe {
+            let ptr = ffw_get_pixel_format_name(self.into_raw());
+
+            if ptr.is_null() {
+                panic!("invalid pixel format");
+            }
+
+            let name = CStr::from_ptr(ptr as _);
+
+            name.to_str().unwrap()
+        }
+    }
+}
+
+impl FromStr for PixelFormat {
+    type Err = UnknownPixelFormat;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let name = CString::new(s).expect("invalid pixel format name");
+
+        unsafe {
+            let format = ffw_get_pixel_format_by_name(name.as_ptr() as _);
+
+            if ffw_pixel_format_is_none(format) == 0 {
+                Ok(Self(format))
+            } else {
+                Err(UnknownPixelFormat)
+            }
+        }
+    }
+}
+
+/// Get a pixel format with a given name.
+pub fn get_pixel_format(name: &str) -> PixelFormat {
+    PixelFormat::from_str(name).unwrap()
 }
 
 /// Picture plane (i.e. a planar array of pixel components).
@@ -142,12 +181,12 @@ impl Plane<'_> {
         LinesIterMut::new(data.chunks_mut(line_size))
     }
 
-    /// Get line size (note: the line size don't necessarily need to be equal to picture width).
+    /// Get line size (note: the line size doesn't necessarily need to be equal to picture width).
     pub fn line_size(&self) -> usize {
         unsafe { ffw_frame_get_line_size(self.frame, self.index as _) as _ }
     }
 
-    /// Get number of lines (note: the number of lines don't necessarily need to be equal to
+    /// Get number of lines (note: the number of lines doesn't necessarily need to be equal to
     /// to picture height).
     pub fn line_count(&self) -> usize {
         unsafe { ffw_frame_get_line_count(self.frame, self.index as _) as _ }
@@ -267,31 +306,31 @@ impl<'a> DerefMut for PlanesMut<'a> {
     }
 }
 
-/// Mutable video frame.
+/// A video frame with mutable data.
 pub struct VideoFrameMut {
     ptr: *mut c_void,
+    time_base: TimeBase,
 }
 
 impl VideoFrameMut {
-    /// Create a black video frame.
-    pub fn black(pixel_format: PixelFormat, width: usize, height: usize) -> VideoFrameMut {
-        let ptr = unsafe { ffw_frame_new_black(pixel_format, width as _, height as _) };
+    /// Create a black video frame. The time base of the frame will be in
+    /// microseconds.
+    pub fn black(pixel_format: PixelFormat, width: usize, height: usize) -> Self {
+        let ptr = unsafe { ffw_frame_new_black(pixel_format.into_raw(), width as _, height as _) };
 
         if ptr.is_null() {
             panic!("unable to allocate a video frame");
         }
 
-        VideoFrameMut { ptr }
-    }
-
-    /// Create a new video frame from its raw representation.
-    pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> VideoFrameMut {
-        VideoFrameMut { ptr }
+        VideoFrameMut {
+            ptr,
+            time_base: TimeBase::MICROSECONDS,
+        }
     }
 
     /// Get frame pixel format.
     pub fn pixel_format(&self) -> PixelFormat {
-        unsafe { ffw_frame_get_format(self.ptr) }
+        unsafe { PixelFormat::from_raw(ffw_frame_get_format(self.ptr)) }
     }
 
     /// Get frame width.
@@ -304,14 +343,37 @@ impl VideoFrameMut {
         unsafe { ffw_frame_get_height(self.ptr) as _ }
     }
 
+    /// Get frame time base.
+    pub fn time_base(&self) -> TimeBase {
+        self.time_base
+    }
+
+    /// Set frame time base. (This will rescale the current timestamp into a
+    /// given time base.)
+    pub fn with_time_base(mut self, time_base: TimeBase) -> Self {
+        let new_pts = self.pts().with_time_base(time_base);
+
+        unsafe {
+            ffw_frame_set_pts(self.ptr, new_pts.timestamp());
+        }
+
+        self.time_base = time_base;
+
+        self
+    }
+
     /// Get presentation timestamp.
-    pub fn pts(&self) -> i64 {
-        unsafe { ffw_frame_get_pts(self.ptr) }
+    pub fn pts(&self) -> Timestamp {
+        let pts = unsafe { ffw_frame_get_pts(self.ptr) };
+
+        Timestamp::new(pts, self.time_base)
     }
 
     /// Set presentation timestamp.
-    pub fn with_pts(self, pts: i64) -> VideoFrameMut {
-        unsafe { ffw_frame_set_pts(self.ptr, pts) }
+    pub fn with_pts(self, pts: Timestamp) -> Self {
+        let pts = pts.with_time_base(self.time_base);
+
+        unsafe { ffw_frame_set_pts(self.ptr, pts.timestamp()) }
 
         self
     }
@@ -326,23 +388,16 @@ impl VideoFrameMut {
         PlanesMut::from(self)
     }
 
-    /// Get raw pointer.
-    pub fn as_ptr(&self) -> *const c_void {
-        self.ptr
-    }
-
-    /// Get mutable raw pointer.
-    pub fn as_mut_ptr(&mut self) -> *mut c_void {
-        self.ptr
-    }
-
     /// Make the frame immutable.
     pub fn freeze(mut self) -> VideoFrame {
         let ptr = self.ptr;
 
         self.ptr = ptr::null_mut();
 
-        VideoFrame { ptr }
+        VideoFrame {
+            ptr,
+            time_base: self.time_base,
+        }
     }
 }
 
@@ -355,20 +410,21 @@ impl Drop for VideoFrameMut {
 unsafe impl Send for VideoFrameMut {}
 unsafe impl Sync for VideoFrameMut {}
 
-/// Immutable video frame.
+/// A video frame with immutable data.
 pub struct VideoFrame {
     ptr: *mut c_void,
+    time_base: TimeBase,
 }
 
 impl VideoFrame {
     /// Create a new video frame from its raw representation.
-    pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> VideoFrame {
-        VideoFrame { ptr }
+    pub(crate) unsafe fn from_raw_ptr(ptr: *mut c_void, time_base: TimeBase) -> Self {
+        Self { ptr, time_base }
     }
 
     /// Get frame pixel format.
     pub fn pixel_format(&self) -> PixelFormat {
-        unsafe { ffw_frame_get_format(self.ptr) }
+        unsafe { PixelFormat::from_raw(ffw_frame_get_format(self.ptr)) }
     }
 
     /// Get frame width.
@@ -381,38 +437,64 @@ impl VideoFrame {
         unsafe { ffw_frame_get_height(self.ptr) as _ }
     }
 
-    /// Get presentation timestamp.
-    pub fn pts(&self) -> i64 {
-        unsafe { ffw_frame_get_pts(self.ptr) }
-    }
-
     /// Get picture planes.
     pub fn planes(&self) -> Planes {
         Planes::from(self)
     }
 
+    /// Get frame time base.
+    pub fn time_base(&self) -> TimeBase {
+        self.time_base
+    }
+
+    /// Set frame time base. (This will rescale the current timestamp into a
+    /// given time base.)
+    pub fn with_time_base(mut self, time_base: TimeBase) -> Self {
+        let new_pts = self.pts().with_time_base(time_base);
+
+        unsafe {
+            ffw_frame_set_pts(self.ptr, new_pts.timestamp());
+        }
+
+        self.time_base = time_base;
+
+        self
+    }
+
+    /// Get presentation timestamp.
+    pub fn pts(&self) -> Timestamp {
+        let pts = unsafe { ffw_frame_get_pts(self.ptr) };
+
+        Timestamp::new(pts, self.time_base)
+    }
+
     /// Set presentation timestamp.
-    pub fn with_pts(self, pts: i64) -> VideoFrame {
-        unsafe { ffw_frame_set_pts(self.ptr, pts) }
+    pub fn with_pts(self, pts: Timestamp) -> Self {
+        let pts = pts.with_time_base(self.time_base);
+
+        unsafe { ffw_frame_set_pts(self.ptr, pts.timestamp()) }
 
         self
     }
 
     /// Get raw pointer.
-    pub fn as_ptr(&self) -> *const c_void {
+    pub(crate) fn as_ptr(&self) -> *const c_void {
         self.ptr
     }
 }
 
 impl Clone for VideoFrame {
-    fn clone(&self) -> VideoFrame {
+    fn clone(&self) -> Self {
         let ptr = unsafe { ffw_frame_clone(self.ptr) };
 
         if ptr.is_null() {
             panic!("unable to clone a frame");
         }
 
-        VideoFrame { ptr }
+        Self {
+            ptr,
+            time_base: self.time_base,
+        }
     }
 }
 

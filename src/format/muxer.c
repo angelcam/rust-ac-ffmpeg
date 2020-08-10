@@ -25,8 +25,8 @@ int ffw_muxer_init(Muxer*, AVIOContext*, AVOutputFormat*);
 int ffw_muxer_get_option(Muxer*, const char*, uint8_t**);
 int ffw_muxer_set_initial_option(Muxer*, const char*, const char*);
 int ffw_muxer_set_option(Muxer*, const char*, const char*);
-int ffw_muxer_write_frame(Muxer*, AVPacket*);
-int ffw_muxer_interleaved_write_frame(Muxer*, AVPacket*);
+int ffw_muxer_write_frame(Muxer*, AVPacket*, uint32_t, uint32_t);
+int ffw_muxer_interleaved_write_frame(Muxer*, AVPacket*, uint32_t, uint32_t);
 void ffw_muxer_free(Muxer*);
 
 Muxer* ffw_muxer_new() {
@@ -102,9 +102,9 @@ int ffw_muxer_set_option(Muxer* muxer, const char* key, const char* value) {
     return av_opt_set(muxer->fc, key, value, AV_OPT_SEARCH_CHILDREN);
 }
 
-static int ffw_rescale_packet_timestamps(Muxer* muxer, AVPacket* packet) {
+static int ffw_rescale_packet_timestamps(Muxer* muxer, AVPacket* packet, uint32_t src_tb_num, uint32_t src_tb_den) {
     AVStream* stream;
-    AVRational micro;
+    AVRational src_tb;
 
     unsigned stream_index;
 
@@ -120,16 +120,16 @@ static int ffw_rescale_packet_timestamps(Muxer* muxer, AVPacket* packet) {
 
     stream = muxer->fc->streams[stream_index];
 
-    micro.num = 1;
-    micro.den = 1000000;
+    src_tb.num = src_tb_num;
+    src_tb.den = src_tb_den;
 
-    av_packet_rescale_ts(packet, micro, stream->time_base);
+    av_packet_rescale_ts(packet, src_tb, stream->time_base);
 
     return 0;
 }
 
-int ffw_muxer_write_frame(Muxer* muxer, AVPacket* packet) {
-    int ret = ffw_rescale_packet_timestamps(muxer, packet);
+int ffw_muxer_write_frame(Muxer* muxer, AVPacket* packet, uint32_t tb_num, uint32_t tb_den) {
+    int ret = ffw_rescale_packet_timestamps(muxer, packet, tb_num, tb_den);
 
     if (ret < 0) {
         return ret;
@@ -138,8 +138,8 @@ int ffw_muxer_write_frame(Muxer* muxer, AVPacket* packet) {
     return av_write_frame(muxer->fc, packet);
 }
 
-int ffw_muxer_interleaved_write_frame(Muxer* muxer, AVPacket* packet) {
-    int ret = ffw_rescale_packet_timestamps(muxer, packet);
+int ffw_muxer_interleaved_write_frame(Muxer* muxer, AVPacket* packet, uint32_t tb_num, uint32_t tb_den) {
+    int ret = ffw_rescale_packet_timestamps(muxer, packet, tb_num, tb_den);
 
     if (ret < 0) {
         return ret;

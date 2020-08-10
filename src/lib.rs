@@ -1,13 +1,14 @@
 pub mod codec;
 pub mod format;
 pub mod packet;
+pub mod time;
 
-use std::fmt;
-use std::io;
-
-use std::ffi::CStr;
-use std::fmt::{Display, Formatter};
-use std::sync::RwLock;
+use std::{
+    ffi::CStr,
+    fmt::{self, Display, Formatter},
+    io,
+    sync::RwLock,
+};
 
 use lazy_static::lazy_static;
 
@@ -143,8 +144,4 @@ impl Display for Error {
     }
 }
 
-impl std::error::Error for Error {
-    fn description(&self) -> &str {
-        &self.msg
-    }
-}
+impl std::error::Error for Error {}

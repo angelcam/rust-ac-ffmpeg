@@ -1,7 +1,8 @@
-use std::ptr;
-use std::slice;
+use std::{ptr, slice};
 
 use libc::{c_int, c_void};
+
+use crate::time::{TimeBase, Timestamp};
 
 extern "C" {
     fn ffw_packet_alloc() -> *mut c_void;
@@ -21,14 +22,16 @@ extern "C" {
     fn ffw_packet_make_writable(packet: *mut c_void) -> c_int;
 }
 
-/// Mutable packet.
+/// Packet with mutable data.
 pub struct PacketMut {
     ptr: *mut c_void,
+    time_base: TimeBase,
 }
 
 impl PacketMut {
-    /// Create a new packet of a given size.
-    pub fn new(size: usize) -> PacketMut {
+    /// Create a new packet of a given size. The time base of the packet will
+    /// be in microseconds.
+    pub fn new(size: usize) -> Self {
         unsafe {
             let ptr = if size == 0 {
                 ffw_packet_alloc()
@@ -40,7 +43,10 @@ impl PacketMut {
                 panic!("unable to allocate a packet");
             }
 
-            PacketMut { ptr }
+            Self {
+                ptr,
+                time_base: TimeBase::MICROSECONDS,
+            }
         }
     }
 
@@ -50,32 +56,61 @@ impl PacketMut {
     }
 
     /// Set stream index.
-    pub fn with_stream_index(self, index: usize) -> PacketMut {
+    pub fn with_stream_index(self, index: usize) -> Self {
         unsafe { ffw_packet_set_stream_index(self.ptr, index as _) }
 
         self
     }
 
+    /// Get packet time base.
+    pub fn time_base(&self) -> TimeBase {
+        self.time_base
+    }
+
+    /// Set packet time base. (This will rescale the current timestamps into a
+    /// given time base.)
+    pub fn with_time_base(mut self, time_base: TimeBase) -> Self {
+        let new_pts = self.pts().with_time_base(time_base);
+        let new_dts = self.dts().with_time_base(time_base);
+
+        unsafe {
+            ffw_packet_set_pts(self.ptr, new_pts.timestamp());
+            ffw_packet_set_dts(self.ptr, new_dts.timestamp());
+        }
+
+        self.time_base = time_base;
+
+        self
+    }
+
     /// Get packet presentation timestamp.
-    pub fn pts(&self) -> i64 {
-        unsafe { ffw_packet_get_pts(self.ptr) }
+    pub fn pts(&self) -> Timestamp {
+        let pts = unsafe { ffw_packet_get_pts(self.ptr) };
+
+        Timestamp::new(pts, self.time_base)
     }
 
     /// Set packet presentation timestamp.
-    pub fn with_pts(self, pts: i64) -> PacketMut {
-        unsafe { ffw_packet_set_pts(self.ptr, pts) }
+    pub fn with_pts(self, pts: Timestamp) -> Self {
+        let pts = pts.with_time_base(self.time_base);
+
+        unsafe { ffw_packet_set_pts(self.ptr, pts.timestamp()) }
 
         self
     }
 
     /// Get packet decoding timestamp.
-    pub fn dts(&self) -> i64 {
-        unsafe { ffw_packet_get_dts(self.ptr) }
+    pub fn dts(&self) -> Timestamp {
+        let dts = unsafe { ffw_packet_get_dts(self.ptr) };
+
+        Timestamp::new(dts, self.time_base)
     }
 
     /// Set packet decoding timestamp.
-    pub fn with_dts(self, dts: i64) -> PacketMut {
-        unsafe { ffw_packet_set_dts(self.ptr, dts) }
+    pub fn with_dts(self, dts: Timestamp) -> Self {
+        let dts = dts.with_time_base(self.time_base);
+
+        unsafe { ffw_packet_set_dts(self.ptr, dts.timestamp()) }
 
         self
     }
@@ -86,20 +121,10 @@ impl PacketMut {
     }
 
     /// Set or unset the key flag.
-    pub fn with_key_flag(self, key: bool) -> PacketMut {
+    pub fn with_key_flag(self, key: bool) -> Self {
         unsafe { ffw_packet_set_key(self.ptr, key as _) }
 
         self
-    }
-
-    /// Get raw pointer.
-    pub fn as_ptr(&self) -> *const c_void {
-        self.ptr
-    }
-
-    /// Get mutable raw pointer.
-    pub fn as_mut_ptr(&mut self) -> *mut c_void {
-        self.ptr
     }
 
     /// Get packet data.
@@ -136,7 +161,10 @@ impl PacketMut {
 
         self.ptr = ptr::null_mut();
 
-        Packet { ptr }
+        Packet {
+            ptr,
+            time_base: self.time_base,
+        }
     }
 }
 
@@ -150,10 +178,10 @@ impl<T> From<T> for PacketMut
 where
     T: AsRef<[u8]>,
 {
-    fn from(data: T) -> PacketMut {
+    fn from(data: T) -> Self {
         let data = data.as_ref();
 
-        let mut packet = PacketMut::new(data.len());
+        let mut packet = Self::new(data.len());
 
         packet.data_mut().copy_from_slice(data);
 
@@ -164,15 +192,16 @@ where
 unsafe impl Send for PacketMut {}
 unsafe impl Sync for PacketMut {}
 
-/// Immutable packet.
+/// Packet with immutable data.
 pub struct Packet {
     ptr: *mut c_void,
+    time_base: TimeBase,
 }
 
 impl Packet {
     /// Create a new immutable packet from its raw representation.
-    pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> Packet {
-        Packet { ptr }
+    pub(crate) unsafe fn from_raw_ptr(ptr: *mut c_void, time_base: TimeBase) -> Self {
+        Packet { ptr, time_base }
     }
 
     /// Get stream index.
@@ -187,26 +216,55 @@ impl Packet {
         self
     }
 
+    /// Get packet time base.
+    pub fn time_base(&self) -> TimeBase {
+        self.time_base
+    }
+
+    /// Set packet time base. (This will rescale the current timestamps into a
+    /// given time base.)
+    pub fn with_time_base(mut self, time_base: TimeBase) -> Self {
+        let new_pts = self.pts().with_time_base(time_base);
+        let new_dts = self.dts().with_time_base(time_base);
+
+        unsafe {
+            ffw_packet_set_pts(self.ptr, new_pts.timestamp());
+            ffw_packet_set_dts(self.ptr, new_dts.timestamp());
+        }
+
+        self.time_base = time_base;
+
+        self
+    }
+
     /// Get packet presentation timestamp.
-    pub fn pts(&self) -> i64 {
-        unsafe { ffw_packet_get_pts(self.ptr) }
+    pub fn pts(&self) -> Timestamp {
+        let pts = unsafe { ffw_packet_get_pts(self.ptr) };
+
+        Timestamp::new(pts, self.time_base)
     }
 
     /// Set packet presentation timestamp.
-    pub fn with_pts(self, pts: i64) -> Packet {
-        unsafe { ffw_packet_set_pts(self.ptr, pts) }
+    pub fn with_pts(self, pts: Timestamp) -> Self {
+        let pts = pts.with_time_base(self.time_base);
+
+        unsafe { ffw_packet_set_pts(self.ptr, pts.timestamp()) }
 
         self
     }
 
     /// Get packet decoding timestamp.
-    pub fn dts(&self) -> i64 {
-        unsafe { ffw_packet_get_dts(self.ptr) }
+    pub fn dts(&self) -> Timestamp {
+        let dts = unsafe { ffw_packet_get_dts(self.ptr) };
+
+        Timestamp::new(dts, self.time_base)
     }
 
     /// Set packet decoding timestamp.
-    pub fn with_dts(self, dts: i64) -> Packet {
-        unsafe { ffw_packet_set_dts(self.ptr, dts) }
+    pub fn with_dts(self, dts: Timestamp) -> Self {
+        let dts = dts.with_time_base(self.time_base);
+
+        unsafe { ffw_packet_set_dts(self.ptr, dts.timestamp()) }
 
         self
     }
@@ -217,14 +275,14 @@ impl Packet {
     }
 
     /// Get raw pointer.
-    pub fn as_ptr(&self) -> *const c_void {
+    pub(crate) fn as_ptr(&self) -> *const c_void {
         self.ptr
     }
 
     /// Get mutable raw pointer. Please note that even though it is required
     /// in some cases to pass a mut pointer to an immutable packet, it is not
     /// allowed to modify packet data in such cases.
-    pub fn as_mut_ptr(&mut self) -> *mut c_void {
+    pub(crate) fn as_mut_ptr(&mut self) -> *mut c_void {
         self.ptr
     }
 
@@ -242,7 +300,9 @@ impl Packet {
         }
     }
 
-    /// Make this packet mutable.
+    /// Make this packet mutable. If there are no other references to the
+    /// packet data, the mutable packet will be created without copying the
+    /// data.
     pub fn into_mut(mut self) -> PacketMut {
         let res = unsafe { ffw_packet_make_writable(self.ptr) };
 
@@ -254,7 +314,10 @@ impl Packet {
 
         self.ptr = ptr::null_mut();
 
-        PacketMut { ptr }
+        PacketMut {
+            ptr,
+            time_base: self.time_base,
+        }
     }
 }
 
@@ -266,7 +329,10 @@ impl Clone for Packet {
             panic!("unable to clone a packet");
         }
 
-        Packet { ptr }
+        Packet {
+            ptr,
+            time_base: self.time_base,
+        }
     }
 }
 

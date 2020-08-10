@@ -1,16 +1,14 @@
-use std::ptr;
-
-use std::borrow::{Borrow, BorrowMut};
-use std::ffi::CString;
-use std::io::Read;
-use std::ops::{Deref, DerefMut};
+use std::{
+    borrow::{Borrow, BorrowMut},
+    ffi::CString,
+    io::Read,
+    ops::{Deref, DerefMut},
+    ptr,
+};
 
 use libc::{c_char, c_int, c_uint, c_void};
 
-use crate::codec::CodecParameters;
-use crate::format::io::IO;
-use crate::packet::Packet;
-use crate::Error;
+use crate::{codec::CodecParameters, format::io::IO, packet::Packet, time::TimeBase, Error};
 
 extern "C" {
     fn ffw_find_input_format(short_name: *const c_char) -> *mut c_void;
@@ -37,7 +35,12 @@ extern "C" {
         demuxer: *const c_void,
         stream_index: c_uint,
     ) -> *mut c_void;
-    fn ffw_demuxer_read_frame(demuxer: *mut c_void, packet: *mut *mut c_void) -> c_int;
+    fn ffw_demuxer_read_frame(
+        demuxer: *mut c_void,
+        packet: *mut *mut c_void,
+        tb_num: *mut u32,
+        tb_den: *mut u32,
+    ) -> c_int;
     fn ffw_demuxer_free(demuxer: *mut c_void);
 }
 
@@ -165,14 +168,17 @@ impl<T> Demuxer<T> {
     pub fn take(&mut self) -> Result<Option<Packet>, Error> {
         let mut pptr = ptr::null_mut();
 
-        let ret = unsafe { ffw_demuxer_read_frame(self.ptr, &mut pptr) };
+        let mut tb_num = 0;
+        let mut tb_den = 0;
+
+        let ret = unsafe { ffw_demuxer_read_frame(self.ptr, &mut pptr, &mut tb_num, &mut tb_den) };
 
         if ret < 0 {
             Err(Error::from_raw_error_code(ret))
         } else if pptr.is_null() {
             Ok(None)
         } else {
-            let packet = unsafe { Packet::from_raw_ptr(pptr) };
+            let packet = unsafe { Packet::from_raw_ptr(pptr, TimeBase::new(tb_num, tb_den)) };
 
             Ok(Some(packet))
         }

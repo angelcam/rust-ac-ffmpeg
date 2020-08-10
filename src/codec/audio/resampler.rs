@@ -2,10 +2,14 @@ use std::ptr;
 
 use libc::{c_int, c_void};
 
-use crate::Error;
-
-use crate::codec::audio::{AudioFrame, ChannelLayout, SampleFormat};
-use crate::codec::{CodecError, ErrorKind};
+use crate::{
+    codec::{
+        audio::{AudioFrame, ChannelLayout, SampleFormat},
+        CodecError, ErrorKind,
+    },
+    time::TimeBase,
+    Error,
+};
 
 extern "C" {
     fn ffw_audio_resampler_new(
@@ -37,8 +41,8 @@ pub struct AudioResamplerBuilder {
 
 impl AudioResamplerBuilder {
     /// Create a new builder.
-    fn new() -> AudioResamplerBuilder {
-        AudioResamplerBuilder {
+    fn new() -> Self {
+        Self {
             source_channel_layout: None,
             source_sample_format: None,
             source_sample_rate: None,
@@ -52,44 +56,44 @@ impl AudioResamplerBuilder {
     }
 
     /// Set source channel layout.
-    pub fn source_channel_layout(mut self, channel_layout: ChannelLayout) -> AudioResamplerBuilder {
+    pub fn source_channel_layout(mut self, channel_layout: ChannelLayout) -> Self {
         self.source_channel_layout = Some(channel_layout);
         self
     }
 
     /// Set source sample format.
-    pub fn source_sample_format(mut self, sample_format: SampleFormat) -> AudioResamplerBuilder {
+    pub fn source_sample_format(mut self, sample_format: SampleFormat) -> Self {
         self.source_sample_format = Some(sample_format);
         self
     }
 
     /// Set source sample rate.
-    pub fn source_sample_rate(mut self, sample_rate: u32) -> AudioResamplerBuilder {
+    pub fn source_sample_rate(mut self, sample_rate: u32) -> Self {
         self.source_sample_rate = Some(sample_rate);
         self
     }
 
     /// Set target channel layout.
-    pub fn target_channel_layout(mut self, channel_layout: ChannelLayout) -> AudioResamplerBuilder {
+    pub fn target_channel_layout(mut self, channel_layout: ChannelLayout) -> Self {
         self.target_channel_layout = Some(channel_layout);
         self
     }
 
     /// Set target sample format.
-    pub fn target_sample_format(mut self, sample_format: SampleFormat) -> AudioResamplerBuilder {
+    pub fn target_sample_format(mut self, sample_format: SampleFormat) -> Self {
         self.target_sample_format = Some(sample_format);
         self
     }
 
     /// Set target sample rate.
-    pub fn target_sample_rate(mut self, sample_rate: u32) -> AudioResamplerBuilder {
+    pub fn target_sample_rate(mut self, sample_rate: u32) -> Self {
         self.target_sample_rate = Some(sample_rate);
         self
     }
 
     /// Set the expected number of samples in target frames (for fixed frame
     /// size codecs).
-    pub fn target_frame_samples(mut self, samples: Option<usize>) -> AudioResamplerBuilder {
+    pub fn target_frame_samples(mut self, samples: Option<usize>) -> Self {
         self.target_frame_samples = samples;
         self
     }
@@ -120,12 +124,12 @@ impl AudioResamplerBuilder {
 
         let ptr = unsafe {
             ffw_audio_resampler_new(
-                target_channel_layout as _,
-                target_sample_format as _,
+                target_channel_layout.into_raw(),
+                target_sample_format.into_raw(),
                 target_sample_rate as _,
                 target_frame_samples as _,
-                source_channel_layout as _,
-                source_sample_format as _,
+                source_channel_layout.into_raw(),
+                source_sample_format.into_raw(),
                 source_sample_rate as _,
             )
         };
@@ -142,6 +146,7 @@ impl AudioResamplerBuilder {
             source_channel_layout,
             source_sample_format,
             source_sample_rate,
+            target_sample_rate,
         };
 
         Ok(res)
@@ -157,15 +162,15 @@ impl AudioResamplerBuilder {
 /// 4. Flush the resampler.
 /// 5. Take all frames from the resampler until you get None.
 ///
-/// Timestamps of input frames are expected to be in 1 / source_sample_rate
-/// timebase. Timestamps of output frames will be in 1 / target_sample_rate
-/// timebase.
+/// Timestamps of the output frames will be in 1 / target_sample_rate time
+/// base.
 pub struct AudioResampler {
     ptr: *mut c_void,
 
     source_channel_layout: ChannelLayout,
     source_sample_format: SampleFormat,
     source_sample_rate: u32,
+    target_sample_rate: u32,
 }
 
 impl AudioResampler {
@@ -175,7 +180,7 @@ impl AudioResampler {
     }
 
     /// Push a given frame to the resampler.
-    pub fn push(&mut self, frame: &AudioFrame) -> Result<(), CodecError> {
+    pub fn push(&mut self, frame: AudioFrame) -> Result<(), CodecError> {
         if frame.channel_layout() != self.source_channel_layout {
             return Err(CodecError::new(
                 ErrorKind::Error,
@@ -196,6 +201,8 @@ impl AudioResampler {
                 "invalid frame, sample rate does not match",
             ));
         }
+
+        let frame = frame.with_time_base(TimeBase::new(1, self.source_sample_rate));
 
         unsafe {
             match ffw_audio_resampler_push_frame(self.ptr, frame.as_ptr()) {
@@ -227,13 +234,15 @@ impl AudioResampler {
     pub fn take(&mut self) -> Result<Option<AudioFrame>, CodecError> {
         let mut fptr = ptr::null_mut();
 
+        let tb = TimeBase::new(1, self.target_sample_rate);
+
         unsafe {
             match ffw_audio_resampler_take_frame(self.ptr, &mut fptr) {
                 1 => {
                     if fptr.is_null() {
                         panic!("unable to allocate an audio frame")
                     } else {
-                        Ok(Some(AudioFrame::from_raw_ptr(fptr)))
+                        Ok(Some(AudioFrame::from_raw_ptr(fptr, tb)))
                     }
                 }
                 0 => Ok(None),

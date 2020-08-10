@@ -17,7 +17,7 @@ int ffw_demuxer_set_option(Demuxer* demuxer, const char* key, const char* value)
 int ffw_demuxer_find_stream_info(Demuxer* demuxer, int64_t max_analyze_duration);
 unsigned ffw_demuxer_get_nb_streams(const Demuxer* demuxer);
 AVCodecParameters* ffw_demuxer_get_codec_parameters(const Demuxer* demuxer, unsigned stream_index);
-int ffw_demuxer_read_frame(Demuxer* demuxer, AVPacket** packet);
+int ffw_demuxer_read_frame(Demuxer* demuxer, AVPacket** packet, uint32_t* tb_num, uint32_t* tb_den);
 void ffw_demuxer_free(Demuxer* demuxer);
 
 Demuxer* ffw_demuxer_new() {
@@ -106,8 +106,7 @@ err:
     return NULL;
 }
 
-int ffw_demuxer_read_frame(Demuxer* demuxer, AVPacket** packet) {
-    AVRational micro;
+int ffw_demuxer_read_frame(Demuxer* demuxer, AVPacket** packet, uint32_t* tb_num, uint32_t* tb_den) {
     AVStream* stream;
     AVPacket* res;
     AVPacket tmp;
@@ -133,12 +132,10 @@ int ffw_demuxer_read_frame(Demuxer* demuxer, AVPacket** packet) {
 
     stream = demuxer->fc->streams[res->stream_index];
 
-    micro.num = 1;
-    micro.den = 1000000;
-
-    av_packet_rescale_ts(res, stream->time_base, micro);
-
     *packet = res;
+
+    *tb_num = stream->time_base.num;
+    *tb_den = stream->time_base.den;
 
     return ret;
 }

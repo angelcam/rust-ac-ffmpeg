@@ -2,20 +2,22 @@ pub mod audio;
 pub mod bsf;
 pub mod video;
 
-use std::fmt;
-use std::ptr;
-use std::slice;
-
-use std::ffi::{CStr, CString};
-use std::fmt::{Display, Formatter};
+use std::{
+    ffi::{CStr, CString},
+    fmt::{self, Display, Formatter},
+    ptr, slice,
+};
 
 use libc::{c_char, c_int, c_void};
 
-use crate::Error;
-
-use crate::codec::audio::{ChannelLayout, SampleFormat};
-use crate::codec::video::PixelFormat;
-use crate::packet::Packet;
+use crate::{
+    codec::{
+        audio::{ChannelLayout, SampleFormat},
+        video::PixelFormat,
+    },
+    packet::Packet,
+    Error,
+};
 
 extern "C" {
     fn ffw_audio_codec_parameters_new(codec: *const c_char) -> *mut c_void;
@@ -130,41 +132,37 @@ impl Display for CodecError {
     }
 }
 
-impl std::error::Error for CodecError {
-    fn description(&self) -> &str {
-        &self.msg
-    }
-}
+impl std::error::Error for CodecError {}
 
-/// Codec parameters.
-pub struct CodecParameters {
+/// Inner struct holding the pointer to the codec parameters.
+struct InnerCodecParameters {
     ptr: *mut c_void,
 }
 
-impl CodecParameters {
+impl InnerCodecParameters {
     /// Create codec parameters from a given raw representation.
-    pub unsafe fn from_raw_ptr(ptr: *mut c_void) -> CodecParameters {
-        CodecParameters { ptr }
+    unsafe fn from_raw_ptr(ptr: *mut c_void) -> Self {
+        Self { ptr }
     }
 
     /// Get raw pointer to the underlying object.
-    pub fn as_ptr(&self) -> *const c_void {
+    fn as_ptr(&self) -> *const c_void {
         self.ptr
     }
 
     /// Check if these codec parameters are for an audio codec.
-    pub fn is_audio_codec(&self) -> bool {
+    fn is_audio_codec(&self) -> bool {
         unsafe { ffw_codec_parameters_is_audio_codec(self.ptr) != 0 }
     }
 
     /// Check if these codec parameters are for a video codec.
-    pub fn is_video_codec(&self) -> bool {
+    fn is_video_codec(&self) -> bool {
         unsafe { ffw_codec_parameters_is_video_codec(self.ptr) != 0 }
     }
 
     /// Get name of the decoder that is able to decode this codec or None
     /// if the decoder is not available.
-    pub fn decoder_name(&self) -> Option<&'static str> {
+    fn decoder_name(&self) -> Option<&'static str> {
         unsafe {
             let ptr = ffw_codec_parameters_get_decoder_name(self.ptr);
 
@@ -180,7 +178,7 @@ impl CodecParameters {
 
     /// Get name of the encoder that is able to produce encoding of this codec
     /// or None if the encoder is not available.
-    pub fn encoder_name(&self) -> Option<&'static str> {
+    fn encoder_name(&self) -> Option<&'static str> {
         unsafe {
             let ptr = ffw_codec_parameters_get_encoder_name(self.ptr);
 
@@ -193,13 +191,125 @@ impl CodecParameters {
             }
         }
     }
+}
+
+impl Drop for InnerCodecParameters {
+    fn drop(&mut self) {
+        unsafe { ffw_codec_parameters_free(self.ptr) }
+    }
+}
+
+impl Clone for InnerCodecParameters {
+    fn clone(&self) -> Self {
+        let ptr = unsafe { ffw_codec_parameters_clone(self.ptr) };
+
+        if ptr.is_null() {
+            panic!("unable to clone codec parameters");
+        }
+
+        Self { ptr }
+    }
+}
+
+unsafe impl Send for InnerCodecParameters {}
+unsafe impl Sync for InnerCodecParameters {}
+
+/// Variants of codec parameters.
+#[derive(Clone)]
+enum CodecParametersVariants {
+    Audio(AudioCodecParameters),
+    Video(VideoCodecParameters),
+    Other(OtherCodecParameters),
+}
+
+impl CodecParametersVariants {
+    /// Create codec parameters from a given raw representation.
+    unsafe fn from_raw_ptr(ptr: *mut c_void) -> Self {
+        let inner = InnerCodecParameters::from_raw_ptr(ptr);
+
+        if inner.is_audio_codec() {
+            Self::Audio(AudioCodecParameters::from(inner))
+        } else if inner.is_video_codec() {
+            Self::Video(VideoCodecParameters::from(inner))
+        } else {
+            Self::Other(OtherCodecParameters::from(inner))
+        }
+    }
+}
+
+impl AsRef<InnerCodecParameters> for CodecParametersVariants {
+    fn as_ref(&self) -> &InnerCodecParameters {
+        match self {
+            Self::Audio(audio) => audio.as_ref(),
+            Self::Video(video) => video.as_ref(),
+            Self::Other(other) => other.as_ref(),
+        }
+    }
+}
+
+/// Codec parameters.
+#[derive(Clone)]
+pub struct CodecParameters {
+    inner: CodecParametersVariants,
+}
+
+impl CodecParameters {
+    /// Create codec parameters from a given raw representation.
+    pub(crate) unsafe fn from_raw_ptr(ptr: *mut c_void) -> Self {
+        Self {
+            inner: CodecParametersVariants::from_raw_ptr(ptr),
+        }
+    }
+
+    /// Get raw pointer to the underlying object.
+    pub(crate) fn as_ptr(&self) -> *const c_void {
+        self.inner.as_ref().as_ptr()
+    }
+
+    /// Check if these codec parameters are for an audio codec.
+    pub fn is_audio_codec(&self) -> bool {
+        self.inner.as_ref().is_audio_codec()
+    }
+
+    /// Check if these codec parameters are for a video codec.
+    pub fn is_video_codec(&self) -> bool {
+        self.inner.as_ref().is_video_codec()
+    }
+
+    /// Get name of the decoder that is able to decode this codec or None
+    /// if the decoder is not available.
+    pub fn decoder_name(&self) -> Option<&'static str> {
+        self.inner.as_ref().decoder_name()
+    }
+
+    /// Get name of the encoder that is able to produce encoding of this codec
+    /// or None if the encoder is not available.
+    pub fn encoder_name(&self) -> Option<&'static str> {
+        self.inner.as_ref().encoder_name()
+    }
+
+    /// Get reference to audio codec parameters (if possible).
+    pub fn as_audio_codec_parameters(&self) -> Option<&AudioCodecParameters> {
+        if let CodecParametersVariants::Audio(params) = &self.inner {
+            Some(params)
+        } else {
+            None
+        }
+    }
+
+    /// Get reference to video codec parameters (if possible).
+    pub fn as_video_codec_parameters(&self) -> Option<&VideoCodecParameters> {
+        if let CodecParametersVariants::Video(params) = &self.inner {
+            Some(params)
+        } else {
+            None
+        }
+    }
 
     /// Convert this object into audio codec parameters (if possible).
     pub fn into_audio_codec_parameters(self) -> Option<AudioCodecParameters> {
-        if self.is_audio_codec() {
-            let res = AudioCodecParameters { inner: self };
-
-            Some(res)
+        if let CodecParametersVariants::Audio(params) = self.inner {
+            Some(params)
         } else {
             None
         }
@@ -207,45 +317,38 @@ impl CodecParameters {
 
     /// Convert this object into video codec parameters (if possible).
     pub fn into_video_codec_parameters(self) -> Option<VideoCodecParameters> {
-        if self.is_video_codec() {
-            let res = VideoCodecParameters { inner: self };
-
-            Some(res)
+        if let CodecParametersVariants::Video(params) = self.inner {
+            Some(params)
         } else {
             None
         }
     }
 }
 
-impl Drop for CodecParameters {
-    fn drop(&mut self) {
-        unsafe { ffw_codec_parameters_free(self.ptr) }
-    }
-}
-
-impl Clone for CodecParameters {
-    fn clone(&self) -> CodecParameters {
-        let ptr = unsafe { ffw_codec_parameters_clone(self.ptr) };
-
-        if ptr.is_null() {
-            panic!("unable to clone codec parameters");
+impl From<AudioCodecParameters> for CodecParameters {
+    fn from(params: AudioCodecParameters) -> Self {
+        Self {
+            inner: CodecParametersVariants::Audio(params),
         }
-
-        CodecParameters { ptr }
     }
 }
 
-unsafe impl Send for CodecParameters {}
-unsafe impl Sync for CodecParameters {}
+impl From<VideoCodecParameters> for CodecParameters {
+    fn from(params: VideoCodecParameters) -> Self {
+        Self {
+            inner: CodecParametersVariants::Video(params),
+        }
+    }
+}
 
 /// Builder for audio codec parameters.
 pub struct AudioCodecParametersBuilder {
-    inner: CodecParameters,
+    inner: InnerCodecParameters,
 }
 
 impl AudioCodecParametersBuilder {
     /// Create a new builder for a given audio codec.
-    fn new(codec: &str) -> Result<AudioCodecParametersBuilder, Error> {
+    fn new(codec: &str) -> Result<Self, Error> {
         let codec = CString::new(codec).expect("invalid codec name");
 
         let ptr = unsafe { ffw_audio_codec_parameters_new(codec.as_ptr() as *const _) };
@@ -254,7 +357,7 @@ impl AudioCodecParametersBuilder {
             return Err(Error::new("unknown codec"));
         }
 
-        let params = unsafe { CodecParameters::from_raw_ptr(ptr) };
+        let params = unsafe { InnerCodecParameters::from_raw_ptr(ptr) };
 
         let res = AudioCodecParametersBuilder { inner: params };
 
@@ -262,7 +365,7 @@ impl AudioCodecParametersBuilder {
     }
 
     /// Set bit rate.
-    pub fn bit_rate(self, bit_rate: u64) -> AudioCodecParametersBuilder {
+    pub fn bit_rate(self, bit_rate: u64) -> Self {
         unsafe {
             ffw_codec_parameters_set_bit_rate(self.inner.ptr, bit_rate as _);
         }
@@ -271,16 +374,16 @@ impl AudioCodecParametersBuilder {
     }
 
     /// Set frame sample format.
-    pub fn sample_format(self, format: SampleFormat) -> AudioCodecParametersBuilder {
+    pub fn sample_format(self, format: SampleFormat) -> Self {
         unsafe {
-            ffw_codec_parameters_set_format(self.inner.ptr, format as _);
+            ffw_codec_parameters_set_format(self.inner.ptr, format.into_raw());
         }
 
         self
     }
 
     /// Set sampling rate.
-    pub fn sample_rate(self, rate: u32) -> AudioCodecParametersBuilder {
+    pub fn sample_rate(self, rate: u32) -> Self {
         assert!(rate > 0);
 
         unsafe {
@@ -291,16 +394,21 @@ impl AudioCodecParametersBuilder {
     }
 
     /// Set channel layout.
-    pub fn channel_layout(self, layout: ChannelLayout) -> AudioCodecParametersBuilder {
+    pub fn channel_layout(self, layout: ChannelLayout) -> Self {
         unsafe {
-            ffw_codec_parameters_set_channel_layout(self.inner.ptr, layout as _);
+            ffw_codec_parameters_set_channel_layout(self.inner.ptr, layout.into_raw());
         }
 
         self
     }
 
     /// Set extradata.
-    pub fn extradata(self, data: Option<&[u8]>) -> AudioCodecParametersBuilder {
+    pub fn extradata<T>(self, data: Option<T>) -> Self
+    where
+        T: AsRef<[u8]>,
+    {
+        let data = data.as_ref().map(|d| d.as_ref());
+
         let ptr;
         let size;
 
@@ -328,8 +436,8 @@ impl AudioCodecParametersBuilder {
 }
 
 impl From<AudioCodecParameters> for AudioCodecParametersBuilder {
-    fn from(params: AudioCodecParameters) -> AudioCodecParametersBuilder {
-        AudioCodecParametersBuilder {
+    fn from(params: AudioCodecParameters) -> Self {
+        Self {
             inner: params.inner,
         }
     }
@@ -338,7 +446,7 @@ impl From<AudioCodecParameters> for AudioCodecParametersBuilder {
 /// Audio codec parameters.
 #[derive(Clone)]
 pub struct AudioCodecParameters {
-    inner: CodecParameters,
+    inner: InnerCodecParameters,
 }
 
 impl AudioCodecParameters {
@@ -348,8 +456,20 @@ impl AudioCodecParameters {
     }
 
     /// Get raw pointer to the underlying object.
-    pub fn as_ptr(&self) -> *const c_void {
+    pub(crate) fn as_ptr(&self) -> *const c_void {
         self.inner.ptr
+    }
+
+    /// Get name of the decoder that is able to decode this codec or None
+    /// if the decoder is not available.
+    pub fn decoder_name(&self) -> Option<&'static str> {
+        self.inner.decoder_name()
+    }
+
+    /// Get name of the encoder that is able to produce encoding of this codec
+    /// or None if the encoder is not available.
+    pub fn encoder_name(&self) -> Option<&'static str> {
+        self.inner.encoder_name()
     }
 
     /// Get bit rate.
@@ -359,7 +479,7 @@ impl AudioCodecParameters {
 
     /// Get frame sample format.
     pub fn sample_format(&self) -> SampleFormat {
-        unsafe { ffw_codec_parameters_get_format(self.inner.ptr) as _ }
+        unsafe { SampleFormat::from_raw(ffw_codec_parameters_get_format(self.inner.ptr)) }
     }
 
     /// Get sampling rate.
@@ -369,7 +489,7 @@ impl AudioCodecParameters {
 
     /// Get channel layout.
     pub fn channel_layout(&self) -> ChannelLayout {
-        unsafe { ffw_codec_parameters_get_channel_layout(self.inner.ptr) as _ }
+        unsafe { ChannelLayout::from_raw(ffw_codec_parameters_get_channel_layout(self.inner.ptr)) }
     }
 
     /// Get extradata.
@@ -385,27 +505,28 @@ impl AudioCodecParameters {
             }
         }
     }
+}
 
-    /// Convert this object into general codec parameters.
-    pub fn into_codec_parameters(self) -> CodecParameters {
-        self.inner
+impl AsRef<InnerCodecParameters> for AudioCodecParameters {
+    fn as_ref(&self) -> &InnerCodecParameters {
+        &self.inner
     }
 }
 
-impl AsRef<CodecParameters> for AudioCodecParameters {
-    fn as_ref(&self) -> &CodecParameters {
-        &self.inner
+impl From<InnerCodecParameters> for AudioCodecParameters {
+    fn from(params: InnerCodecParameters) -> Self {
+        Self { inner: params }
     }
 }
 
 /// Builder for video codec parameters.
 pub struct VideoCodecParametersBuilder {
-    inner: CodecParameters,
+    inner: InnerCodecParameters,
 }
 
 impl VideoCodecParametersBuilder {
     /// Create a new builder for a given video codec.
-    fn new(codec: &str) -> Result<VideoCodecParametersBuilder, Error> {
+    fn new(codec: &str) -> Result<Self, Error> {
         let codec = CString::new(codec).expect("invalid codec name");
 
         let ptr = unsafe { ffw_video_codec_parameters_new(codec.as_ptr() as *const _) };
@@ -414,7 +535,7 @@ impl VideoCodecParametersBuilder {
             return Err(Error::new("unknown codec"));
         }
 
-        let params = unsafe { CodecParameters::from_raw_ptr(ptr) };
+        let params = unsafe { InnerCodecParameters::from_raw_ptr(ptr) };
 
         let res = VideoCodecParametersBuilder { inner: params };
 
@@ -422,7 +543,7 @@ impl VideoCodecParametersBuilder {
     }
 
     /// Set bit rate.
-    pub fn bit_rate(self, bit_rate: u64) -> VideoCodecParametersBuilder {
+    pub fn bit_rate(self, bit_rate: u64) -> Self {
         unsafe {
             ffw_codec_parameters_set_bit_rate(self.inner.ptr, bit_rate as _);
         }
@@ -431,16 +552,16 @@ impl VideoCodecParametersBuilder {
     }
 
     /// Set frame pixel format.
-    pub fn pixel_format(self, format: PixelFormat) -> VideoCodecParametersBuilder {
+    pub fn pixel_format(self, format: PixelFormat) -> Self {
         unsafe {
-            ffw_codec_parameters_set_format(self.inner.ptr, format as _);
+            ffw_codec_parameters_set_format(self.inner.ptr, format.into_raw());
         }
 
         self
     }
 
     /// Set frame width.
-    pub fn width(self, width: usize) -> VideoCodecParametersBuilder {
+    pub fn width(self, width: usize) -> Self {
         unsafe {
             ffw_codec_parameters_set_width(self.inner.ptr, width as _);
         }
@@ -449,7 +570,7 @@ impl VideoCodecParametersBuilder {
     }
 
     /// Set frame height.
-    pub fn height(self, height: usize) -> VideoCodecParametersBuilder {
+    pub fn height(self, height: usize) -> Self {
         unsafe {
             ffw_codec_parameters_set_height(self.inner.ptr, height as _);
         }
@@ -458,7 +579,12 @@ impl VideoCodecParametersBuilder {
     }
 
     /// Set extradata.
-    pub fn extradata(self, data: Option<&[u8]>) -> VideoCodecParametersBuilder {
+    pub fn extradata<T>(self, data: Option<T>) -> Self
+    where
+        T: AsRef<[u8]>,
+    {
+        let data = data.as_ref().map(|d| d.as_ref());
+
         let ptr;
         let size;
 
@@ -496,7 +622,7 @@ impl From<VideoCodecParameters> for VideoCodecParametersBuilder {
 /// Video codec parameters.
 #[derive(Clone)]
 pub struct VideoCodecParameters {
-    inner: CodecParameters,
+    inner: InnerCodecParameters,
 }
 
 impl VideoCodecParameters {
@@ -506,8 +632,20 @@ impl VideoCodecParameters {
     }
 
     /// Get raw pointer to the underlying object.
-    pub fn as_ptr(&self) -> *const c_void {
+    pub(crate) fn as_ptr(&self) -> *const c_void {
         self.inner.ptr
+    }
+
+    /// Get name of the decoder that is able to decode this codec or None
+    /// if the decoder is not available.
+    pub fn decoder_name(&self) -> Option<&'static str> {
+        self.inner.decoder_name()
+    }
+
+    /// Get name of the encoder that is able to produce encoding of this codec
+    /// or None if the encoder is not available.
+    pub fn encoder_name(&self) -> Option<&'static str> {
+        self.inner.encoder_name()
     }
 
     /// Get bit rate.
@@ -517,7 +655,7 @@ impl VideoCodecParameters {
 
     /// Get frame pixel format.
     pub fn pixel_format(&self) -> PixelFormat {
-        unsafe { ffw_codec_parameters_get_format(self.inner.ptr) as _ }
+        unsafe { PixelFormat::from_raw(ffw_codec_parameters_get_format(self.inner.ptr)) }
     }
 
     /// Get frame width.
@@ -543,20 +681,46 @@ impl VideoCodecParameters {
             }
         }
     }
-
-    /// Convert this object into general codec parameters.
-    pub fn into_codec_parameters(self) -> CodecParameters {
-        self.inner
-    }
 }
 
-impl AsRef<CodecParameters> for VideoCodecParameters {
-    fn as_ref(&self) -> &CodecParameters {
+impl AsRef<InnerCodecParameters> for VideoCodecParameters {
+    fn as_ref(&self) -> &InnerCodecParameters {
         &self.inner
     }
 }
 
-/// Common trait for decoders.
+impl From<InnerCodecParameters> for VideoCodecParameters {
+    fn from(params: InnerCodecParameters) -> Self {
+        Self { inner: params }
+    }
+}
+
+/// Other codec parameters.
+#[derive(Clone)]
+struct OtherCodecParameters {
+    inner: InnerCodecParameters,
+}
+
+impl AsRef<InnerCodecParameters> for OtherCodecParameters {
+    fn as_ref(&self) -> &InnerCodecParameters {
+        &self.inner
+    }
+}
+
+impl From<InnerCodecParameters> for OtherCodecParameters {
+    fn from(params: InnerCodecParameters) -> Self {
+        Self { inner: params }
+    }
+}
+
+/// A media decoder.
+///
+/// # Common decoder operation
+/// 1. Push a packet to the decoder.
+/// 2. Take all frames from the decoder until you get None.
+/// 3. If there are more packets to be decoded, continue with 1.
+/// 4. Flush the decoder.
+/// 5. Take all frames from the decoder until you get None.
 pub trait Decoder {
     type CodecParameters;
     type Frame;
@@ -565,11 +729,36 @@ pub trait Decoder {
     fn codec_parameters(&self) -> Self::CodecParameters;
 
     /// Push a given packet to the decoder.
-    fn push(&mut self, packet: &Packet) -> Result<(), CodecError>;
+    fn push(&mut self, packet: Packet) -> Result<(), CodecError>;
 
     /// Flush the decoder.
     fn flush(&mut self) -> Result<(), CodecError>;
 
     /// Take the next frame from the decoder.
     fn take(&mut self) -> Result<Option<Self::Frame>, CodecError>;
+}
+
+/// A media encoder.
+///
+/// # Common encoder operation
+/// 1. Push a frame to the encoder.
+/// 2. Take all packets from the encoder until you get None.
+/// 3. If there are more frames to be encoded, continue with 1.
+/// 4. Flush the encoder.
+/// 5. Take all packets from the encoder until you get None.
+pub trait Encoder {
+    type CodecParameters;
+    type Frame;
+
+    /// Get codec parameters.
+    fn codec_parameters(&self) -> Self::CodecParameters;
+
+    /// Push a given frame to the encoder.
+    fn push(&mut self, frame: Self::Frame) -> Result<(), CodecError>;
+
+    /// Flush the encoder.
+    fn flush(&mut self) -> Result<(), CodecError>;
+
+    /// Take the next packet from the encoder.
+    fn take(&mut self) -> Result<Option<Packet>, CodecError>;
 }
