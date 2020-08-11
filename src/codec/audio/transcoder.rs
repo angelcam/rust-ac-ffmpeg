@@ -8,7 +8,7 @@ use crate::{
             AudioDecoder, AudioDecoderBuilder, AudioEncoder, AudioEncoderBuilder, AudioFrame,
             AudioResampler,
         },
-        AudioCodecParameters, CodecError, Decoder, Encoder, ErrorKind,
+        AudioCodecParameters, CodecError, Decoder, Encoder,
     },
     packet::Packet,
     time::TimeBase,
@@ -133,8 +133,7 @@ impl AudioTranscoder {
     /// Push a given packet to the transcoder.
     pub fn push(&mut self, packet: Packet) -> Result<(), CodecError> {
         if !self.ready.is_empty() {
-            return Err(CodecError::new(
-                ErrorKind::Again,
+            return Err(CodecError::again(
                 "take all transcoded packets before pushing another packet for transcoding",
             ));
         }
@@ -147,8 +146,7 @@ impl AudioTranscoder {
     /// Flush the transcoder.
     pub fn flush(&mut self) -> Result<(), CodecError> {
         if !self.ready.is_empty() {
-            return Err(CodecError::new(
-                ErrorKind::Again,
+            return Err(CodecError::again(
                 "take all transcoded packets before flushing the transcoder",
             ));
         }

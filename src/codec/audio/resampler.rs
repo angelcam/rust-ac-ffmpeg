@@ -5,7 +5,7 @@ use libc::{c_int, c_void};
 use crate::{
     codec::{
         audio::{AudioFrame, ChannelLayout, SampleFormat},
-        CodecError, ErrorKind,
+        CodecError,
     },
     time::TimeBase,
     Error,
@@ -182,22 +182,19 @@ impl AudioResampler {
     /// Push a given frame to the resampler.
     pub fn push(&mut self, frame: AudioFrame) -> Result<(), CodecError> {
         if frame.channel_layout() != self.source_channel_layout {
-            return Err(CodecError::new(
-                ErrorKind::Error,
+            return Err(CodecError::error(
                 "invalid frame, channel layout does not match",
             ));
         }
 
         if frame.sample_format() != self.source_sample_format {
-            return Err(CodecError::new(
-                ErrorKind::Error,
+            return Err(CodecError::error(
                 "invalid frame, sample format does not match",
             ));
         }
 
         if frame.sample_rate() != self.source_sample_rate {
-            return Err(CodecError::new(
-                ErrorKind::Error,
+            return Err(CodecError::error(
                 "invalid frame, sample rate does not match",
             ));
         }
@@ -207,11 +204,10 @@ impl AudioResampler {
         unsafe {
             match ffw_audio_resampler_push_frame(self.ptr, frame.as_ptr()) {
                 1 => Ok(()),
-                0 => Err(CodecError::new(
-                    ErrorKind::Again,
+                0 => Err(CodecError::again(
                     "all frames must be consumed before pushing a new frame",
                 )),
-                _ => Err(CodecError::new(ErrorKind::Error, "audio resampler error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }
@@ -221,11 +217,10 @@ impl AudioResampler {
         unsafe {
             match ffw_audio_resampler_push_frame(self.ptr, ptr::null()) {
                 1 => Ok(()),
-                0 => Err(CodecError::new(
-                    ErrorKind::Again,
+                0 => Err(CodecError::again(
                     "all frames must be consumed before flushing",
                 )),
-                _ => Err(CodecError::new(ErrorKind::Error, "audio resampler error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }
@@ -246,7 +241,7 @@ impl AudioResampler {
                     }
                 }
                 0 => Ok(None),
-                _ => Err(CodecError::new(ErrorKind::Error, "audio resampler error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }

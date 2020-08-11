@@ -6,7 +6,7 @@ use std::{ffi::CString, ptr};
 use libc::c_void;
 
 use crate::{
-    codec::{CodecError, CodecParameters, Decoder, Encoder, ErrorKind, VideoCodecParameters},
+    codec::{CodecError, CodecParameters, Decoder, Encoder, VideoCodecParameters},
     packet::Packet,
     time::TimeBase,
     Error,
@@ -188,11 +188,10 @@ impl Decoder for VideoDecoder {
         unsafe {
             match super::ffw_decoder_push_packet(self.ptr, packet.as_ptr()) {
                 1 => Ok(()),
-                0 => Err(CodecError::new(
-                    ErrorKind::Again,
+                0 => Err(CodecError::again(
                     "all frames must be consumed before pushing a new packet",
                 )),
-                _ => Err(CodecError::new(ErrorKind::Error, "decoding error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }
@@ -201,11 +200,10 @@ impl Decoder for VideoDecoder {
         unsafe {
             match super::ffw_decoder_push_packet(self.ptr, ptr::null()) {
                 1 => Ok(()),
-                0 => Err(CodecError::new(
-                    ErrorKind::Again,
+                0 => Err(CodecError::again(
                     "all frames must be consumed before flushing",
                 )),
-                _ => Err(CodecError::new(ErrorKind::Error, "decoding error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }
@@ -223,7 +221,7 @@ impl Decoder for VideoDecoder {
                     }
                 }
                 0 => Ok(None),
-                _ => Err(CodecError::new(ErrorKind::Error, "decoding error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }
@@ -443,11 +441,10 @@ impl Encoder for VideoEncoder {
         unsafe {
             match super::ffw_encoder_push_frame(self.ptr, frame.as_ptr()) {
                 1 => Ok(()),
-                0 => Err(CodecError::new(
-                    ErrorKind::Again,
+                0 => Err(CodecError::again(
                     "all packets must be consumed before pushing a new frame",
                 )),
-                _ => Err(CodecError::new(ErrorKind::Error, "encoding error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }
@@ -456,11 +453,10 @@ impl Encoder for VideoEncoder {
         unsafe {
             match super::ffw_encoder_push_frame(self.ptr, ptr::null()) {
                 1 => Ok(()),
-                0 => Err(CodecError::new(
-                    ErrorKind::Again,
+                0 => Err(CodecError::again(
                     "all packets must be consumed before flushing",
                 )),
-                _ => Err(CodecError::new(ErrorKind::Error, "encoding error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }
@@ -478,7 +474,7 @@ impl Encoder for VideoEncoder {
                     }
                 }
                 0 => Ok(None),
-                _ => Err(CodecError::new(ErrorKind::Error, "encoding error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }

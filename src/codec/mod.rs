@@ -91,44 +91,72 @@ extern "C" {
     fn ffw_encoder_free(encoder: *mut c_void);
 }
 
-/// A type of a decoding or an encoding error.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum ErrorKind {
+/// Error variants.
+#[derive(Debug, Clone)]
+enum CodecErrorVariant {
     /// An error.
-    Error,
+    Error(Error),
     /// An error indicating that another operation needs to be done before
     /// continuing with the current operation.
-    Again,
+    Again(&'static str),
 }
 
 /// A decoding or encoding error.
 #[derive(Debug, Clone)]
 pub struct CodecError {
-    kind: ErrorKind,
-    msg: String,
+    variant: CodecErrorVariant,
 }
 
 impl CodecError {
     /// Create a new error.
-    pub fn new<T>(kind: ErrorKind, msg: T) -> CodecError
+    fn error<T>(msg: T) -> Self
     where
         T: ToString,
     {
-        CodecError {
-            kind,
-            msg: msg.to_string(),
+        Self {
+            variant: CodecErrorVariant::Error(Error::new(msg)),
         }
     }
 
-    /// Get error kind.
-    pub fn kind(&self) -> ErrorKind {
-        self.kind
+    /// Create a new FFmpeg error from a given FFmpeg error code.
+    fn from_raw_error_code(code: c_int) -> Self {
+        Self {
+            variant: CodecErrorVariant::Error(Error::from_raw_error_code(code)),
+        }
+    }
+
+    /// Create a new error indicating that another operation needs to be done.
+    fn again(msg: &'static str) -> Self {
+        Self {
+            variant: CodecErrorVariant::Again(msg),
+        }
+    }
+
+    /// Check if another operation needs to be done.
+    pub fn is_again(&self) -> bool {
+        if let CodecErrorVariant::Again(_) = &self.variant {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Get the inner error (if any).
+    pub fn into_inner(self) -> Option<Error> {
+        if let CodecErrorVariant::Error(err) = self.variant {
+            Some(err)
+        } else {
+            None
+        }
     }
 }
 
 impl Display for CodecError {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        f.write_str(&self.msg)
+        match &self.variant {
+            CodecErrorVariant::Again(msg) => write!(f, "{}", msg),
+            CodecErrorVariant::Error(err) => write!(f, "{}", err),
+        }
     }
 }
 
@@ -216,13 +244,13 @@ unsafe impl Sync for InnerCodecParameters {}
 
 /// Variants of codec parameters.
 #[derive(Clone)]
-enum CodecParametersVariants {
+enum CodecParametersVariant {
     Audio(AudioCodecParameters),
     Video(VideoCodecParameters),
     Other(OtherCodecParameters),
 }
 
-impl CodecParametersVariants {
+impl CodecParametersVariant {
     /// Create codec parameters from a given raw representation.
     unsafe fn from_raw_ptr(ptr: *mut c_void) -> Self {
         let inner = InnerCodecParameters::from_raw_ptr(ptr);
@@ -237,7 +265,7 @@ impl CodecParametersVariants {
     }
 }
 
-impl AsRef<InnerCodecParameters> for CodecParametersVariants {
+impl AsRef<InnerCodecParameters> for CodecParametersVariant {
     fn as_ref(&self) -> &InnerCodecParameters {
         match self {
             Self::Audio(audio) => audio.as_ref(),
@@ -250,14 +278,14 @@ impl AsRef<InnerCodecParameters> for CodecParametersVariants {
 /// Codec parameters.
 #[derive(Clone)]
 pub struct CodecParameters {
-    inner: CodecParametersVariants,
+    inner: CodecParametersVariant,
 }
 
 impl CodecParameters {
     /// Create codec parameters from a given raw representation.
     pub(crate) unsafe fn from_raw_ptr(ptr: *mut c_void) -> Self {
         Self {
-            inner: CodecParametersVariants::from_raw_ptr(ptr),
+            inner: CodecParametersVariant::from_raw_ptr(ptr),
         }
     }
 
@@ -290,7 +318,7 @@ impl CodecParameters {
 
     /// Get reference to audio codec parameters (if possible).
     pub fn as_audio_codec_parameters(&self) -> Option<&AudioCodecParameters> {
-        if let CodecParametersVariants::Audio(params) = &self.inner {
+        if let CodecParametersVariant::Audio(params) = &self.inner {
             Some(params)
         } else {
             None
@@ -299,7 +327,7 @@ impl CodecParameters {
 
     /// Get reference to video codec parameters (if possible).
     pub fn as_video_codec_parameters(&self) -> Option<&VideoCodecParameters> {
-        if let CodecParametersVariants::Video(params) = &self.inner {
+        if let CodecParametersVariant::Video(params) = &self.inner {
             Some(params)
         } else {
             None
@@ -308,7 +336,7 @@ impl CodecParameters {
 
     /// Convert this object into audio codec parameters (if possible).
     pub fn into_audio_codec_parameters(self) -> Option<AudioCodecParameters> {
-        if let CodecParametersVariants::Audio(params) = self.inner {
+        if let CodecParametersVariant::Audio(params) = self.inner {
             Some(params)
         } else {
             None
@@ -317,7 +345,7 @@ impl CodecParameters {
 
     /// Convert this object into video codec parameters (if possible).
     pub fn into_video_codec_parameters(self) -> Option<VideoCodecParameters> {
-        if let CodecParametersVariants::Video(params) = self.inner {
+        if let CodecParametersVariant::Video(params) = self.inner {
             Some(params)
         } else {
             None
@@ -328,7 +356,7 @@ impl CodecParameters {
 impl From<AudioCodecParameters> for CodecParameters {
     fn from(params: AudioCodecParameters) -> Self {
         Self {
-            inner: CodecParametersVariants::Audio(params),
+            inner: CodecParametersVariant::Audio(params),
         }
     }
 }
@@ -336,7 +364,7 @@ impl From<AudioCodecParameters> for CodecParameters {
 impl From<VideoCodecParameters> for CodecParameters {
     fn from(params: VideoCodecParameters) -> Self {
         Self {
-            inner: CodecParametersVariants::Video(params),
+            inner: CodecParametersVariant::Video(params),
         }
     }
 }
