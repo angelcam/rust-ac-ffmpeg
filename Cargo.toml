@@ -18,7 +18,8 @@ lazy_static = "1.4"
 libc        = "0.2"
 
 [build-dependencies]
-cc = "1.0"
+cc         = "1.0"
+pkg-config = "0.3"
 
 [dev-dependencies]
 clap = "2.33"

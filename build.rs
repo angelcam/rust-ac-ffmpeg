@@ -1,12 +1,16 @@
-use std::{env, path::Path};
+use std::{env, path::PathBuf};
 
 use cc::Build;
+use pkg_config::Config;
 
 fn main() {
-    let ffmpeg_include_dir = ffmpeg_include_dir();
+    let mut build = Build::new();
 
-    Build::new()
-        .include(&ffmpeg_include_dir)
+    for dir in ffmpeg_include_dirs() {
+        build.include(dir);
+    }
+
+    build
         .file("src/error.c")
         .file("src/logger.c")
         .file("src/packet.c")
@@ -23,8 +27,8 @@ fn main() {
 
     link_static("ffwrapper");
 
-    if let Some(dir) = ffmpeg_lib_dir() {
-        println!("cargo:rustc-link-search=native={}", dir);
+    for dir in ffmpeg_lib_dirs() {
+        println!("cargo:rustc-link-search=native={}", dir.to_str().unwrap());
     }
 
     let ffmpeg_link_mode = lib_mode("ffmpeg");
@@ -36,34 +40,44 @@ fn main() {
     link("swscale", ffmpeg_link_mode);
 }
 
-fn is_dir(d: &str) -> bool {
-    let path = Path::new(d);
+fn ffmpeg_include_dirs() -> Vec<PathBuf> {
+    if let Ok(dir) = env::var("FFMPEG_INCLUDE_DIR") {
+        let dir = PathBuf::from(dir);
 
-    path.is_dir()
-}
-
-fn ffmpeg_include_dir() -> String {
-    if let Ok(include) = env::var("FFMPEG_INCLUDE_DIR") {
-        if is_dir(&include) {
-            return include;
+        if dir.is_dir() {
+            return vec![dir];
         }
     }
 
-    if is_dir("/usr/include/ffmpeg") {
-        return String::from("/usr/include/ffmpeg");
-    }
+    let lib = Config::new()
+        .cargo_metadata(false)
+        .env_metadata(false)
+        .print_system_libs(false)
+        .print_system_cflags(false)
+        .probe("libavcodec")
+        .expect("Unable to find FFmpeg include dir. You can specify it explicitly by setting the FFMPEG_INCLUDE_DIR environment variable.");
 
-    panic!("Unable to find FFmpeg include dir. You can specify it explicitly by setting the FFMPEG_INCLUDE_DIR environment variable.");
+    lib.include_paths
 }
 
-fn ffmpeg_lib_dir() -> Option<String> {
+fn ffmpeg_lib_dirs() -> Vec<PathBuf> {
     if let Ok(dir) = env::var("FFMPEG_LIB_DIR") {
-        if is_dir(&dir) {
-            return Some(dir);
+        let dir = PathBuf::from(dir);
+
+        if dir.is_dir() {
+            return vec![dir];
         }
     }
 
-    None
+    let lib = Config::new()
+        .cargo_metadata(false)
+        .env_metadata(false)
+        .print_system_libs(false)
+        .print_system_cflags(false)
+        .probe("libavcodec")
+        .expect("Unable to find FFmpeg lib dir. You can specify it explicitly by setting the FFMPEG_LIB_DIR environment variable.");
+
+    lib.link_paths
 }
 
 fn link_static(lib: &str) {
