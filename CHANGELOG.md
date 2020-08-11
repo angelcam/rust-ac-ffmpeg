@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.15.1 (2020-08-11)
+
+* Use pkg-config for finding native dependencies
+
 ## v0.15.0 (2020-08-11)
 
 * Polish the public API a bit
