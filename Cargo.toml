@@ -1,9 +1,10 @@
 [package]
 name = "ac-ffmpeg"
-version = "0.14.0"
+version = "0.15.0"
 authors = ["Angelcam, Inc. <dev@angelcam.com>"]
 edition = "2018"
 readme = "README.md"
+license = "MIT"
 documentation = "https://docs.rs/ac-ffmpeg/"
 repository = "https://github.com/angelcam/rust-ac-ffmpeg"
 description = """
