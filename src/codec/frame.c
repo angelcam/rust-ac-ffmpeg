@@ -1,9 +1,9 @@
-#include<libavutil/channel_layout.h>
-#include<libavutil/frame.h>
-#include<libavutil/imgutils.h>
-#include<libavutil/pixdesc.h>
-#include<libavutil/pixfmt.h>
-#include<libavutil/samplefmt.h>
+#include <libavutil/channel_layout.h>
+#include <libavutil/frame.h>
+#include <libavutil/imgutils.h>
+#include <libavutil/pixdesc.h>
+#include <libavutil/pixfmt.h>
+#include <libavutil/samplefmt.h>
 
 uint64_t ffw_get_channel_layout_by_name(const char* name) {
     return av_get_channel_layout(name);

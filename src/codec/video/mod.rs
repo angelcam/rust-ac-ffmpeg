@@ -1,28 +1,33 @@
+//! Video decoder/encoder.
+
 pub mod frame;
 pub mod scaler;
 
-use std::ptr;
-
-use std::ffi::CString;
+use std::{ffi::CString, ptr};
 
 use libc::c_void;
 
-use crate::Error;
+use crate::{
+    codec::{CodecError, CodecParameters, Decoder, Encoder, VideoCodecParameters},
+    packet::Packet,
+    time::TimeBase,
+    Error,
+};
 
-use crate::codec::{CodecError, CodecParameters, Decoder, ErrorKind, VideoCodecParameters};
-use crate::packet::Packet;
-
-pub use self::frame::{PixelFormat, VideoFrame, VideoFrameMut};
-pub use self::scaler::{VideoFrameScaler, VideoFrameScalerBuilder};
+pub use self::{
+    frame::{PixelFormat, VideoFrame, VideoFrameMut},
+    scaler::{VideoFrameScaler, VideoFrameScalerBuilder},
+};
 
 /// Builder for the video decoder.
 pub struct VideoDecoderBuilder {
     ptr: *mut c_void,
+    time_base: TimeBase,
 }
 
 impl VideoDecoderBuilder {
     /// Create a new builder for a given codec.
-    fn new(codec: &str) -> Result<VideoDecoderBuilder, Error> {
+    fn new(codec: &str) -> Result<Self, Error> {
         let codec = CString::new(codec).expect("invalid codec name");
 
         let ptr = unsafe { super::ffw_decoder_new(codec.as_ptr() as _) };
@@ -31,28 +36,32 @@ impl VideoDecoderBuilder {
             return Err(Error::new("unknown codec"));
         }
 
-        let res = VideoDecoderBuilder { ptr };
+        let res = Self {
+            ptr,
+            time_base: TimeBase::MICROSECONDS,
+        };
 
         Ok(res)
     }
 
     /// Create a new builder from given codec parameters.
-    fn from_codec_parameters(
-        codec_parameters: &VideoCodecParameters,
-    ) -> Result<VideoDecoderBuilder, Error> {
+    fn from_codec_parameters(codec_parameters: &VideoCodecParameters) -> Result<Self, Error> {
         let ptr = unsafe { super::ffw_decoder_from_codec_parameters(codec_parameters.as_ptr()) };
 
         if ptr.is_null() {
             return Err(Error::new("unable to create a decoder"));
         }
 
-        let res = VideoDecoderBuilder { ptr };
+        let res = Self {
+            ptr,
+            time_base: TimeBase::MICROSECONDS,
+        };
 
         Ok(res)
     }
 
     /// Set a decoder option.
-    pub fn set_option<V>(self, name: &str, value: V) -> VideoDecoderBuilder
+    pub fn set_option<V>(self, name: &str, value: V) -> Self
     where
         V: ToString,
     {
@@ -70,8 +79,20 @@ impl VideoDecoderBuilder {
         self
     }
 
+    /// Set decoder time base (all input packets will be rescaled into this
+    /// time base). The default time base is in microseconds.
+    pub fn time_base(mut self, time_base: TimeBase) -> Self {
+        self.time_base = time_base;
+        self
+    }
+
     /// Set codec extradata.
-    pub fn extradata(self, data: Option<&[u8]>) -> VideoDecoderBuilder {
+    pub fn extradata<T>(self, data: Option<T>) -> Self
+    where
+        T: AsRef<[u8]>,
+    {
+        let data = data.as_ref().map(|d| d.as_ref());
+
         let ptr;
         let size;
 
@@ -104,7 +125,10 @@ impl VideoDecoderBuilder {
 
         self.ptr = ptr::null_mut();
 
-        let res = VideoDecoder { ptr };
+        let res = VideoDecoder {
+            ptr,
+            time_base: self.time_base,
+        };
 
         Ok(res)
     }
@@ -120,20 +144,14 @@ unsafe impl Send for VideoDecoderBuilder {}
 unsafe impl Sync for VideoDecoderBuilder {}
 
 /// Video decoder.
-///
-/// # Decoder operation
-/// 1. Push a packet to the decoder.
-/// 2. Take all frames from the decoder until you get None.
-/// 3. If there are more packets to be decoded, continue with 1.
-/// 4. Flush the decoder.
-/// 5. Take all frames from the decoder until you get None.
 pub struct VideoDecoder {
     ptr: *mut c_void,
+    time_base: TimeBase,
 }
 
 impl VideoDecoder {
     /// Create a new video decoder for a given codec.
-    pub fn new(codec: &str) -> Result<VideoDecoder, Error> {
+    pub fn new(codec: &str) -> Result<Self, Error> {
         VideoDecoderBuilder::new(codec).and_then(|builder| builder.build())
     }
 
@@ -154,7 +172,6 @@ impl Decoder for VideoDecoder {
     type CodecParameters = VideoCodecParameters;
     type Frame = VideoFrame;
 
-    /// Get codec parameters.
     fn codec_parameters(&self) -> VideoCodecParameters {
         let ptr = unsafe { super::ffw_decoder_get_codec_parameters(self.ptr) };
 
@@ -167,36 +184,33 @@ impl Decoder for VideoDecoder {
         params.into_video_codec_parameters().unwrap()
     }
 
-    /// Push a given packet to the decoder.
-    fn push(&mut self, packet: &Packet) -> Result<(), CodecError> {
+    fn try_push(&mut self, packet: Packet) -> Result<(), CodecError> {
+        let packet = packet.with_time_base(self.time_base);
+
         unsafe {
             match super::ffw_decoder_push_packet(self.ptr, packet.as_ptr()) {
                 1 => Ok(()),
-                0 => Err(CodecError::new(
-                    ErrorKind::Again,
+                0 => Err(CodecError::again(
                     "all frames must be consumed before pushing a new packet",
                 )),
-                _ => Err(CodecError::new(ErrorKind::Error, "decoding error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }
 
-    /// Flush the decoder.
-    fn flush(&mut self) -> Result<(), CodecError> {
+    fn try_flush(&mut self) -> Result<(), CodecError> {
         unsafe {
             match super::ffw_decoder_push_packet(self.ptr, ptr::null()) {
                 1 => Ok(()),
-                0 => Err(CodecError::new(
-                    ErrorKind::Again,
+                0 => Err(CodecError::again(
                     "all frames must be consumed before flushing",
                 )),
-                _ => Err(CodecError::new(ErrorKind::Error, "decoding error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }
 
-    /// Take the next decoded frame from the decoder.
-    fn take(&mut self) -> Result<Option<VideoFrame>, CodecError> {
+    fn take(&mut self) -> Result<Option<VideoFrame>, Error> {
         let mut fptr = ptr::null_mut();
 
         unsafe {
@@ -205,11 +219,11 @@ impl Decoder for VideoDecoder {
                     if fptr.is_null() {
                         panic!("no frame received")
                     } else {
-                        Ok(Some(VideoFrame::from_raw_ptr(fptr)))
+                        Ok(Some(VideoFrame::from_raw_ptr(fptr, self.time_base)))
                     }
                 }
                 0 => Ok(None),
-                _ => Err(CodecError::new(ErrorKind::Error, "decoding error")),
+                e => Err(Error::from_raw_error_code(e)),
             }
         }
     }
@@ -228,6 +242,8 @@ unsafe impl Sync for VideoDecoder {}
 pub struct VideoEncoderBuilder {
     ptr: *mut c_void,
 
+    time_base: TimeBase,
+
     format: Option<PixelFormat>,
     width: Option<usize>,
     height: Option<usize>,
@@ -235,7 +251,7 @@ pub struct VideoEncoderBuilder {
 
 impl VideoEncoderBuilder {
     /// Create a new encoder builder for a given codec.
-    fn new(codec: &str) -> Result<VideoEncoderBuilder, Error> {
+    fn new(codec: &str) -> Result<Self, Error> {
         let codec = CString::new(codec).expect("invalid codec name");
 
         let ptr = unsafe { super::ffw_encoder_new(codec.as_ptr() as _) };
@@ -246,11 +262,12 @@ impl VideoEncoderBuilder {
 
         unsafe {
             super::ffw_encoder_set_bit_rate(ptr, 0);
-            super::ffw_encoder_set_time_base(ptr, 1, 1000);
         }
 
-        let res = VideoEncoderBuilder {
+        let res = Self {
             ptr,
+
+            time_base: TimeBase::MICROSECONDS,
 
             format: None,
             width: None,
@@ -261,9 +278,7 @@ impl VideoEncoderBuilder {
     }
 
     /// Create a new encoder builder from given codec parameters.
-    fn from_codec_parameters(
-        codec_parameters: &VideoCodecParameters,
-    ) -> Result<VideoEncoderBuilder, Error> {
+    fn from_codec_parameters(codec_parameters: &VideoCodecParameters) -> Result<Self, Error> {
         let ptr = unsafe { super::ffw_encoder_from_codec_parameters(codec_parameters.as_ptr()) };
 
         if ptr.is_null() {
@@ -275,13 +290,15 @@ impl VideoEncoderBuilder {
         let height;
 
         unsafe {
-            pixel_format = super::ffw_encoder_get_pixel_format(ptr) as _;
+            pixel_format = PixelFormat::from_raw(super::ffw_encoder_get_pixel_format(ptr));
             width = super::ffw_encoder_get_width(ptr) as _;
             height = super::ffw_encoder_get_height(ptr) as _;
         }
 
-        let res = VideoEncoderBuilder {
+        let res = Self {
             ptr,
+
+            time_base: TimeBase::MICROSECONDS,
 
             format: Some(pixel_format),
             width: Some(width),
@@ -292,7 +309,7 @@ impl VideoEncoderBuilder {
     }
 
     /// Set an encoder option.
-    pub fn set_option<V>(self, name: &str, value: V) -> VideoEncoderBuilder
+    pub fn set_option<V>(self, name: &str, value: V) -> Self
     where
         V: ToString,
     {
@@ -311,7 +328,7 @@ impl VideoEncoderBuilder {
     }
 
     /// Set encoder bit rate. The default is 0 (i.e. automatic).
-    pub fn bit_rate(self, bit_rate: u64) -> VideoEncoderBuilder {
+    pub fn bit_rate(self, bit_rate: u64) -> Self {
         unsafe {
             super::ffw_encoder_set_bit_rate(self.ptr, bit_rate as _);
         }
@@ -319,29 +336,26 @@ impl VideoEncoderBuilder {
         self
     }
 
-    /// Set encoder time base as a rational number. The default is 1/1000.
-    pub fn time_base(self, num: u32, den: u32) -> VideoEncoderBuilder {
-        unsafe {
-            super::ffw_encoder_set_time_base(self.ptr, num as _, den as _);
-        }
-
+    /// Set encoder time base. The default time base is in microseconds.
+    pub fn time_base(mut self, time_base: TimeBase) -> Self {
+        self.time_base = time_base;
         self
     }
 
     /// Set encoder pixel format.
-    pub fn pixel_format(mut self, format: PixelFormat) -> VideoEncoderBuilder {
+    pub fn pixel_format(mut self, format: PixelFormat) -> Self {
         self.format = Some(format);
         self
     }
 
     /// Set frame width.
-    pub fn width(mut self, width: usize) -> VideoEncoderBuilder {
+    pub fn width(mut self, width: usize) -> Self {
         self.width = Some(width);
         self
     }
 
     /// Set frame height.
-    pub fn height(mut self, height: usize) -> VideoEncoderBuilder {
+    pub fn height(mut self, height: usize) -> Self {
         self.height = Some(height);
         self
     }
@@ -351,11 +365,15 @@ impl VideoEncoderBuilder {
         let format = self
             .format
             .ok_or_else(|| Error::new("pixel format not set"))?;
+
         let width = self.width.ok_or_else(|| Error::new("width not set"))?;
         let height = self.height.ok_or_else(|| Error::new("height not set"))?;
 
+        let tb = self.time_base;
+
         unsafe {
-            super::ffw_encoder_set_pixel_format(self.ptr, format);
+            super::ffw_encoder_set_time_base(self.ptr, tb.num() as _, tb.den() as _);
+            super::ffw_encoder_set_pixel_format(self.ptr, format.into_raw());
             super::ffw_encoder_set_width(self.ptr, width as _);
             super::ffw_encoder_set_height(self.ptr, height as _);
 
@@ -368,7 +386,7 @@ impl VideoEncoderBuilder {
 
         self.ptr = ptr::null_mut();
 
-        let res = VideoEncoder { ptr };
+        let res = VideoEncoder { ptr, time_base: tb };
 
         Ok(res)
     }
@@ -384,15 +402,9 @@ unsafe impl Send for VideoEncoderBuilder {}
 unsafe impl Sync for VideoEncoderBuilder {}
 
 /// Video encoder.
-///
-/// # Encoder operation
-/// 1. Push a frame to the encoder.
-/// 2. Take all packets from the encoder until you get None.
-/// 3. If there are more frames to be encoded, continue with 1.
-/// 4. Flush the encoder.
-/// 5. Take all packets from the encoder until you get None.
 pub struct VideoEncoder {
     ptr: *mut c_void,
+    time_base: TimeBase,
 }
 
 impl VideoEncoder {
@@ -407,9 +419,13 @@ impl VideoEncoder {
     pub fn builder(codec: &str) -> Result<VideoEncoderBuilder, Error> {
         VideoEncoderBuilder::new(codec)
     }
+}
 
-    /// Get codec parameters.
-    pub fn codec_parameters(&self) -> VideoCodecParameters {
+impl Encoder for VideoEncoder {
+    type CodecParameters = VideoCodecParameters;
+    type Frame = VideoFrame;
+
+    fn codec_parameters(&self) -> VideoCodecParameters {
         let ptr = unsafe { super::ffw_encoder_get_codec_parameters(self.ptr) };
 
         if ptr.is_null() {
@@ -421,36 +437,33 @@ impl VideoEncoder {
         params.into_video_codec_parameters().unwrap()
     }
 
-    /// Push a given frame to the encoder.
-    pub fn push(&mut self, frame: &VideoFrame) -> Result<(), CodecError> {
+    fn try_push(&mut self, frame: VideoFrame) -> Result<(), CodecError> {
+        let frame = frame.with_time_base(self.time_base);
+
         unsafe {
             match super::ffw_encoder_push_frame(self.ptr, frame.as_ptr()) {
                 1 => Ok(()),
-                0 => Err(CodecError::new(
-                    ErrorKind::Again,
+                0 => Err(CodecError::again(
                     "all packets must be consumed before pushing a new frame",
                 )),
-                _ => Err(CodecError::new(ErrorKind::Error, "encoding error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }
 
-    /// Flush the encoder.
-    pub fn flush(&mut self) -> Result<(), CodecError> {
+    fn try_flush(&mut self) -> Result<(), CodecError> {
         unsafe {
             match super::ffw_encoder_push_frame(self.ptr, ptr::null()) {
                 1 => Ok(()),
-                0 => Err(CodecError::new(
-                    ErrorKind::Again,
+                0 => Err(CodecError::again(
                     "all packets must be consumed before flushing",
                 )),
-                _ => Err(CodecError::new(ErrorKind::Error, "encoding error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }
 
-    /// Take the next packet from the encoder.
-    pub fn take(&mut self) -> Result<Option<Packet>, CodecError> {
+    fn take(&mut self) -> Result<Option<Packet>, Error> {
         let mut pptr = ptr::null_mut();
 
         unsafe {
@@ -459,11 +472,11 @@ impl VideoEncoder {
                     if pptr.is_null() {
                         panic!("no packet received")
                     } else {
-                        Ok(Some(Packet::from_raw_ptr(pptr)))
+                        Ok(Some(Packet::from_raw_ptr(pptr, self.time_base)))
                     }
                 }
                 0 => Ok(None),
-                _ => Err(CodecError::new(ErrorKind::Error, "encoding error")),
+                e => Err(Error::from_raw_error_code(e)),
             }
         }
     }

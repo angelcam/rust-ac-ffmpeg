@@ -1,13 +1,17 @@
+//! Safe Rust interface for FFmpeg libraries. See the `examples` folder for
+//! code examples.
+
 pub mod codec;
 pub mod format;
 pub mod packet;
+pub mod time;
 
-use std::fmt;
-use std::io;
-
-use std::ffi::CStr;
-use std::fmt::{Display, Formatter};
-use std::sync::RwLock;
+use std::{
+    ffi::CStr,
+    fmt::{self, Display, Formatter},
+    io,
+    sync::RwLock,
+};
 
 use lazy_static::lazy_static;
 
@@ -86,65 +90,72 @@ where
     }
 }
 
-/// An FFmpeg error.
+/// Error variants.
+#[derive(Debug, Clone)]
+enum ErrorVariant {
+    FFmpeg(c_int),
+    Other(String),
+}
+
+/// An error.
 #[derive(Debug, Clone)]
 pub struct Error {
-    msg: String,
-    code: Option<c_int>,
+    variant: ErrorVariant,
 }
 
 impl Error {
     /// Create a new FFmpeg error.
-    pub fn new<T>(msg: T) -> Error
+    pub fn new<T>(msg: T) -> Self
     where
         T: ToString,
     {
-        Error {
-            msg: msg.to_string(),
-            code: None,
+        Self {
+            variant: ErrorVariant::Other(msg.to_string()),
         }
     }
 
     /// Convert this error into a standard IO error (if possible).
     pub fn to_io_error(&self) -> Option<io::Error> {
-        self.code.map(|code| {
-            let posix = unsafe { ffw_error_to_posix(code) };
+        if let ErrorVariant::FFmpeg(code) = &self.variant {
+            let posix = unsafe { ffw_error_to_posix(*code) };
+            let err = io::Error::from_raw_os_error(posix as _);
 
-            io::Error::from_raw_os_error(posix as _)
-        })
+            Some(err)
+        } else {
+            None
+        }
     }
 
     /// Create a new FFmpeg error from a given FFmpeg error code.
-    fn from_raw_error_code(code: c_int) -> Error {
-        let mut buffer = [0u8; 256];
-
-        let buffer_ptr = buffer.as_mut_ptr();
-        let buffer_len = buffer.len();
-
-        let msg = unsafe {
-            ffw_error_get_error_string(code, buffer_ptr as _, buffer_len as _);
-
-            CStr::from_ptr(buffer.as_ptr() as _)
-                .to_str()
-                .expect("UTF-8 encoded error string expected")
-                .to_string()
-        };
-
-        Error {
-            msg,
-            code: Some(code),
+    fn from_raw_error_code(code: c_int) -> Self {
+        Self {
+            variant: ErrorVariant::FFmpeg(code),
         }
     }
 }
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        f.write_str(&self.msg)
+        match &self.variant {
+            ErrorVariant::FFmpeg(code) => {
+                let mut buffer = [0u8; 256];
+
+                let buffer_ptr = buffer.as_mut_ptr();
+                let buffer_len = buffer.len();
+
+                let msg = unsafe {
+                    ffw_error_get_error_string(*code, buffer_ptr as _, buffer_len as _);
+
+                    CStr::from_ptr(buffer.as_ptr() as _)
+                        .to_str()
+                        .expect("UTF-8 encoded error string expected")
+                };
+
+                write!(f, "{}", msg)
+            }
+            ErrorVariant::Other(msg) => write!(f, "{}", msg),
+        }
     }
 }
 
-impl std::error::Error for Error {
-    fn description(&self) -> &str {
-        &self.msg
-    }
-}
+impl std::error::Error for Error {}

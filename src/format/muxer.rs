@@ -1,15 +1,10 @@
-use std::ptr;
+//! A/V muxer.
 
-use std::ffi::CString;
-use std::io::Write;
+use std::{ffi::CString, io::Write, ptr};
 
 use libc::{c_char, c_int, c_uint, c_void};
 
-use crate::Error;
-
-use crate::codec::CodecParameters;
-use crate::format::io::IO;
-use crate::packet::Packet;
+use crate::{codec::CodecParameters, format::io::IO, packet::Packet, Error};
 
 extern "C" {
     fn ffw_guess_output_format(
@@ -28,8 +23,18 @@ extern "C" {
         value: *const c_char,
     ) -> c_int;
     fn ffw_muxer_set_option(muxer: *mut c_void, key: *const c_char, value: *const c_char) -> c_int;
-    fn ffw_muxer_write_frame(muxer: *mut c_void, packet: *mut c_void) -> c_int;
-    fn ffw_muxer_interleaved_write_frame(muxer: *mut c_void, packet: *mut c_void) -> c_int;
+    fn ffw_muxer_write_frame(
+        muxer: *mut c_void,
+        packet: *mut c_void,
+        tb_num: u32,
+        tb_den: u32,
+    ) -> c_int;
+    fn ffw_muxer_interleaved_write_frame(
+        muxer: *mut c_void,
+        packet: *mut c_void,
+        tb_num: u32,
+        tb_den: u32,
+    ) -> c_int;
     fn ffw_muxer_free(muxer: *mut c_void);
 }
 
@@ -173,11 +178,13 @@ impl<T> Muxer<T> {
 
         assert!(packet.stream_index() < nb_streams);
 
+        let tb = packet.time_base();
+
         let ret = unsafe {
             if self.interleaved {
-                ffw_muxer_interleaved_write_frame(self.ptr, packet.as_mut_ptr())
+                ffw_muxer_interleaved_write_frame(self.ptr, packet.as_mut_ptr(), tb.num(), tb.den())
             } else {
-                ffw_muxer_write_frame(self.ptr, packet.as_mut_ptr())
+                ffw_muxer_write_frame(self.ptr, packet.as_mut_ptr(), tb.num(), tb.den())
             }
         };
 
@@ -192,9 +199,9 @@ impl<T> Muxer<T> {
     pub fn flush(&mut self) -> Result<(), Error> {
         let ret = unsafe {
             if self.interleaved {
-                ffw_muxer_interleaved_write_frame(self.ptr, ptr::null_mut())
+                ffw_muxer_interleaved_write_frame(self.ptr, ptr::null_mut(), 1, 1_000_000)
             } else {
-                ffw_muxer_write_frame(self.ptr, ptr::null_mut())
+                ffw_muxer_write_frame(self.ptr, ptr::null_mut(), 1, 1_000_000)
             }
         };
 

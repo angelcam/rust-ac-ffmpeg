@@ -1,18 +1,22 @@
-use std::ptr;
+//! Bitstream filter.
 
-use std::ffi::CString;
+use std::{ffi::CString, ptr};
 
 use libc::{c_char, c_int, c_void};
 
-use crate::codec::CodecParameters;
-use crate::packet::Packet;
-use crate::Error;
+use crate::{codec::CodecParameters, packet::Packet, time::TimeBase, Error};
 
 extern "C" {
     fn ffw_bsf_new(name: *const c_char, context: *mut *mut c_void) -> c_int;
     fn ffw_bsf_set_input_codec_parameters(context: *mut c_void, params: *const c_void) -> c_int;
     fn ffw_bsf_set_output_codec_parameters(context: *mut c_void, params: *const c_void) -> c_int;
-    fn ffw_bsf_init(context: *mut c_void) -> c_int;
+    fn ffw_bsf_init(
+        context: *mut c_void,
+        itb_num: u32,
+        itb_den: u32,
+        otb_num: u32,
+        otb_den: u32,
+    ) -> c_int;
     fn ffw_bsf_push(context: *mut c_void, packet: *mut c_void) -> c_int;
     fn ffw_bsf_flush(context: *mut c_void) -> c_int;
     fn ffw_bsf_take(context: *mut c_void, packet: *mut *mut c_void) -> c_int;
@@ -22,6 +26,9 @@ extern "C" {
 /// A builder for bitstream filters.
 pub struct BitstreamFilterBuilder {
     ptr: *mut c_void,
+
+    input_time_base: TimeBase,
+    output_time_base: TimeBase,
 }
 
 impl BitstreamFilterBuilder {
@@ -39,9 +46,21 @@ impl BitstreamFilterBuilder {
             panic!("unable to allocate a bitstream filter");
         }
 
-        let res = BitstreamFilterBuilder { ptr };
+        let res = BitstreamFilterBuilder {
+            ptr,
+
+            input_time_base: TimeBase::MICROSECONDS,
+            output_time_base: TimeBase::MICROSECONDS,
+        };
 
         Ok(res)
+    }
+
+    /// Set input time base. By default it's in microseconds. All input packets
+    /// will be rescaled to this time base before passing them to the filter.
+    pub fn input_time_base(mut self, time_base: TimeBase) -> Self {
+        self.input_time_base = time_base;
+        self
     }
 
     /// Set input codec parameters.
@@ -53,6 +72,13 @@ impl BitstreamFilterBuilder {
             panic!("unable to set input codec parameters");
         }
 
+        self
+    }
+
+    /// Set output time base. By default it's in microseconds. All output
+    /// packets will use this time base.
+    pub fn output_time_base(mut self, time_base: TimeBase) -> Self {
+        self.output_time_base = time_base;
         self
     }
 
@@ -70,7 +96,15 @@ impl BitstreamFilterBuilder {
 
     /// Build the bitstream filter.
     pub fn build(mut self) -> Result<BitstreamFilter, Error> {
-        let ret = unsafe { ffw_bsf_init(self.ptr) };
+        let ret = unsafe {
+            ffw_bsf_init(
+                self.ptr,
+                self.input_time_base.num(),
+                self.input_time_base.den(),
+                self.output_time_base.num(),
+                self.output_time_base.den(),
+            )
+        };
 
         if ret < 0 {
             return Err(Error::from_raw_error_code(ret));
@@ -78,7 +112,10 @@ impl BitstreamFilterBuilder {
 
         let ptr = self.ptr;
         self.ptr = ptr::null_mut();
-        let res = BitstreamFilter { ptr };
+        let res = BitstreamFilter {
+            ptr,
+            output_time_base: self.output_time_base,
+        };
 
         Ok(res)
     }
@@ -103,10 +140,22 @@ unsafe impl Sync for BitstreamFilterBuilder {}
 /// 5. Take all packets from the filter until you get None.
 pub struct BitstreamFilter {
     ptr: *mut c_void,
+    output_time_base: TimeBase,
 }
 
 impl BitstreamFilter {
     /// Get a builder for a given bitstream filter.
+    ///
+    /// # Example
+    /// ```text
+    /// ...
+    ///
+    /// let filter = BitstreamFilter::builder("aac_adtstoasc")?
+    ///     .input_codec_parameters(&params)
+    ///     .build()?;
+    ///
+    /// ...
+    /// ```
     pub fn builder(name: &str) -> Result<BitstreamFilterBuilder, Error> {
         BitstreamFilterBuilder::new(name)
     }
@@ -147,7 +196,7 @@ impl BitstreamFilter {
             } else if pptr.is_null() {
                 panic!("unable to allocate a packet");
             } else {
-                Ok(Some(Packet::from_raw_ptr(pptr)))
+                Ok(Some(Packet::from_raw_ptr(pptr, self.output_time_base)))
             }
         }
     }

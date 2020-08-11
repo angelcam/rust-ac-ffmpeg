@@ -1,4 +1,4 @@
-#include<libavcodec/avcodec.h>
+#include <libavcodec/avcodec.h>
 
 AVPacket* ffw_packet_alloc() {
     return av_packet_alloc();

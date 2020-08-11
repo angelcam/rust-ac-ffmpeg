@@ -1,30 +1,35 @@
+//! Audio decoder/encoder.
+
 pub mod frame;
 pub mod resampler;
 pub mod transcoder;
 
-use std::ptr;
-
-use std::ffi::CString;
+use std::{ffi::CString, ptr};
 
 use libc::c_void;
 
-use crate::Error;
+use crate::{
+    codec::{AudioCodecParameters, CodecError, CodecParameters, Decoder, Encoder},
+    packet::Packet,
+    time::TimeBase,
+    Error,
+};
 
-use crate::codec::{AudioCodecParameters, CodecError, CodecParameters, Decoder, ErrorKind};
-use crate::packet::Packet;
-
-pub use self::frame::{AudioFrame, AudioFrameMut, ChannelLayout, SampleFormat};
-pub use self::resampler::AudioResampler;
-pub use self::transcoder::AudioTranscoder;
+pub use self::{
+    frame::{AudioFrame, AudioFrameMut, ChannelLayout, SampleFormat},
+    resampler::AudioResampler,
+    transcoder::AudioTranscoder,
+};
 
 /// Builder for the audio decoder.
 pub struct AudioDecoderBuilder {
     ptr: *mut c_void,
+    time_base: TimeBase,
 }
 
 impl AudioDecoderBuilder {
     /// Create a new builder for a given codec.
-    fn new(codec: &str) -> Result<AudioDecoderBuilder, Error> {
+    fn new(codec: &str) -> Result<Self, Error> {
         let codec = CString::new(codec).expect("invalid codec name");
 
         let ptr = unsafe { super::ffw_decoder_new(codec.as_ptr() as _) };
@@ -33,28 +38,32 @@ impl AudioDecoderBuilder {
             return Err(Error::new("unknown codec"));
         }
 
-        let res = AudioDecoderBuilder { ptr };
+        let res = Self {
+            ptr,
+            time_base: TimeBase::MICROSECONDS,
+        };
 
         Ok(res)
     }
 
     /// Create a new builder from given codec parameters.
-    fn from_codec_parameters(
-        codec_parameters: &AudioCodecParameters,
-    ) -> Result<AudioDecoderBuilder, Error> {
+    fn from_codec_parameters(codec_parameters: &AudioCodecParameters) -> Result<Self, Error> {
         let ptr = unsafe { super::ffw_decoder_from_codec_parameters(codec_parameters.as_ptr()) };
 
         if ptr.is_null() {
             return Err(Error::new("unable to create a decoder"));
         }
 
-        let res = AudioDecoderBuilder { ptr };
+        let res = Self {
+            ptr,
+            time_base: TimeBase::MICROSECONDS,
+        };
 
         Ok(res)
     }
 
     /// Set a decoder option.
-    pub fn set_option<V>(self, name: &str, value: V) -> AudioDecoderBuilder
+    pub fn set_option<V>(self, name: &str, value: V) -> Self
     where
         V: ToString,
     {
@@ -72,8 +81,20 @@ impl AudioDecoderBuilder {
         self
     }
 
+    /// Set decoder time base (all input packets will be rescaled into this
+    /// time base). The default time base is in microseconds.
+    pub fn time_base(mut self, time_base: TimeBase) -> Self {
+        self.time_base = time_base;
+        self
+    }
+
     /// Set codec extradata.
-    pub fn extradata(self, data: Option<&[u8]>) -> AudioDecoderBuilder {
+    pub fn extradata<T>(self, data: Option<T>) -> Self
+    where
+        T: AsRef<[u8]>,
+    {
+        let data = data.as_ref().map(|d| d.as_ref());
+
         let ptr;
         let size;
 
@@ -106,7 +127,10 @@ impl AudioDecoderBuilder {
 
         self.ptr = ptr::null_mut();
 
-        let res = AudioDecoder { ptr };
+        let res = AudioDecoder {
+            ptr,
+            time_base: self.time_base,
+        };
 
         Ok(res)
     }
@@ -122,20 +146,14 @@ unsafe impl Send for AudioDecoderBuilder {}
 unsafe impl Sync for AudioDecoderBuilder {}
 
 /// Audio decoder.
-///
-/// # Decoder operation
-/// 1. Push a packet to the decoder.
-/// 2. Take all frames from the decoder until you get None.
-/// 3. If there are more packets to be decoded, continue with 1.
-/// 4. Flush the decoder.
-/// 5. Take all frames from the decoder until you get None.
 pub struct AudioDecoder {
     ptr: *mut c_void,
+    time_base: TimeBase,
 }
 
 impl AudioDecoder {
     /// Create a new audio decoder for a given codec.
-    pub fn new(codec: &str) -> Result<AudioDecoder, Error> {
+    pub fn new(codec: &str) -> Result<Self, Error> {
         AudioDecoderBuilder::new(codec).and_then(|builder| builder.build())
     }
 
@@ -156,8 +174,7 @@ impl Decoder for AudioDecoder {
     type CodecParameters = AudioCodecParameters;
     type Frame = AudioFrame;
 
-    /// Get codec parameters.
-    fn codec_parameters(&self) -> AudioCodecParameters {
+    fn codec_parameters(&self) -> Self::CodecParameters {
         let ptr = unsafe { super::ffw_decoder_get_codec_parameters(self.ptr) };
 
         if ptr.is_null() {
@@ -169,36 +186,33 @@ impl Decoder for AudioDecoder {
         params.into_audio_codec_parameters().unwrap()
     }
 
-    /// Push a given packet to the decoder.
-    fn push(&mut self, packet: &Packet) -> Result<(), CodecError> {
+    fn try_push(&mut self, packet: Packet) -> Result<(), CodecError> {
+        let packet = packet.with_time_base(self.time_base);
+
         unsafe {
             match super::ffw_decoder_push_packet(self.ptr, packet.as_ptr()) {
                 1 => Ok(()),
-                0 => Err(CodecError::new(
-                    ErrorKind::Again,
+                0 => Err(CodecError::again(
                     "all frames must be consumed before pushing a new packet",
                 )),
-                _ => Err(CodecError::new(ErrorKind::Error, "decoding error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }
 
-    /// Flush the decoder.
-    fn flush(&mut self) -> Result<(), CodecError> {
+    fn try_flush(&mut self) -> Result<(), CodecError> {
         unsafe {
             match super::ffw_decoder_push_packet(self.ptr, ptr::null()) {
                 1 => Ok(()),
-                0 => Err(CodecError::new(
-                    ErrorKind::Again,
+                0 => Err(CodecError::again(
                     "all frames must be consumed before flushing",
                 )),
-                _ => Err(CodecError::new(ErrorKind::Error, "decoding error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }
 
-    /// Take the next decoded frame from the decoder.
-    fn take(&mut self) -> Result<Option<AudioFrame>, CodecError> {
+    fn take(&mut self) -> Result<Option<AudioFrame>, Error> {
         let mut fptr = ptr::null_mut();
 
         unsafe {
@@ -207,11 +221,11 @@ impl Decoder for AudioDecoder {
                     if fptr.is_null() {
                         panic!("no frame received")
                     } else {
-                        Ok(Some(AudioFrame::from_raw_ptr(fptr)))
+                        Ok(Some(AudioFrame::from_raw_ptr(fptr, self.time_base)))
                     }
                 }
                 0 => Ok(None),
-                _ => Err(CodecError::new(ErrorKind::Error, "decoding error")),
+                e => Err(Error::from_raw_error_code(e)),
             }
         }
     }
@@ -230,6 +244,8 @@ unsafe impl Sync for AudioDecoder {}
 pub struct AudioEncoderBuilder {
     ptr: *mut c_void,
 
+    time_base: TimeBase,
+
     sample_format: Option<SampleFormat>,
     sample_rate: Option<u32>,
     channel_layout: Option<ChannelLayout>,
@@ -237,7 +253,7 @@ pub struct AudioEncoderBuilder {
 
 impl AudioEncoderBuilder {
     /// Create a new encoder builder for a given codec.
-    fn new(codec: &str) -> Result<AudioEncoderBuilder, Error> {
+    fn new(codec: &str) -> Result<Self, Error> {
         let codec = CString::new(codec).expect("invalid codec name");
 
         let ptr = unsafe { super::ffw_encoder_new(codec.as_ptr() as _) };
@@ -248,11 +264,12 @@ impl AudioEncoderBuilder {
 
         unsafe {
             super::ffw_encoder_set_bit_rate(ptr, 0);
-            super::ffw_encoder_set_time_base(ptr, 1, 1000);
         }
 
-        let res = AudioEncoderBuilder {
+        let res = Self {
             ptr,
+
+            time_base: TimeBase::MICROSECONDS,
 
             sample_format: None,
             sample_rate: None,
@@ -263,9 +280,7 @@ impl AudioEncoderBuilder {
     }
 
     /// Create a new encoder builder from given codec parameters.
-    fn from_codec_parameters(
-        codec_parameters: &AudioCodecParameters,
-    ) -> Result<AudioEncoderBuilder, Error> {
+    fn from_codec_parameters(codec_parameters: &AudioCodecParameters) -> Result<Self, Error> {
         let ptr = unsafe { super::ffw_encoder_from_codec_parameters(codec_parameters.as_ptr()) };
 
         if ptr.is_null() {
@@ -277,13 +292,15 @@ impl AudioEncoderBuilder {
         let channel_layout;
 
         unsafe {
-            sample_format = super::ffw_encoder_get_sample_format(ptr) as _;
+            sample_format = SampleFormat::from_raw(super::ffw_encoder_get_sample_format(ptr));
             sample_rate = super::ffw_encoder_get_sample_rate(ptr) as _;
-            channel_layout = super::ffw_encoder_get_channel_layout(ptr) as _;
+            channel_layout = ChannelLayout::from_raw(super::ffw_encoder_get_channel_layout(ptr));
         }
 
-        let res = AudioEncoderBuilder {
+        let res = Self {
             ptr,
+
+            time_base: TimeBase::MICROSECONDS,
 
             sample_format: Some(sample_format),
             sample_rate: Some(sample_rate),
@@ -294,7 +311,7 @@ impl AudioEncoderBuilder {
     }
 
     /// Set an encoder option.
-    pub fn set_option<V>(self, name: &str, value: V) -> AudioEncoderBuilder
+    pub fn set_option<V>(self, name: &str, value: V) -> Self
     where
         V: ToString,
     {
@@ -313,7 +330,7 @@ impl AudioEncoderBuilder {
     }
 
     /// Set encoder bit rate. The default is 0 (i.e. automatic).
-    pub fn bit_rate(self, bit_rate: u64) -> AudioEncoderBuilder {
+    pub fn bit_rate(self, bit_rate: u64) -> Self {
         unsafe {
             super::ffw_encoder_set_bit_rate(self.ptr, bit_rate as _);
         }
@@ -321,29 +338,26 @@ impl AudioEncoderBuilder {
         self
     }
 
-    /// Set encoder time base as a rational number. The default is 1/1000.
-    pub fn time_base(self, num: u32, den: u32) -> AudioEncoderBuilder {
-        unsafe {
-            super::ffw_encoder_set_time_base(self.ptr, num as _, den as _);
-        }
-
+    /// Set encoder time base. The default time base is in microseconds.
+    pub fn time_base(mut self, time_base: TimeBase) -> Self {
+        self.time_base = time_base;
         self
     }
 
     /// Set audio sample format.
-    pub fn sample_format(mut self, format: SampleFormat) -> AudioEncoderBuilder {
+    pub fn sample_format(mut self, format: SampleFormat) -> Self {
         self.sample_format = Some(format);
         self
     }
 
     /// Set sampling rate.
-    pub fn sample_rate(mut self, rate: u32) -> AudioEncoderBuilder {
+    pub fn sample_rate(mut self, rate: u32) -> Self {
         self.sample_rate = Some(rate);
         self
     }
 
     /// Set channel layout.
-    pub fn channel_layout(mut self, layout: ChannelLayout) -> AudioEncoderBuilder {
+    pub fn channel_layout(mut self, layout: ChannelLayout) -> Self {
         self.channel_layout = Some(layout);
         self
     }
@@ -362,10 +376,13 @@ impl AudioEncoderBuilder {
             .channel_layout
             .ok_or_else(|| Error::new("channel layout not set"))?;
 
+        let tb = self.time_base;
+
         unsafe {
-            super::ffw_encoder_set_sample_format(self.ptr, sample_format as _);
+            super::ffw_encoder_set_time_base(self.ptr, tb.num() as _, tb.den() as _);
+            super::ffw_encoder_set_sample_format(self.ptr, sample_format.into_raw());
             super::ffw_encoder_set_sample_rate(self.ptr, sample_rate as _);
-            super::ffw_encoder_set_channel_layout(self.ptr, channel_layout as _);
+            super::ffw_encoder_set_channel_layout(self.ptr, channel_layout.into_raw());
 
             if super::ffw_encoder_open(self.ptr) != 0 {
                 return Err(Error::new("unable to build the encoder"));
@@ -376,7 +393,7 @@ impl AudioEncoderBuilder {
 
         self.ptr = ptr::null_mut();
 
-        let res = AudioEncoder { ptr };
+        let res = AudioEncoder { ptr, time_base: tb };
 
         Ok(res)
     }
@@ -392,15 +409,9 @@ unsafe impl Send for AudioEncoderBuilder {}
 unsafe impl Sync for AudioEncoderBuilder {}
 
 /// Audio encoder.
-///
-/// # Encoder operation
-/// 1. Push a frame to the encoder.
-/// 2. Take all packets from the encoder until you get None.
-/// 3. If there are more frames to be encoded, continue with 1.
-/// 4. Flush the encoder.
-/// 5. Take all packets from the encoder until you get None.
 pub struct AudioEncoder {
     ptr: *mut c_void,
+    time_base: TimeBase,
 }
 
 impl AudioEncoder {
@@ -416,19 +427,6 @@ impl AudioEncoder {
         AudioEncoderBuilder::new(codec)
     }
 
-    /// Get codec parameters.
-    pub fn codec_parameters(&self) -> AudioCodecParameters {
-        let ptr = unsafe { super::ffw_encoder_get_codec_parameters(self.ptr) };
-
-        if ptr.is_null() {
-            panic!("unable to allocate codec parameters");
-        }
-
-        let params = unsafe { CodecParameters::from_raw_ptr(ptr) };
-
-        params.into_audio_codec_parameters().unwrap()
-    }
-
     /// Number of samples per audio channel in an audio frame. Each encoded
     /// frame except the last one must contain exactly this number of samples.
     /// The method returns None if the number of samples per frame is not
@@ -442,37 +440,51 @@ impl AudioEncoder {
             Some(res)
         }
     }
+}
 
-    /// Push a given frame to the encoder.
-    pub fn push(&mut self, frame: &AudioFrame) -> Result<(), CodecError> {
+impl Encoder for AudioEncoder {
+    type CodecParameters = AudioCodecParameters;
+    type Frame = AudioFrame;
+
+    fn codec_parameters(&self) -> Self::CodecParameters {
+        let ptr = unsafe { super::ffw_encoder_get_codec_parameters(self.ptr) };
+
+        if ptr.is_null() {
+            panic!("unable to allocate codec parameters");
+        }
+
+        let params = unsafe { CodecParameters::from_raw_ptr(ptr) };
+
+        params.into_audio_codec_parameters().unwrap()
+    }
+
+    fn try_push(&mut self, frame: AudioFrame) -> Result<(), CodecError> {
+        let frame = frame.with_time_base(self.time_base);
+
         unsafe {
             match super::ffw_encoder_push_frame(self.ptr, frame.as_ptr()) {
                 1 => Ok(()),
-                0 => Err(CodecError::new(
-                    ErrorKind::Again,
+                0 => Err(CodecError::again(
                     "all packets must be consumed before pushing a new frame",
                 )),
-                _ => Err(CodecError::new(ErrorKind::Error, "encoding error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }
 
-    /// Flush the encoder.
-    pub fn flush(&mut self) -> Result<(), CodecError> {
+    fn try_flush(&mut self) -> Result<(), CodecError> {
         unsafe {
             match super::ffw_encoder_push_frame(self.ptr, ptr::null()) {
                 1 => Ok(()),
-                0 => Err(CodecError::new(
-                    ErrorKind::Again,
+                0 => Err(CodecError::again(
                     "all packets must be consumed before flushing",
                 )),
-                _ => Err(CodecError::new(ErrorKind::Error, "encoding error")),
+                e => Err(CodecError::from_raw_error_code(e)),
             }
         }
     }
 
-    /// Take the next packet from the encoder.
-    pub fn take(&mut self) -> Result<Option<Packet>, CodecError> {
+    fn take(&mut self) -> Result<Option<Packet>, Error> {
         let mut pptr = ptr::null_mut();
 
         unsafe {
@@ -481,11 +493,11 @@ impl AudioEncoder {
                     if pptr.is_null() {
                         panic!("no packet received")
                     } else {
-                        Ok(Some(Packet::from_raw_ptr(pptr)))
+                        Ok(Some(Packet::from_raw_ptr(pptr, self.time_base)))
                     }
                 }
                 0 => Ok(None),
-                _ => Err(CodecError::new(ErrorKind::Error, "encoding error")),
+                e => Err(Error::from_raw_error_code(e)),
             }
         }
     }

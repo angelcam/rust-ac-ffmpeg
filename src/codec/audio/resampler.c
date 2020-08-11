@@ -1,4 +1,4 @@
-#include<libswresample/swresample.h>
+#include <libswresample/swresample.h>
 
 typedef struct AudioResampler {
     struct SwrContext* resample_context;

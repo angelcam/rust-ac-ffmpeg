@@ -1,8 +1,4 @@
-extern crate cc;
-
-use std::env;
-
-use std::path::Path;
+use std::{env, path::Path};
 
 use cc::Build;
 
@@ -14,6 +10,7 @@ fn main() {
         .file("src/error.c")
         .file("src/logger.c")
         .file("src/packet.c")
+        .file("src/time.c")
         .file("src/format/demuxer.c")
         .file("src/format/io.c")
         .file("src/format/muxer.c")
