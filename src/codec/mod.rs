@@ -122,9 +122,7 @@ impl CodecError {
 
     /// Create a new FFmpeg error from a given FFmpeg error code.
     fn from_raw_error_code(code: c_int) -> Self {
-        Self {
-            variant: CodecErrorVariant::Error(Error::from_raw_error_code(code)),
-        }
+        Self::from(Error::from_raw_error_code(code))
     }
 
     /// Create a new error indicating that another operation needs to be done.
@@ -151,6 +149,14 @@ impl CodecError {
             None
         }
     }
+
+    /// Get the inner error or panic if another operation needs to be done.
+    pub fn unwrap_inner(self) -> Error {
+        match self.variant {
+            CodecErrorVariant::Error(err) => err,
+            CodecErrorVariant::Again(msg) => panic!(msg),
+        }
+    }
 }
 
 impl Display for CodecError {
@@ -163,6 +169,14 @@ impl Display for CodecError {
 }
 
 impl std::error::Error for CodecError {}
+
+impl From<Error> for CodecError {
+    fn from(err: Error) -> Self {
+        Self {
+            variant: CodecErrorVariant::Error(err),
+        }
+    }
+}
 
 /// Inner struct holding the pointer to the codec parameters.
 struct InnerCodecParameters {
@@ -759,13 +773,31 @@ pub trait Decoder {
     fn codec_parameters(&self) -> Self::CodecParameters;
 
     /// Push a given packet to the decoder.
-    fn push(&mut self, packet: Packet) -> Result<(), CodecError>;
+    ///
+    /// # Panics
+    /// The method panics if the operation is not expected (i.e. another
+    /// operation needs to be done).
+    fn push(&mut self, packet: Packet) -> Result<(), Error> {
+        self.try_push(packet).map_err(|err| err.unwrap_inner())
+    }
+
+    /// Push a given packet to the decoder.
+    fn try_push(&mut self, packet: Packet) -> Result<(), CodecError>;
 
     /// Flush the decoder.
-    fn flush(&mut self) -> Result<(), CodecError>;
+    ///
+    /// # Panics
+    /// The method panics if the operation is not expected (i.e. another
+    /// operation needs to be done).
+    fn flush(&mut self) -> Result<(), Error> {
+        self.try_flush().map_err(|err| err.unwrap_inner())
+    }
+
+    /// Flush the decoder.
+    fn try_flush(&mut self) -> Result<(), CodecError>;
 
     /// Take the next frame from the decoder.
-    fn take(&mut self) -> Result<Option<Self::Frame>, CodecError>;
+    fn take(&mut self) -> Result<Option<Self::Frame>, Error>;
 }
 
 /// A media encoder.
@@ -784,11 +816,29 @@ pub trait Encoder {
     fn codec_parameters(&self) -> Self::CodecParameters;
 
     /// Push a given frame to the encoder.
-    fn push(&mut self, frame: Self::Frame) -> Result<(), CodecError>;
+    ///
+    /// # Panics
+    /// The method panics if the operation is not expected (i.e. another
+    /// operation needs to be done).
+    fn push(&mut self, frame: Self::Frame) -> Result<(), Error> {
+        self.try_push(frame).map_err(|err| err.unwrap_inner())
+    }
+
+    /// Push a given frame to the encoder.
+    fn try_push(&mut self, frame: Self::Frame) -> Result<(), CodecError>;
 
     /// Flush the encoder.
-    fn flush(&mut self) -> Result<(), CodecError>;
+    ///
+    /// # Panics
+    /// The method panics if the operation is not expected (i.e. another
+    /// operation needs to be done).
+    fn flush(&mut self) -> Result<(), Error> {
+        self.try_flush().map_err(|err| err.unwrap_inner())
+    }
+
+    /// Flush the encoder.
+    fn try_flush(&mut self) -> Result<(), CodecError>;
 
     /// Take the next packet from the encoder.
-    fn take(&mut self) -> Result<Option<Packet>, CodecError>;
+    fn take(&mut self) -> Result<Option<Packet>, Error>;
 }

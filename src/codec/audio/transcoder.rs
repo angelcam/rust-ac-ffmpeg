@@ -136,7 +136,16 @@ impl AudioTranscoder {
     }
 
     /// Push a given packet to the transcoder.
-    pub fn push(&mut self, packet: Packet) -> Result<(), CodecError> {
+    ///
+    /// # Panics
+    /// The method panics if the operation is not expected (i.e. another
+    /// operation needs to be done).
+    pub fn push(&mut self, packet: Packet) -> Result<(), Error> {
+        self.try_push(packet).map_err(|err| err.unwrap_inner())
+    }
+
+    /// Push a given packet to the transcoder.
+    pub fn try_push(&mut self, packet: Packet) -> Result<(), CodecError> {
         if !self.ready.is_empty() {
             return Err(CodecError::again(
                 "take all transcoded packets before pushing another packet for transcoding",
@@ -149,7 +158,16 @@ impl AudioTranscoder {
     }
 
     /// Flush the transcoder.
-    pub fn flush(&mut self) -> Result<(), CodecError> {
+    ///
+    /// # Panics
+    /// The method panics if the operation is not expected (i.e. another
+    /// operation needs to be done).
+    pub fn flush(&mut self) -> Result<(), Error> {
+        self.try_flush().map_err(|err| err.unwrap_inner())
+    }
+
+    /// Flush the transcoder.
+    pub fn try_flush(&mut self) -> Result<(), CodecError> {
         if !self.ready.is_empty() {
             return Err(CodecError::again(
                 "take all transcoded packets before flushing the transcoder",
@@ -164,14 +182,14 @@ impl AudioTranscoder {
     }
 
     /// Take the next packet from the transcoder.
-    pub fn take(&mut self) -> Result<Option<Packet>, CodecError> {
+    pub fn take(&mut self) -> Result<Option<Packet>, Error> {
         Ok(self.ready.pop_front())
     }
 
     /// Push a given packet to the internal decoder, take all decoded frames
     /// and pass them to the push_to_resampler method.
     fn push_to_decoder(&mut self, packet: Packet) -> Result<(), CodecError> {
-        self.audio_decoder.push(packet)?;
+        self.audio_decoder.try_push(packet)?;
 
         while let Some(frame) = self.audio_decoder.take()? {
             // XXX: this is to skip the initial padding; a correct solution
@@ -187,7 +205,7 @@ impl AudioTranscoder {
     /// Push a given frame to the internal resampler, take all resampled frames
     /// and pass them to the push_to_encoder method.
     fn push_to_resampler(&mut self, frame: AudioFrame) -> Result<(), CodecError> {
-        self.audio_resampler.push(frame)?;
+        self.audio_resampler.try_push(frame)?;
 
         while let Some(frame) = self.audio_resampler.take()? {
             self.push_to_encoder(frame)?;
@@ -199,7 +217,7 @@ impl AudioTranscoder {
     /// Push a given frame to the internal encoder, take all encoded packets
     /// and push them to the internal ready queue.
     fn push_to_encoder(&mut self, frame: AudioFrame) -> Result<(), CodecError> {
-        self.audio_encoder.push(frame)?;
+        self.audio_encoder.try_push(frame)?;
 
         while let Some(packet) = self.audio_encoder.take()? {
             self.push_to_output(packet);
@@ -216,7 +234,7 @@ impl AudioTranscoder {
     /// Flush the internal decoder, take all decoded frames and pass them to
     /// the push_to_resampler method.
     fn flush_decoder(&mut self) -> Result<(), CodecError> {
-        self.audio_decoder.flush()?;
+        self.audio_decoder.try_flush()?;
 
         while let Some(frame) = self.audio_decoder.take()? {
             self.push_to_resampler(frame)?;
@@ -228,7 +246,7 @@ impl AudioTranscoder {
     /// Flush the internal resampler, take all resampled frames and pass them
     /// to the push_to_encoder method.
     fn flush_resampler(&mut self) -> Result<(), CodecError> {
-        self.audio_resampler.flush()?;
+        self.audio_resampler.try_flush()?;
 
         while let Some(frame) = self.audio_resampler.take()? {
             self.push_to_encoder(frame)?;
@@ -240,7 +258,7 @@ impl AudioTranscoder {
     /// Flush the internal encoder, take all encoded packets and push them into
     /// the internal ready queue.
     fn flush_encoder(&mut self) -> Result<(), CodecError> {
-        self.audio_encoder.flush()?;
+        self.audio_encoder.try_flush()?;
 
         while let Some(packet) = self.audio_encoder.take()? {
             self.push_to_output(packet);

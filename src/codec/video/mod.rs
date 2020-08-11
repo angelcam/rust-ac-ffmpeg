@@ -184,7 +184,7 @@ impl Decoder for VideoDecoder {
         params.into_video_codec_parameters().unwrap()
     }
 
-    fn push(&mut self, packet: Packet) -> Result<(), CodecError> {
+    fn try_push(&mut self, packet: Packet) -> Result<(), CodecError> {
         let packet = packet.with_time_base(self.time_base);
 
         unsafe {
@@ -198,7 +198,7 @@ impl Decoder for VideoDecoder {
         }
     }
 
-    fn flush(&mut self) -> Result<(), CodecError> {
+    fn try_flush(&mut self) -> Result<(), CodecError> {
         unsafe {
             match super::ffw_decoder_push_packet(self.ptr, ptr::null()) {
                 1 => Ok(()),
@@ -210,7 +210,7 @@ impl Decoder for VideoDecoder {
         }
     }
 
-    fn take(&mut self) -> Result<Option<VideoFrame>, CodecError> {
+    fn take(&mut self) -> Result<Option<VideoFrame>, Error> {
         let mut fptr = ptr::null_mut();
 
         unsafe {
@@ -223,7 +223,7 @@ impl Decoder for VideoDecoder {
                     }
                 }
                 0 => Ok(None),
-                e => Err(CodecError::from_raw_error_code(e)),
+                e => Err(Error::from_raw_error_code(e)),
             }
         }
     }
@@ -437,7 +437,7 @@ impl Encoder for VideoEncoder {
         params.into_video_codec_parameters().unwrap()
     }
 
-    fn push(&mut self, frame: VideoFrame) -> Result<(), CodecError> {
+    fn try_push(&mut self, frame: VideoFrame) -> Result<(), CodecError> {
         let frame = frame.with_time_base(self.time_base);
 
         unsafe {
@@ -451,7 +451,7 @@ impl Encoder for VideoEncoder {
         }
     }
 
-    fn flush(&mut self) -> Result<(), CodecError> {
+    fn try_flush(&mut self) -> Result<(), CodecError> {
         unsafe {
             match super::ffw_encoder_push_frame(self.ptr, ptr::null()) {
                 1 => Ok(()),
@@ -463,7 +463,7 @@ impl Encoder for VideoEncoder {
         }
     }
 
-    fn take(&mut self) -> Result<Option<Packet>, CodecError> {
+    fn take(&mut self) -> Result<Option<Packet>, Error> {
         let mut pptr = ptr::null_mut();
 
         unsafe {
@@ -476,7 +476,7 @@ impl Encoder for VideoEncoder {
                     }
                 }
                 0 => Ok(None),
-                e => Err(CodecError::from_raw_error_code(e)),
+                e => Err(Error::from_raw_error_code(e)),
             }
         }
     }

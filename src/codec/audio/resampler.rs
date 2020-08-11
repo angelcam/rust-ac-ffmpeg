@@ -182,7 +182,16 @@ impl AudioResampler {
     }
 
     /// Push a given frame to the resampler.
-    pub fn push(&mut self, frame: AudioFrame) -> Result<(), CodecError> {
+    ///
+    /// # Panics
+    /// The method panics if the operation is not expected (i.e. another
+    /// operation needs to be done).
+    pub fn push(&mut self, frame: AudioFrame) -> Result<(), Error> {
+        self.try_push(frame).map_err(|err| err.unwrap_inner())
+    }
+
+    /// Push a given frame to the resampler.
+    pub fn try_push(&mut self, frame: AudioFrame) -> Result<(), CodecError> {
         if frame.channel_layout() != self.source_channel_layout {
             return Err(CodecError::error(
                 "invalid frame, channel layout does not match",
@@ -215,7 +224,16 @@ impl AudioResampler {
     }
 
     /// Flush the resampler.
-    pub fn flush(&mut self) -> Result<(), CodecError> {
+    ///
+    /// # Panics
+    /// The method panics if the operation is not expected (i.e. another
+    /// operation needs to be done).
+    pub fn flush(&mut self) -> Result<(), Error> {
+        self.try_flush().map_err(|err| err.unwrap_inner())
+    }
+
+    /// Flush the resampler.
+    pub fn try_flush(&mut self) -> Result<(), CodecError> {
         unsafe {
             match ffw_audio_resampler_push_frame(self.ptr, ptr::null()) {
                 1 => Ok(()),
@@ -228,7 +246,7 @@ impl AudioResampler {
     }
 
     /// Take a frame from the resampler (if available).
-    pub fn take(&mut self) -> Result<Option<AudioFrame>, CodecError> {
+    pub fn take(&mut self) -> Result<Option<AudioFrame>, Error> {
         let mut fptr = ptr::null_mut();
 
         let tb = TimeBase::new(1, self.target_sample_rate);
@@ -243,7 +261,7 @@ impl AudioResampler {
                     }
                 }
                 0 => Ok(None),
-                e => Err(CodecError::from_raw_error_code(e)),
+                e => Err(Error::from_raw_error_code(e)),
             }
         }
     }

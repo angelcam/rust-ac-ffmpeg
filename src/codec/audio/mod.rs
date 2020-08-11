@@ -186,7 +186,7 @@ impl Decoder for AudioDecoder {
         params.into_audio_codec_parameters().unwrap()
     }
 
-    fn push(&mut self, packet: Packet) -> Result<(), CodecError> {
+    fn try_push(&mut self, packet: Packet) -> Result<(), CodecError> {
         let packet = packet.with_time_base(self.time_base);
 
         unsafe {
@@ -200,7 +200,7 @@ impl Decoder for AudioDecoder {
         }
     }
 
-    fn flush(&mut self) -> Result<(), CodecError> {
+    fn try_flush(&mut self) -> Result<(), CodecError> {
         unsafe {
             match super::ffw_decoder_push_packet(self.ptr, ptr::null()) {
                 1 => Ok(()),
@@ -212,7 +212,7 @@ impl Decoder for AudioDecoder {
         }
     }
 
-    fn take(&mut self) -> Result<Option<AudioFrame>, CodecError> {
+    fn take(&mut self) -> Result<Option<AudioFrame>, Error> {
         let mut fptr = ptr::null_mut();
 
         unsafe {
@@ -225,7 +225,7 @@ impl Decoder for AudioDecoder {
                     }
                 }
                 0 => Ok(None),
-                e => Err(CodecError::from_raw_error_code(e)),
+                e => Err(Error::from_raw_error_code(e)),
             }
         }
     }
@@ -458,7 +458,7 @@ impl Encoder for AudioEncoder {
         params.into_audio_codec_parameters().unwrap()
     }
 
-    fn push(&mut self, frame: AudioFrame) -> Result<(), CodecError> {
+    fn try_push(&mut self, frame: AudioFrame) -> Result<(), CodecError> {
         let frame = frame.with_time_base(self.time_base);
 
         unsafe {
@@ -472,7 +472,7 @@ impl Encoder for AudioEncoder {
         }
     }
 
-    fn flush(&mut self) -> Result<(), CodecError> {
+    fn try_flush(&mut self) -> Result<(), CodecError> {
         unsafe {
             match super::ffw_encoder_push_frame(self.ptr, ptr::null()) {
                 1 => Ok(()),
@@ -484,7 +484,7 @@ impl Encoder for AudioEncoder {
         }
     }
 
-    fn take(&mut self) -> Result<Option<Packet>, CodecError> {
+    fn take(&mut self) -> Result<Option<Packet>, Error> {
         let mut pptr = ptr::null_mut();
 
         unsafe {
@@ -497,7 +497,7 @@ impl Encoder for AudioEncoder {
                     }
                 }
                 0 => Ok(None),
-                e => Err(CodecError::from_raw_error_code(e)),
+                e => Err(Error::from_raw_error_code(e)),
             }
         }
     }
