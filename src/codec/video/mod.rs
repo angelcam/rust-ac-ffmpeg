@@ -1,3 +1,5 @@
+//! Video decoder/encoder.
+
 pub mod frame;
 pub mod scaler;
 

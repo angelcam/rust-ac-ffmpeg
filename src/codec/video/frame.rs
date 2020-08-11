@@ -1,3 +1,5 @@
+//! Video frame.
+
 use std::{
     ffi::{CStr, CString},
     fmt::{self, Display, Formatter},

@@ -1,3 +1,5 @@
+//! Audio resampler.
+
 use std::ptr;
 
 use libc::{c_int, c_void};

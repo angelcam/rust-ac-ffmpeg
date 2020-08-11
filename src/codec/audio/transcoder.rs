@@ -1,3 +1,8 @@
+//! Audio transcoder.
+//!
+//! This module contains just a convenience struct combining
+//! audio decoder/resampler/encoder into a single pipeline.
+
 use std::collections::VecDeque;
 
 use crate::Error;

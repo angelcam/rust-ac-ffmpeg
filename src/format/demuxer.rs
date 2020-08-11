@@ -1,3 +1,5 @@
+//! A/V demuxer.
+
 use std::{
     borrow::{Borrow, BorrowMut},
     ffi::CString,

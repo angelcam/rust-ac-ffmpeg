@@ -1,3 +1,5 @@
+//! Bitstream filter.
+
 use std::{ffi::CString, ptr};
 
 use libc::{c_char, c_int, c_void};
@@ -143,6 +145,17 @@ pub struct BitstreamFilter {
 
 impl BitstreamFilter {
     /// Get a builder for a given bitstream filter.
+    ///
+    /// # Example
+    /// ```text
+    /// ...
+    ///
+    /// let filter = BitstreamFilter::builder("aac_adtstoasc")?
+    ///     .input_codec_parameters(&params)
+    ///     .build()?;
+    ///
+    /// ...
+    /// ```
     pub fn builder(name: &str) -> Result<BitstreamFilterBuilder, Error> {
         BitstreamFilterBuilder::new(name)
     }

@@ -1,3 +1,5 @@
+//! Time base aware timestamps.
+
 use std::{
     cmp::{Eq, Ordering, PartialEq, PartialOrd},
     fmt::{self, Debug, Formatter},

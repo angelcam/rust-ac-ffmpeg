@@ -1,3 +1,5 @@
+//! A/V codecs.
+
 pub mod audio;
 pub mod bsf;
 pub mod video;

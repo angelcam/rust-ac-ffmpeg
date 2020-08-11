@@ -1,3 +1,5 @@
+//! Audio decoder/encoder.
+
 pub mod frame;
 pub mod resampler;
 pub mod transcoder;

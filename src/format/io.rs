@@ -1,3 +1,5 @@
+//! Elementary IO used by the muxer and demuxer.
+
 use std::{
     io::{self, Read, Seek, SeekFrom, Write},
     slice,

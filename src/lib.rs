@@ -1,3 +1,6 @@
+//! Safe Rust interface for FFmpeg libraries. See the `examples` folder for
+//! code examples.
+
 pub mod codec;
 pub mod format;
 pub mod packet;
