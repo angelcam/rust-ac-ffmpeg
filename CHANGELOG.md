@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.15.2 (2020-09-11)
+
+* Reset codec tag when adding stream to a muxer (fixes incompatibility between
+  different containers)
+
 ## v0.15.1 (2020-08-11)
 
 * Use pkg-config for finding native dependencies
