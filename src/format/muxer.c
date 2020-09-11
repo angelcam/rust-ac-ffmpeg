@@ -70,6 +70,8 @@ int ffw_muxer_new_stream(Muxer* muxer, const AVCodecParameters* params) {
         return ret;
     }
 
+    s->codecpar->codec_tag = 0;
+
     return s->index;
 }
 
