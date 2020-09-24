@@ -25,7 +25,7 @@ const char* ffw_get_sample_format_name(int format) {
     return av_get_sample_fmt_name(format);
 }
 
-int ffw_sample_fmt_is_planar(int format) {
+int ffw_sample_format_is_planar(int format) {
     return av_sample_fmt_is_planar(format);
 }
 
