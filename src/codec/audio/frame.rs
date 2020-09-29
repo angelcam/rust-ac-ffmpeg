@@ -3,11 +3,13 @@
 use std::{
     ffi::{CStr, CString},
     fmt::{self, Display, Formatter},
-    ptr,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+    ptr, slice,
     str::FromStr,
 };
 
-use libc::{c_char, c_int, c_void};
+use libc::{c_char, c_int, c_void, size_t};
 
 use crate::time::{TimeBase, Timestamp};
 
@@ -18,6 +20,7 @@ extern "C" {
 
     fn ffw_get_sample_format_by_name(name: *const c_char) -> c_int;
     fn ffw_get_sample_format_name(format: c_int) -> *const c_char;
+    fn ffw_sample_format_is_planar(format: c_int) -> c_int;
     fn ffw_sample_format_is_none(format: c_int) -> c_int;
 
     fn ffw_frame_new_silence(
@@ -33,6 +36,8 @@ extern "C" {
     fn ffw_frame_get_channel_layout(frame: *const c_void) -> u64;
     fn ffw_frame_get_pts(frame: *const c_void) -> i64;
     fn ffw_frame_set_pts(frame: *mut c_void, pts: i64);
+    fn ffw_frame_get_plane_data(frame: *mut c_void, index: size_t) -> *mut u8;
+    fn ffw_frame_get_line_size(frame: *const c_void, plane: size_t) -> size_t;
     fn ffw_frame_clone(frame: *const c_void) -> *mut c_void;
     fn ffw_frame_free(frame: *mut c_void);
 }
@@ -139,6 +144,10 @@ impl SampleFormat {
             name.to_str().unwrap()
         }
     }
+
+    pub fn is_planar(self) -> bool {
+        unsafe { ffw_sample_format_is_planar(self.into_raw()) != 0 }
+    }
 }
 
 impl FromStr for SampleFormat {
@@ -162,6 +171,124 @@ impl FromStr for SampleFormat {
 /// Get audio sample format with a given name.
 pub fn get_sample_format(name: &str) -> SampleFormat {
     SampleFormat::from_str(name).unwrap()
+}
+
+/// Audio plane. This is an array of audio sample data. Depending on the
+/// sample format, this can either be samples for a single channel, or
+/// for all channels multiplexed together.
+pub struct Plane<'a> {
+    frame: *mut c_void,
+    index: usize,
+    line_size: usize,
+    phantom: PhantomData<&'a ()>,
+}
+
+impl Plane<'_> {
+    /// Create a new plane.
+    fn new(frame: *mut c_void, index: usize, line_size: usize) -> Self {
+        Self {
+            frame,
+            index,
+            line_size,
+            phantom: PhantomData,
+        }
+    }
+
+    /// Get plane data.
+    pub fn data(&self) -> &[u8] {
+        unsafe {
+            let data = ffw_frame_get_plane_data(self.frame, self.index as _);
+            slice::from_raw_parts(data, self.line_size)
+        }
+    }
+
+    /// Get mutable plane data.
+    pub fn data_mut(&mut self) -> &mut [u8] {
+        unsafe {
+            let data = ffw_frame_get_plane_data(self.frame, self.index as _);
+            slice::from_raw_parts_mut(data, self.line_size)
+        }
+    }
+}
+
+/// Get sample data planes from a given audio frame.
+fn get_audio_planes<'a>(
+    frame: *mut c_void,
+    sample_format: SampleFormat,
+    channels: usize,
+) -> Vec<Plane<'a>> {
+    let line_size = unsafe { ffw_frame_get_line_size(frame, 0) as _ };
+
+    let mut inner = Vec::new();
+
+    if sample_format.is_planar() {
+        for i in 0..channels {
+            inner.push(Plane::new(frame, i, line_size));
+        }
+    } else {
+        inner.push(Plane::new(frame, 0, line_size));
+    }
+
+    inner
+}
+
+/// A collection of audio planes. This type can be dereferenced into a slice of
+///  `Plane`. If the sample data is planar, you will get the same number of
+/// `Plane`'s as you have channels. If the sample data is packed (or interleaved),
+/// there will be a single plane containing data for all channels.
+pub struct Planes<'a> {
+    inner: Vec<Plane<'a>>,
+}
+
+impl<'a> From<&'a AudioFrame> for Planes<'a> {
+    fn from(frame: &'a AudioFrame) -> Self {
+        Self {
+            inner: get_audio_planes(frame.ptr, frame.sample_format(), frame.channels() as _),
+        }
+    }
+}
+
+impl<'a> From<&'a AudioFrameMut> for Planes<'a> {
+    fn from(frame: &'a AudioFrameMut) -> Self {
+        Self {
+            inner: get_audio_planes(frame.ptr, frame.sample_format(), frame.channels() as _),
+        }
+    }
+}
+
+impl<'a> Deref for Planes<'a> {
+    type Target = [Plane<'a>];
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+/// A collection of mutable audio planes.
+pub struct PlanesMut<'a> {
+    inner: Vec<Plane<'a>>,
+}
+
+impl<'a> From<&'a mut AudioFrameMut> for PlanesMut<'a> {
+    fn from(frame: &'a mut AudioFrameMut) -> Self {
+        Self {
+            inner: get_audio_planes(frame.ptr, frame.sample_format(), frame.channels() as _),
+        }
+    }
+}
+
+impl<'a> Deref for PlanesMut<'a> {
+    type Target = [Plane<'a>];
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<'a> DerefMut for PlanesMut<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
 }
 
 /// An audio frame with mutable data.
@@ -211,6 +338,16 @@ impl AudioFrameMut {
     /// Get number of samples (per channel) in this frame.
     pub fn samples(&self) -> usize {
         unsafe { ffw_frame_get_nb_samples(self.ptr) as _ }
+    }
+
+    /// Get sample data planes for this frame.
+    pub fn planes(&self) -> Planes {
+        Planes::from(self)
+    }
+
+    /// Get mutable sample data planes for this frame.
+    pub fn planes_mut(&mut self) -> PlanesMut {
+        PlanesMut::from(self)
     }
 
     /// Get number of channels.
@@ -305,6 +442,11 @@ impl AudioFrame {
     /// Get number of samples (per channel) in this frame.
     pub fn samples(&self) -> usize {
         unsafe { ffw_frame_get_nb_samples(self.ptr) as _ }
+    }
+
+    /// Get sample data planes for this frame.
+    pub fn planes(&self) -> Planes {
+        Planes::from(self)
     }
 
     /// Get number of channels.
