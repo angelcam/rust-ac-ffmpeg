@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.15.3 (2020-09-29)
+
+* Allow accessing audio frame samples
+
 ## v0.15.2 (2020-09-11)
 
 * Reset codec tag when adding stream to a muxer (fixes incompatibility between
