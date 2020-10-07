@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.15.4 (2020-10-07)
+
+* Fix minimum required pkg-config version
+
 ## v0.15.3 (2020-09-29)
 
 * Allow accessing audio frame samples
