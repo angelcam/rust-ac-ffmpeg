@@ -134,11 +134,7 @@ impl CodecError {
 
     /// Check if another operation needs to be done.
     pub fn is_again(&self) -> bool {
-        if let CodecErrorVariant::Again(_) = &self.variant {
-            true
-        } else {
-            false
-        }
+        matches!(&self.variant, CodecErrorVariant::Again(_))
     }
 
     /// Get the inner error (if any).
