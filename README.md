@@ -2,11 +2,14 @@
 
 [![Crates.io][crates-badge]][crates-url]
 [![MIT licensed][license-badge]][license-url]
+[![Build Status][build-badge]][build-url]
 
 [crates-badge]: https://img.shields.io/crates/v/ac-ffmpeg
-[crates-url]: https://crates.io/crates/tokio
+[crates-url]: https://crates.io/crates/ac-ffmpeg
 [license-badge]: https://img.shields.io/crates/l/ac-ffmpeg
 [license-url]: https://github.com/angelcam/rust-ac-ffmpeg/blob/master/LICENSE
+[build-badge]: https://travis-ci.org/angelcam/rust-ac-ffmpeg.svg?branch=master
+[build-url]: https://travis-ci.org/angelcam/rust-ac-ffmpeg
 
 This library provides a Rust interface for FFmpeg libraries. Rather than
 supporting all FFmpeg features, we focus on safety and simplicity of the
