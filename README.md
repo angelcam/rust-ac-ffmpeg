@@ -1,5 +1,13 @@
 # Rust wrapper for FFmpeg libraries
 
+[![Crates.io][crates-badge]][crates-url]
+[![MIT licensed][license-badge]][license-url]
+
+[crates-badge]: https://img.shields.io/crates/v/ac-ffmpeg
+[crates-url]: https://crates.io/crates/tokio
+[license-badge]: https://img.shields.io/crates/l/ac-ffmpeg
+[license-url]: https://github.com/angelcam/rust-ac-ffmpeg/blob/master/LICENSE
+
 This library provides a Rust interface for FFmpeg libraries. Rather than
 supporting all FFmpeg features, we focus on safety and simplicity of the
 interface.
