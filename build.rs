@@ -91,7 +91,7 @@ fn link(lib: &str, mode: &str) {
 fn lib_mode(lib: &str) -> &'static str {
     let kind = env::var(&format!("{}_STATIC", lib.to_uppercase()));
 
-    match kind.ok().as_ref().map(|v| v.as_str()) {
+    match kind.ok().as_deref() {
         Some("0") => "dylib",
         Some(_) => "static",
         None => "dylib",
