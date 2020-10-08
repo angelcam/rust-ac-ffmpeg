@@ -13,6 +13,8 @@ install:
   - wget http://ffmpeg.org/releases/ffmpeg-4.3.1.tar.gz
   - tar xvf ffmpeg-4.3.1.tar.gz
   - cd ffmpeg-4.3.1 && ./configure --prefix=/usr --enable-shared --enable-gpl --enable-version3 --disable-programs --disable-doc --disable-everything && make && sudo make install
+  - rustup component add rustfmt
+  - rustup component add clippy
 script:
   - cargo fmt -- --check
   - cargo clippy -- -D warnings
