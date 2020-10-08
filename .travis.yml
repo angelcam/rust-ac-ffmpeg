@@ -4,6 +4,11 @@ rust:
   - beta
   - nightly
 dist: bionic
+addons:
+  apt:
+    packages:
+      - build-essential
+      - yasm
 install:
   - wget http://ffmpeg.org/releases/ffmpeg-4.3.1.tar.gz
   - tar xvf ffmpeg-4.3.1.tar.gz
