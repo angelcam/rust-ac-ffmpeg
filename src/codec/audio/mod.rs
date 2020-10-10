@@ -115,6 +115,14 @@ impl AudioDecoderBuilder {
         self
     }
 
+    /// Sets the maximum number of threads for the decoder to use.
+    /// Setting the thread count to 0 will adjust the number of threads to be optimal for the CPU running the program.
+    /// This value defaults to 1 in some versions of FFMPEG.
+    pub fn thread_count(self, thread_count: i32) -> Self {
+        unsafe { super::ffw_decoder_set_thread_count(self.ptr, thread_count) }
+        self
+    }
+
     /// Build the decoder.
     pub fn build(mut self) -> Result<AudioDecoder, Error> {
         unsafe {
@@ -167,6 +175,18 @@ impl AudioDecoder {
     /// Get decoder builder for a given codec.
     pub fn builder(codec: &str) -> Result<AudioDecoderBuilder, Error> {
         AudioDecoderBuilder::new(codec)
+    }
+
+    /// Sets the maximum number of threads for the decoder to use.
+    /// Setting the thread count to 0 will adjust the number of threads to be optimal for the CPU running the program.
+    /// This value defaults to 1 in some versions of FFMPEG.
+    pub fn set_thread_count(&self, thread_count: i32) {
+        unsafe { super::ffw_decoder_set_thread_count(self.ptr, thread_count) }
+    }
+
+    /// Gets the maximum number of threads the decoder will use.
+    pub fn get_thread_count(&self) -> i32 {
+        unsafe { super::ffw_decoder_get_thread_count(self.ptr) }
     }
 }
 

@@ -184,6 +184,8 @@ typedef struct Decoder {
 
 Decoder* ffw_decoder_new(const char* codec);
 Decoder* ffw_decoder_from_codec_parameters(const AVCodecParameters* params);
+void ffw_decoder_set_thread_count(Decoder* decoder, int threadCount);
+int ffw_decoder_get_thread_count(Decoder* decoder);
 int ffw_decoder_set_extradata(Decoder* decoder, const uint8_t* extradata, int size);
 int ffw_decoder_set_initial_option(Decoder* decoder, const char* key, const char* value);
 int ffw_decoder_open(Decoder* decoder);
@@ -262,6 +264,14 @@ err:
     ffw_decoder_free(res);
 
     return NULL;
+}
+
+void ffw_decoder_set_thread_count(Decoder* decoder, int threadCount) {
+    decoder->cc->thread_count = threadCount;
+}
+
+int ffw_decoder_get_thread_count(Decoder* decoder) {
+    return decoder->cc->thread_count;
 }
 
 int ffw_decoder_set_extradata(Decoder* decoder, const uint8_t* extradata, int size) {
