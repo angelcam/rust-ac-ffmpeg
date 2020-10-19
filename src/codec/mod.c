@@ -47,6 +47,10 @@ AVCodecParameters* ffw_video_codec_parameters_new(const char* codec_name) {
     return ffw_codec_parameters_new(codec_name, AVMEDIA_TYPE_VIDEO);
 }
 
+AVCodecParameters* ffw_subtitle_codec_parameters_new(const char* codec_name) {
+    return ffw_codec_parameters_new(codec_name, AVMEDIA_TYPE_SUBTITLE);
+}
+
 AVCodecParameters* ffw_codec_parameters_clone(const AVCodecParameters* src) {
     AVCodecParameters* res = avcodec_parameters_alloc();
     if (res == NULL) {
@@ -71,6 +75,10 @@ int ffw_codec_parameters_is_audio_codec(const AVCodecParameters* params) {
 
 int ffw_codec_parameters_is_video_codec(const AVCodecParameters* params) {
     return params->codec_type == AVMEDIA_TYPE_VIDEO;
+}
+
+int ffw_codec_parameters_is_subtitle_codec(const AVCodecParameters* params) {
+    return params->codec_type == AVMEDIA_TYPE_SUBTITLE;
 }
 
 const char* ffw_codec_parameters_get_decoder_name(const AVCodecParameters* params) {

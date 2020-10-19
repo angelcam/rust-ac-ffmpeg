@@ -24,9 +24,11 @@ use crate::{
 extern "C" {
     fn ffw_audio_codec_parameters_new(codec: *const c_char) -> *mut c_void;
     fn ffw_video_codec_parameters_new(codec: *const c_char) -> *mut c_void;
+    fn ffw_subtitle_codec_parameters_new(codec: *const c_char) -> *mut c_void;
     fn ffw_codec_parameters_clone(params: *const c_void) -> *mut c_void;
     fn ffw_codec_parameters_is_audio_codec(params: *const c_void) -> c_int;
     fn ffw_codec_parameters_is_video_codec(params: *const c_void) -> c_int;
+    fn ffw_codec_parameters_is_subtitle_codec(params: *const c_void) -> c_int;
     fn ffw_codec_parameters_get_decoder_name(params: *const c_void) -> *const c_char;
     fn ffw_codec_parameters_get_encoder_name(params: *const c_void) -> *const c_char;
     fn ffw_codec_parameters_get_bit_rate(params: *const c_void) -> i64;
@@ -200,6 +202,11 @@ impl InnerCodecParameters {
         unsafe { ffw_codec_parameters_is_video_codec(self.ptr) != 0 }
     }
 
+    /// Check if these codec parameters are for a subtitle codec.
+    fn is_subtitle_codec(&self) -> bool {
+        unsafe { ffw_codec_parameters_is_subtitle_codec(self.ptr) != 0 }
+    }
+
     /// Get name of the decoder that is able to decode this codec or None
     /// if the decoder is not available.
     fn decoder_name(&self) -> Option<&'static str> {
@@ -259,6 +266,7 @@ unsafe impl Sync for InnerCodecParameters {}
 enum CodecParametersVariant {
     Audio(AudioCodecParameters),
     Video(VideoCodecParameters),
+    Subtitle(SubtitleCodecParameters),
     Other(OtherCodecParameters),
 }
 
@@ -271,6 +279,8 @@ impl CodecParametersVariant {
             Self::Audio(AudioCodecParameters::from(inner))
         } else if inner.is_video_codec() {
             Self::Video(VideoCodecParameters::from(inner))
+        } else if inner.is_subtitle_codec() {
+            Self::Subtitle(SubtitleCodecParameters::from(inner))
         } else {
             Self::Other(OtherCodecParameters::from(inner))
         }
@@ -282,6 +292,7 @@ impl AsRef<InnerCodecParameters> for CodecParametersVariant {
         match self {
             Self::Audio(audio) => audio.as_ref(),
             Self::Video(video) => video.as_ref(),
+            Self::Subtitle(subtitle) => subtitle.as_ref(),
             Self::Other(other) => other.as_ref(),
         }
     }
@@ -316,6 +327,11 @@ impl CodecParameters {
         self.inner.as_ref().is_video_codec()
     }
 
+    /// Check if these codec parameters are for a subtitle codec.
+    pub fn is_subtitle_codec(&self) -> bool {
+        self.inner.as_ref().is_subtitle_codec()
+    }
+
     /// Get name of the decoder that is able to decode this codec or None
     /// if the decoder is not available.
     pub fn decoder_name(&self) -> Option<&'static str> {
@@ -346,6 +362,15 @@ impl CodecParameters {
         }
     }
 
+    /// Get reference to subtitle codec parameters (if possible).
+    pub fn as_subtitle_codec_parameters(&self) -> Option<&SubtitleCodecParameters> {
+        if let CodecParametersVariant::Subtitle(params) = &self.inner {
+            Some(params)
+        } else {
+            None
+        }
+    }
+
     /// Convert this object into audio codec parameters (if possible).
     pub fn into_audio_codec_parameters(self) -> Option<AudioCodecParameters> {
         if let CodecParametersVariant::Audio(params) = self.inner {
@@ -358,6 +383,15 @@ impl CodecParameters {
     /// Convert this object into video codec parameters (if possible).
     pub fn into_video_codec_parameters(self) -> Option<VideoCodecParameters> {
         if let CodecParametersVariant::Video(params) = self.inner {
+            Some(params)
+        } else {
+            None
+        }
+    }
+
+    /// Convert this object into subtitle codec parameters (if possible).
+    pub fn into_subtitle_codec_parameters(self) -> Option<SubtitleCodecParameters> {
+        if let CodecParametersVariant::Subtitle(params) = self.inner {
             Some(params)
         } else {
             None
@@ -377,6 +411,13 @@ impl From<VideoCodecParameters> for CodecParameters {
     fn from(params: VideoCodecParameters) -> Self {
         Self {
             inner: CodecParametersVariant::Video(params),
+        }
+    }
+}
+impl From<SubtitleCodecParameters> for CodecParameters {
+    fn from(params: SubtitleCodecParameters) -> Self {
+        Self {
+            inner: CodecParametersVariant::Subtitle(params),
         }
     }
 }
@@ -730,6 +771,67 @@ impl AsRef<InnerCodecParameters> for VideoCodecParameters {
 }
 
 impl From<InnerCodecParameters> for VideoCodecParameters {
+    fn from(params: InnerCodecParameters) -> Self {
+        Self { inner: params }
+    }
+}
+
+/// Subtitle codec parameters.
+#[derive(Clone)]
+pub struct SubtitleCodecParameters {
+    inner: InnerCodecParameters,
+}
+
+impl SubtitleCodecParameters {
+    pub fn new(codec: &str) -> Result<Self, Error> {
+        let codec = CString::new(codec).expect("invalid codec name");
+
+        let ptr = unsafe { ffw_subtitle_codec_parameters_new(codec.as_ptr() as *const _) };
+
+        if ptr.is_null() {
+            return Err(Error::new("unknown codec"));
+        }
+
+        let params = unsafe { InnerCodecParameters::from_raw_ptr(ptr) };
+
+        let res = SubtitleCodecParameters { inner: params };
+        Ok(res)
+    }
+
+    /// Get name of the decoder that is able to decode this codec or None
+    /// if the decoder is not available.
+    pub fn decoder_name(&self) -> Option<&'static str> {
+        self.inner.decoder_name()
+    }
+
+    /// Get name of the encoder that is able to produce encoding of this codec
+    /// or None if the encoder is not available.
+    pub fn encoder_name(&self) -> Option<&'static str> {
+        self.inner.encoder_name()
+    }
+
+    /// Get extradata.
+    pub fn extradata(&self) -> Option<&[u8]> {
+        unsafe {
+            let data = ffw_codec_parameters_get_extradata(self.inner.ptr) as *const u8;
+            let size = ffw_codec_parameters_get_extradata_size(self.inner.ptr) as usize;
+
+            if data.is_null() {
+                None
+            } else {
+                Some(slice::from_raw_parts(data, size))
+            }
+        }
+    }
+}
+
+impl AsRef<InnerCodecParameters> for SubtitleCodecParameters {
+    fn as_ref(&self) -> &InnerCodecParameters {
+        &self.inner
+    }
+}
+
+impl From<InnerCodecParameters> for SubtitleCodecParameters {
     fn from(params: InnerCodecParameters) -> Self {
         Self { inner: params }
     }
