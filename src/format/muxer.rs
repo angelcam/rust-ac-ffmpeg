@@ -23,6 +23,7 @@ extern "C" {
         value: *const c_char,
     ) -> c_int;
     fn ffw_muxer_set_option(muxer: *mut c_void, key: *const c_char, value: *const c_char) -> c_int;
+    fn ffw_muxer_set_url(muxer: *mut c_void, url: *const c_char) -> c_int;
     fn ffw_muxer_write_frame(
         muxer: *mut c_void,
         packet: *mut c_void,
@@ -86,6 +87,15 @@ impl MuxerBuilder {
             panic!("unable to allocate an option");
         }
 
+        self
+    }
+
+    pub fn set_url(self, url: &str) -> MuxerBuilder {
+        let url = CString::new(url).expect("invalid URL value");
+        let ret = unsafe { ffw_muxer_set_url(self.ptr, url.as_ptr() as _) };
+        if ret < 0 {
+            panic!("unable to allocate memory for URL")
+        }
         self
     }
 

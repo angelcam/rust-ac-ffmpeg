@@ -104,6 +104,12 @@ int ffw_muxer_set_option(Muxer* muxer, const char* key, const char* value) {
     return av_opt_set(muxer->fc, key, value, AV_OPT_SEARCH_CHILDREN);
 }
 
+int ffw_muxer_set_url(Muxer* muxer, const char* url) {
+    av_freep(&muxer->fc->url);
+    muxer->fc->url = av_strdup(url);
+    return muxer->fc->url ? 0 : AVERROR(ENOMEM);
+}
+
 static int ffw_rescale_packet_timestamps(Muxer* muxer, AVPacket* packet, uint32_t src_tb_num, uint32_t src_tb_den) {
     AVStream* stream;
     AVRational src_tb;
