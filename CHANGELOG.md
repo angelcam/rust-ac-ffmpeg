@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.15.5 (2020-10-29)
+
+* Add codec parameters type for subtitles
+* Allow passing URL to muxer builder
+
 ## v0.15.4 (2020-10-07)
 
 * Fix minimum required pkg-config version
