@@ -152,7 +152,7 @@ impl CodecError {
     pub fn unwrap_inner(self) -> Error {
         match self.variant {
             CodecErrorVariant::Error(err) => err,
-            CodecErrorVariant::Again(msg) => panic!(msg),
+            CodecErrorVariant::Again(msg) => panic!("{}", msg),
         }
     }
 }
