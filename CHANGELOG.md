@@ -1,9 +1,13 @@
 # Changelog
 
+## v0.15.6 (2021-02-24)
+
+* Allow closing the muxer explicitly and taking back the underlying IO
+
 ## v0.15.5 (2020-10-29)
 
 * Add codec parameters type for subtitles
-* Allow passing URL to muxer builder
+* Allow passing URL to the muxer builder
 
 ## v0.15.4 (2020-10-07)
 
