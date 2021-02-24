@@ -36,7 +36,7 @@ extern "C" {
         tb_num: u32,
         tb_den: u32,
     ) -> c_int;
-    fn ffw_muxer_free(muxer: *mut c_void);
+    fn ffw_muxer_free(muxer: *mut c_void) -> c_int;
 }
 
 /// Muxer builder.
@@ -135,7 +135,7 @@ impl MuxerBuilder {
 
         let res = Muxer {
             ptr: muxer_ptr,
-            io,
+            io: Some(io),
             interleaved: self.interleaved,
         };
 
@@ -145,7 +145,9 @@ impl MuxerBuilder {
 
 impl Drop for MuxerBuilder {
     fn drop(&mut self) {
-        unsafe { ffw_muxer_free(self.ptr) }
+        unsafe {
+            ffw_muxer_free(self.ptr);
+        }
     }
 }
 
@@ -155,7 +157,7 @@ unsafe impl Sync for MuxerBuilder {}
 /// Muxer.
 pub struct Muxer<T> {
     ptr: *mut c_void,
-    io: IO<T>,
+    io: Option<IO<T>>,
     interleaved: bool,
 }
 
@@ -227,20 +229,37 @@ impl<T> Muxer<T> {
         }
     }
 
+    /// Close the muxer and take the underlying IO.
+    pub fn close(mut self) -> Result<IO<T>, Error> {
+        let ret = unsafe { ffw_muxer_free(self.ptr) };
+
+        self.ptr = ptr::null_mut();
+
+        if ret != 0 {
+            Err(Error::from_raw_error_code(ret))
+        } else {
+            Ok(self.io.take().unwrap())
+        }
+    }
+
     /// Get reference to the underlying IO.
     pub fn io(&self) -> &IO<T> {
-        &self.io
+        self.io.as_ref().unwrap()
     }
 
     /// Get mutable reference to the underlying IO.
     pub fn io_mut(&mut self) -> &mut IO<T> {
-        &mut self.io
+        self.io.as_mut().unwrap()
     }
 }
 
 impl<T> Drop for Muxer<T> {
     fn drop(&mut self) {
-        unsafe { ffw_muxer_free(self.ptr) }
+        if !self.ptr.is_null() {
+            unsafe {
+                ffw_muxer_free(self.ptr);
+            }
+        }
     }
 }
 

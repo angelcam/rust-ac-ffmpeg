@@ -222,6 +222,11 @@ impl<T> IO<T> {
     pub fn stream_mut(&mut self) -> &mut T {
         self.stream.as_mut()
     }
+
+    /// Take the underlying stream dropping this IO.
+    pub fn into_stream(self) -> T {
+        *self.stream
+    }
 }
 
 impl<T> IO<T>

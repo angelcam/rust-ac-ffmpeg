@@ -27,7 +27,7 @@ int ffw_muxer_set_initial_option(Muxer*, const char*, const char*);
 int ffw_muxer_set_option(Muxer*, const char*, const char*);
 int ffw_muxer_write_frame(Muxer*, AVPacket*, uint32_t, uint32_t);
 int ffw_muxer_interleaved_write_frame(Muxer*, AVPacket*, uint32_t, uint32_t);
-void ffw_muxer_free(Muxer*);
+int ffw_muxer_free(Muxer*);
 
 Muxer* ffw_muxer_new() {
     Muxer* muxer = malloc(sizeof(Muxer));
@@ -156,17 +156,21 @@ int ffw_muxer_interleaved_write_frame(Muxer* muxer, AVPacket* packet, uint32_t t
     return av_interleaved_write_frame(muxer->fc, packet);
 }
 
-void ffw_muxer_free(Muxer* muxer) {
+int ffw_muxer_free(Muxer* muxer) {
+    int ret = 0;
+
     if (muxer == NULL) {
-        return;
+        return 0;
     }
 
     if (muxer->initialized) {
-        av_write_trailer(muxer->fc);
+        ret = av_write_trailer(muxer->fc);
     }
 
     avformat_free_context(muxer->fc);
     av_dict_free(&muxer->options);
 
     free(muxer);
+
+    return ret;
 }
