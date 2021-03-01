@@ -2,11 +2,13 @@
 
 use std::{
     borrow::{Borrow, BorrowMut},
+    convert::TryInto,
     ffi::CString,
     io::Read,
     ops::{Deref, DerefMut},
     os::raw::{c_char, c_int, c_uint, c_void},
     ptr,
+    time::Duration,
 };
 
 use crate::{codec::CodecParameters, format::io::IO, packet::Packet, time::TimeBase, Error};
@@ -186,13 +188,16 @@ impl<T> Demuxer<T> {
     }
 
     /// Try to find stream info. Optionally, you can pass `max_analyze_duration` which will tell
-    /// FFmpeg how far it should look for stream info. The `max_analyze_duration` should be in
-    /// microseconds.
+    /// FFmpeg how far it should look for stream info.
     pub fn find_stream_info(
         self,
-        max_analyze_duration: Option<i64>,
+        max_analyze_duration: Option<Duration>,
     ) -> Result<DemuxerWithCodecParameters<T>, (Demuxer<T>, Error)> {
-        let max_analyze_duration = max_analyze_duration.unwrap_or(0);
+        let max_analyze_duration = max_analyze_duration
+            .unwrap_or_else(|| Duration::from_secs(0))
+            .as_micros()
+            .try_into()
+            .unwrap();
 
         let ret = unsafe { ffw_demuxer_find_stream_info(self.ptr, max_analyze_duration) };
 
