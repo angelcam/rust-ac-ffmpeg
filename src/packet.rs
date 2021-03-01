@@ -3,9 +3,10 @@
 //! A "packet" in the FFmpeg terminology is an encoded part of an elementary
 //! stream (i.e. audio or video stream).
 
-use std::{ptr, slice};
-
-use libc::{c_int, c_void};
+use std::{
+    os::raw::{c_int, c_void},
+    ptr, slice,
+};
 
 use crate::time::{TimeBase, Timestamp};
 

@@ -1,6 +1,6 @@
 //! Video frame scaler.
 
-use libc::{c_int, c_void, size_t};
+use std::os::raw::{c_int, c_void};
 
 use crate::{
     codec::video::{PixelFormat, VideoFrame},
@@ -26,7 +26,7 @@ extern "C" {
 
     fn ffw_frame_scaler_free(scaler: *mut c_void);
 
-    fn ffw_alg_id_to_flags(id: size_t) -> c_int;
+    fn ffw_alg_id_to_flags(id: usize) -> c_int;
 }
 
 /// Scaling algorithm.

@@ -1,8 +1,11 @@
 //! A/V muxer.
 
-use std::{ffi::CString, io::Write, ptr};
-
-use libc::{c_char, c_int, c_uint, c_void};
+use std::{
+    ffi::CString,
+    io::Write,
+    os::raw::{c_char, c_int, c_uint, c_void},
+    ptr,
+};
 
 use crate::{codec::CodecParameters, format::io::IO, packet::Packet, Error};
 

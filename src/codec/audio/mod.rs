@@ -4,9 +4,7 @@ pub mod frame;
 pub mod resampler;
 pub mod transcoder;
 
-use std::{ffi::CString, ptr};
-
-use libc::c_void;
+use std::{ffi::CString, os::raw::c_void, ptr};
 
 use crate::{
     codec::{AudioCodecParameters, CodecError, CodecParameters, Decoder, Encoder},

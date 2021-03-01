@@ -1,8 +1,9 @@
 //! Audio resampler.
 
-use std::ptr;
-
-use libc::{c_int, c_void};
+use std::{
+    os::raw::{c_int, c_void},
+    ptr,
+};
 
 use crate::{
     codec::{

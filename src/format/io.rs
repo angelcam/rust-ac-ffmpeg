@@ -2,11 +2,9 @@
 
 use std::{
     io::{self, Read, Seek, SeekFrom, Write},
+    os::raw::{c_int, c_void},
     slice,
 };
-
-use bytes::{Bytes, BytesMut};
-use libc::{c_int, c_void};
 
 type ReadPacketCallback =
     extern "C" fn(opaque: *mut c_void, buffer: *mut u8, buffer_size: c_int) -> c_int;
@@ -277,12 +275,12 @@ pub struct MemWriter {
 
 impl MemWriter {
     /// Take data from the writer.
-    pub fn take_data(&mut self) -> Bytes {
-        let res = BytesMut::from(self.data.as_slice());
+    pub fn take_data(&mut self) -> Vec<u8> {
+        let res = Vec::from(self.data.as_slice());
 
         self.data.clear();
 
-        res.freeze()
+        res
     }
 }
 

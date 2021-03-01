@@ -1,8 +1,10 @@
 //! Bitstream filter.
 
-use std::{ffi::CString, ptr};
-
-use libc::{c_char, c_int, c_void};
+use std::{
+    ffi::CString,
+    os::raw::{c_char, c_int, c_void},
+    ptr,
+};
 
 use crate::{codec::CodecParameters, packet::Packet, time::TimeBase, Error};
 

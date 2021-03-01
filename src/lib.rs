@@ -10,12 +10,11 @@ use std::{
     ffi::CStr,
     fmt::{self, Display, Formatter},
     io,
+    os::raw::{c_char, c_int},
     sync::RwLock,
 };
 
 use lazy_static::lazy_static;
-
-use libc::{c_char, c_int, size_t};
 
 lazy_static! {
     /// Log callback.
@@ -33,7 +32,7 @@ extern "C" {
     fn ffw_error_unknown() -> c_int;
     fn ffw_error_from_posix(error: c_int) -> c_int;
     fn ffw_error_to_posix(error: c_int) -> c_int;
-    fn ffw_error_get_error_string(error: c_int, buffer: *mut c_char, buffer_size: size_t);
+    fn ffw_error_get_error_string(error: c_int, buffer: *mut c_char, buffer_size: usize);
 }
 
 /// A C function passed to the native library as a log callback. The function

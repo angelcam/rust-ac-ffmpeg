@@ -5,10 +5,9 @@ use std::{
     ffi::CString,
     io::Read,
     ops::{Deref, DerefMut},
+    os::raw::{c_char, c_int, c_uint, c_void},
     ptr,
 };
-
-use libc::{c_char, c_int, c_uint, c_void};
 
 use crate::{codec::CodecParameters, format::io::IO, packet::Packet, time::TimeBase, Error};
 

@@ -13,9 +13,7 @@ Simple and safe Rust interface for FFmpeg libraries.
 keywords = ["ffmpeg", "audio", "video", "codec", "multimedia"]
 
 [dependencies]
-bytes       = "0.5"
 lazy_static = "1.4"
-libc        = "0.2"
 
 [build-dependencies]
 cc         = "1.0"

@@ -5,11 +5,10 @@ use std::{
     fmt::{self, Display, Formatter},
     marker::PhantomData,
     ops::{Deref, DerefMut},
+    os::raw::{c_char, c_int, c_void},
     ptr, slice,
     str::FromStr,
 };
-
-use libc::{c_char, c_int, c_void, size_t};
 
 use crate::time::{TimeBase, Timestamp};
 
@@ -36,8 +35,8 @@ extern "C" {
     fn ffw_frame_get_channel_layout(frame: *const c_void) -> u64;
     fn ffw_frame_get_pts(frame: *const c_void) -> i64;
     fn ffw_frame_set_pts(frame: *mut c_void, pts: i64);
-    fn ffw_frame_get_plane_data(frame: *mut c_void, index: size_t) -> *mut u8;
-    fn ffw_frame_get_line_size(frame: *const c_void, plane: size_t) -> size_t;
+    fn ffw_frame_get_plane_data(frame: *mut c_void, index: usize) -> *mut u8;
+    fn ffw_frame_get_line_size(frame: *const c_void, plane: usize) -> usize;
     fn ffw_frame_clone(frame: *const c_void) -> *mut c_void;
     fn ffw_frame_free(frame: *mut c_void);
 }

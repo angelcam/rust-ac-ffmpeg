@@ -7,10 +7,9 @@ pub mod video;
 use std::{
     ffi::{CStr, CString},
     fmt::{self, Display, Formatter},
+    os::raw::{c_char, c_int, c_void},
     ptr, slice,
 };
-
-use libc::{c_char, c_int, c_void};
 
 use crate::{
     codec::{
