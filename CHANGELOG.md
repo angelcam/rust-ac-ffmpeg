@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.16.0 (2021-03-01)
+
+* Remove unjustified dependencies
+* Use std::time::Duration in Demuxer::find_stream_info
+
 ## v0.15.6 (2021-02-24)
 
 * Allow closing the muxer explicitly and taking back the underlying IO
