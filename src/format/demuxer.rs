@@ -11,7 +11,9 @@ use std::{
     time::Duration,
 };
 
-use crate::{codec::CodecParameters, format::io::IO, packet::Packet, time::TimeBase, Error};
+use crate::{
+    codec::CodecParameters, format::io::IO, packet::Packet, stream::Stream, time::TimeBase, Error,
+};
 
 extern "C" {
     fn ffw_find_input_format(short_name: *const c_char) -> *mut c_void;
@@ -34,6 +36,7 @@ extern "C" {
     ) -> c_int;
     fn ffw_demuxer_find_stream_info(demuxer: *mut c_void, max_analyze_duration: i64) -> c_int;
     fn ffw_demuxer_get_nb_streams(demuxer: *const c_void) -> c_uint;
+    fn ffw_demuxer_get_stream(demuxer: *const c_void, stream_index: c_uint) -> *mut c_void;
     fn ffw_demuxer_get_codec_parameters(
         demuxer: *const c_void,
         stream_index: c_uint,
@@ -239,6 +242,12 @@ impl<T> Demuxer<T> {
     /// Get mutable reference to the underlying IO.
     pub fn io_mut(&mut self) -> &mut IO<T> {
         &mut self.io
+    }
+
+    /// Get the stream at the specified index.
+    pub fn stream(&self, stream_index: usize) -> Stream {
+        let ptr = unsafe { ffw_demuxer_get_stream(self.ptr, stream_index as _) };
+        unsafe { Stream::from_raw_ptr(ptr) }
     }
 }
 
