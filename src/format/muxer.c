@@ -21,8 +21,7 @@ typedef struct Muxer {
 Muxer* ffw_muxer_new();
 unsigned ffw_muxer_get_nb_streams(const Muxer*);
 int ffw_muxer_new_stream(Muxer*, const AVCodecParameters*);
-int ffw_muxer_set_int_option(Muxer* const, int, const char*, int);
-int ffw_muxer_set_string_option(Muxer* const, int, const char*, const char*);
+int ffw_muxer_set_stream_option(Muxer* const, int, const char*, const char*);
 int ffw_muxer_init(Muxer*, AVIOContext*, AVOutputFormat*);
 int ffw_muxer_get_option(Muxer*, const char*, uint8_t**);
 int ffw_muxer_set_initial_option(Muxer*, const char*, const char*);
@@ -77,12 +76,7 @@ int ffw_muxer_new_stream(Muxer* muxer, const AVCodecParameters* params) {
     return s->index;
 }
 
-int ffw_muxer_set_int_option(Muxer* const muxer, int stream_index, const char* key, int value) {
-    AVStream* stream = muxer->fc->streams[stream_index];
-    return av_dict_set_int(&stream->metadata, key, value, 0);
-}
-
-int ffw_muxer_set_string_option(Muxer* const muxer, int stream_index, const char* key, const char* value) {
+int ffw_muxer_set_stream_option(Muxer* const muxer, int stream_index, const char* key, const char* value) {
     AVStream* stream = muxer->fc->streams[stream_index];
     return av_dict_set(&stream->metadata, key, value, 0);
 }

@@ -19,8 +19,12 @@ extern "C" {
     fn ffw_muxer_new() -> *mut c_void;
     fn ffw_muxer_get_nb_streams(muxer: *const c_void) -> c_uint;
     fn ffw_muxer_new_stream(muxer: *mut c_void, params: *const c_void) -> c_int;
-    fn ffw_muxer_set_int_option(muxer: *mut c_void, stream_index: i32, key: *const c_char, value: i32) -> c_int;
-    fn ffw_muxer_set_string_option(muxer: *mut c_void, stream_index: i32, key: *const c_char, value: *const c_char) -> c_int;
+    fn ffw_muxer_set_stream_option(
+        muxer: *mut c_void,
+        stream_index: usize,
+        key: *const c_char,
+        value: *const c_char,
+    ) -> c_int;
     fn ffw_muxer_init(muxer: *mut c_void, io_context: *mut c_void, format: *mut c_void) -> c_int;
     fn ffw_muxer_set_initial_option(
         muxer: *mut c_void,
@@ -50,11 +54,6 @@ pub struct MuxerBuilder {
     interleaved: bool,
 }
 
-pub enum DictOption {
-    IntOption { key: String, value: i32 },
-    StringOption { key: String, value: String }
-}
-
 impl MuxerBuilder {
     /// Create a new muxer builder.
     fn new() -> MuxerBuilder {
@@ -70,34 +69,34 @@ impl MuxerBuilder {
         }
     }
 
-    /// Add a new stream with given parameters. The metadata options will be set on the new stream's options dict.
-    pub fn add_stream(&mut self, params: &CodecParameters, metadata: Option<Vec<DictOption>>) -> Result<(), Error> {
+    /// Add a new stream with given parameters.
+    pub fn add_stream(&mut self, params: &CodecParameters) -> Result<usize, Error> {
         let stream_index = unsafe { ffw_muxer_new_stream(self.ptr, params.as_ptr()) };
 
         if stream_index < 0 {
             return Err(Error::from_raw_error_code(stream_index));
         }
+        Ok(stream_index as usize)
+    }
 
-        if let Some(options) = metadata {
-            for option in options {
-                let ret: i32 = match option {
-                    DictOption::IntOption { key, value } => unsafe {
-                        let key = CString::new(key).expect("invalid option name");
-                        ffw_muxer_set_int_option(self.ptr, stream_index, key.as_ptr(), value)
-                    },
-                    DictOption::StringOption { key, value } => unsafe {
-                        let key = CString::new(key).expect("invalid option name");
-                        let value = CString::new(value).expect("invalid option value");
-                        ffw_muxer_set_string_option(self.ptr, stream_index, key.as_ptr(), value.as_ptr())
-                    },
-                };
-                if ret < 0 {
-                    return Err(Error::from_raw_error_code(ret));
-                }
-            }
+    /// Set a stream option.
+    ///
+    /// # Panics
+    /// The method panics if there is no stream with a given index.
+    pub fn set_stream_option<V>(self, stream_index: usize, name: &str, value: V) -> MuxerBuilder
+    where
+        V: ToString,
+    {
+        let nb_streams = unsafe { ffw_muxer_get_nb_streams(self.ptr) as usize };
+
+        assert!(stream_index < nb_streams);
+
+        let key = CString::new(name).expect("invalid option name");
+        let value = CString::new(value.to_string()).expect("invalid option value");
+        unsafe {
+            ffw_muxer_set_stream_option(self.ptr, stream_index, key.as_ptr(), value.as_ptr());
         }
-
-        Ok(())
+        self
     }
 
     /// Set a muxer option.
