@@ -36,7 +36,6 @@ extern "C" {
     ) -> c_int;
     fn ffw_demuxer_find_stream_info(demuxer: *mut c_void, max_analyze_duration: i64) -> c_int;
     fn ffw_demuxer_get_nb_streams(demuxer: *const c_void) -> c_uint;
-    fn ffw_demuxer_get_stream(demuxer: *const c_void, stream_index: c_uint) -> *mut c_void;
     fn ffw_demuxer_get_codec_parameters(
         demuxer: *const c_void,
         stream_index: c_uint,
@@ -47,6 +46,7 @@ extern "C" {
         tb_num: *mut u32,
         tb_den: *mut u32,
     ) -> c_int;
+    fn ffw_demuxer_get_format_context(demuxer: *mut c_void) -> *mut c_void;
     fn ffw_demuxer_free(demuxer: *mut c_void);
 }
 
@@ -211,6 +211,7 @@ impl<T> Demuxer<T> {
         let stream_count = unsafe { ffw_demuxer_get_nb_streams(self.ptr) };
 
         let mut codec_parameters = Vec::with_capacity(stream_count as usize);
+        let mut streams = Vec::with_capacity(stream_count as usize);
 
         for i in 0..stream_count {
             let params = unsafe {
@@ -224,11 +225,24 @@ impl<T> Demuxer<T> {
             };
 
             codec_parameters.push(params);
+
+            let stream = unsafe {
+                let ptr = ffw_demuxer_get_format_context(self.ptr);
+
+                if ptr.is_null() {
+                    panic!("unable to allocate codec parameters");
+                }
+
+                Stream::from_format_context(ptr, i as _)
+            };
+
+            streams.push(stream);
         }
 
         let res = DemuxerWithCodecParameters {
             inner: self,
             codec_parameters,
+            streams,
         };
 
         Ok(res)
@@ -242,12 +256,6 @@ impl<T> Demuxer<T> {
     /// Get mutable reference to the underlying IO.
     pub fn io_mut(&mut self) -> &mut IO<T> {
         &mut self.io
-    }
-
-    /// Get the stream at the specified index.
-    pub fn stream(&self, stream_index: usize) -> Stream {
-        let ptr = unsafe { ffw_demuxer_get_stream(self.ptr, stream_index as _) };
-        unsafe { Stream::from_raw_ptr(ptr) }
     }
 }
 
@@ -264,6 +272,7 @@ unsafe impl<T> Sync for Demuxer<T> where T: Sync {}
 pub struct DemuxerWithCodecParameters<T> {
     inner: Demuxer<T>,
     codec_parameters: Vec<CodecParameters>,
+    streams: Vec<Stream>,
 }
 
 impl<T> DemuxerWithCodecParameters<T> {
@@ -272,6 +281,13 @@ impl<T> DemuxerWithCodecParameters<T> {
         &self.codec_parameters
     }
 
+    /// Get codec parameters.
+    pub fn streams(&self) -> &[Stream] {
+        &self.streams
+    }
+
+    // TODO: deconstruct() separates CodecParamaters from the Demuxer, which does not work for streams
+    //       since their lifetime is tied to that of the Demuxer, figure out a way to express this
     /// Deconstruct this object into a plain demuxer and codec parameters.
     pub fn deconstruct(self) -> (Demuxer<T>, Vec<CodecParameters>) {
         (self.inner, self.codec_parameters)
