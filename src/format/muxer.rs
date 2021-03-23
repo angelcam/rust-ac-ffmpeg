@@ -93,8 +93,11 @@ impl MuxerBuilder {
 
         let key = CString::new(name).expect("invalid option name");
         let value = CString::new(value.to_string()).expect("invalid option value");
-        unsafe {
-            ffw_muxer_set_stream_option(self.ptr, stream_index, key.as_ptr(), value.as_ptr());
+        let ret = unsafe {
+            ffw_muxer_set_stream_option(self.ptr, stream_index, key.as_ptr(), value.as_ptr())
+        };
+        if ret < 0 {
+            panic!("unable to allocate an option");
         }
         self
     }
