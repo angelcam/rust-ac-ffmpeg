@@ -7,9 +7,10 @@ enum SeekType {
     Frame,
 };
 
-enum Direction {
-    Forward,
-    Backward,
+enum SeekTarget {
+    From,
+    UpTo,
+    Precise,
 };
 
 typedef struct Stream {
@@ -24,7 +25,7 @@ void ffw_stream_get_time_base(const Stream* stream, uint32_t* num, uint32_t* den
 int64_t ffw_stream_get_start_time(const Stream* stream);
 int64_t ffw_stream_get_duration(const Stream* stream);
 int64_t ffw_stream_get_nb_frames(const Stream* stream);
-int ffw_stream_seek_frame(Stream* stream, unsigned stream_index, int64_t timestamp, int seek_by, int direction, int seek_to_keyframes_only);
+int ffw_stream_seek_frame(Stream* stream, unsigned stream_index, int64_t timestamp, int seek_by, int direction);
 void ffw_stream_free(Stream* stream);
 
 Stream* ffw_stream_from_format_context(AVFormatContext* context, unsigned stream_index) {
@@ -57,19 +58,29 @@ int64_t ffw_stream_get_duration(const Stream* stream) {
     return stream->stream->duration;
 }
 
+// FIXME: Math is off
 int64_t ffw_stream_get_nb_frames(const Stream* stream) {
-    return stream->stream->nb_frames;
+    AVRational avg_frame_rate;
+    double avg_frame_rate_double;
+    int64_t duration;
+
+    avg_frame_rate = stream->stream->avg_frame_rate;
+    avg_frame_rate_double = (double)avg_frame_rate.num / avg_frame_rate.den;
+    duration = stream->stream->duration;
+
+    return duration * avg_frame_rate_double;
 }
 
-int ffw_stream_seek_frame(Stream* stream, unsigned stream_index, int64_t timestamp, int seek_by, int direction, int seek_to_keyframes_only) {
-  int flags = 0;
+int ffw_stream_seek_frame(Stream* stream, unsigned stream_index, int64_t timestamp, int seek_by, int seek_target) {
+  int flags;
+
+  flags = 0;
 
   if (seek_by == Byte) { flags |= AVSEEK_FLAG_BYTE; }
   else if (seek_by == Frame) { flags |= AVSEEK_FLAG_FRAME; }
 
-  if (direction == Backward) { flags |= AVSEEK_FLAG_BACKWARD; }
-
-  if (seek_to_keyframes_only == 0) { flags |= AVSEEK_FLAG_ANY; }
+  if (seek_target == UpTo) { flags |= AVSEEK_FLAG_BACKWARD; }
+  else if (seek_target == Precise) { flags |= AVSEEK_FLAG_ANY; }
 
   return av_seek_frame(stream->fc, (int)stream_index, timestamp, flags);
 }
@@ -77,4 +88,3 @@ int ffw_stream_seek_frame(Stream* stream, unsigned stream_index, int64_t timesta
 void ffw_stream_free(Stream* stream) {
   free(stream);
 }
-

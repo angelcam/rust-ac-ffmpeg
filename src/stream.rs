@@ -16,8 +16,7 @@ extern "C" {
         stream_index: c_uint,
         timestamp: i64,
         seek_by: c_int,
-        direction: c_int,
-        seek_to_keyframes_only: c_int,
+        seek_target: c_int,
     ) -> c_int;
     fn ffw_stream_free(stream: *mut c_void);
 }
@@ -29,10 +28,19 @@ enum SeekType {
     Frame,
 }
 
+/// Used to specify a search direction when a stream cannot seek exactly to the requested target
+/// point; timestamp, frame or byte.
 #[repr(i32)]
-pub enum Direction {
-    Forward,
-    Backward,
+pub enum SeekTarget {
+    /// Seek, at least, to the requested target point in the stream. If the target cannot be met
+    /// then move forward in the stream until a possible seek target can be hit.
+    From,
+    /// Seek, at most, to the requested target point in the stream. If the target cannot be met
+    /// then move backward in the stream until a possible seek target can be hit.
+    UpTo,
+    /// Force seeking to the requested target point in the stream, even if the Demuxerm for this
+    /// type of stream, does not support it.
+    Precise,
 }
 
 /// Stream with immutable data.
@@ -86,7 +94,7 @@ impl Stream {
     }
 
     /// Get the duration of the stream.
-    pub fn nb_frames(&self) -> Option<usize> {
+    pub fn frame_count(&self) -> Option<usize> {
         let count = unsafe { ffw_stream_get_nb_frames(self.ptr) as usize };
 
         if count == 0 {
@@ -98,28 +106,47 @@ impl Stream {
 
     /// Seek to a specific timestamp in the stream.
     #[inline]
-    pub fn seek_to_timestamp(&mut self, timestamp: Timestamp, direction: Direction, keyframes_only: bool) -> Result<(), Error> {
-        self.seek(timestamp.timestamp(), SeekType::Time, direction, keyframes_only)
+    pub fn seek_to_timestamp(
+        &self,
+        timestamp: Timestamp,
+        seek_target: SeekTarget,
+    ) -> Result<(), Error> {
+        self.seek(
+            timestamp.with_time_base(self.time_base).timestamp(),
+            SeekType::Time,
+            seek_target,
+        )
     }
 
     /// Seek to a specific frame in the stream.
     #[inline]
-    pub fn seek_to_frame(&mut self, frame_index: usize, direction: Direction, keyframes_only: bool) -> Result<(), Error> {
-        self.seek(frame_index as _, SeekType::Frame, direction, keyframes_only)
+    pub fn seek_to_frame(&self, frame_index: usize, seek_target: SeekTarget) -> Result<(), Error> {
+        self.seek(frame_index as _, SeekType::Frame, seek_target)
     }
 
     /// Seek to a specific byte offset in the stream.
     #[inline]
-    pub fn seek_to_byte(&mut self, byte: usize, direction: Direction, keyframes_only: bool) -> Result<(), Error> {
-        self.seek(byte as _, SeekType::Byte, direction, keyframes_only)
+    pub fn seek_to_byte(&self, byte: usize, seek_target: SeekTarget) -> Result<(), Error> {
+        self.seek(byte as _, SeekType::Byte, seek_target)
     }
 
-    /// Seek to a specific position in the stream.
-    fn seek(&mut self, target_position: i64, seek_by: SeekType, direction: Direction, keyframes_only: bool) -> Result<(), Error> {
+    fn seek(
+        &self,
+        target_position: i64,
+        seek_by: SeekType,
+        seek_target: SeekTarget,
+    ) -> Result<(), Error> {
         let index = self.index() as c_uint;
-        let keyframes_only = if keyframes_only == true { 1 } else { 0 };
 
-        let res = unsafe { ffw_stream_seek_frame(self.ptr, index, target_position, seek_by as _, direction as _, keyframes_only) };
+        let res = unsafe {
+            ffw_stream_seek_frame(
+                self.ptr,
+                index,
+                target_position,
+                seek_by as _,
+                seek_target as _,
+            )
+        };
 
         if res >= 0 {
             Ok(())
