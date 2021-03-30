@@ -58,17 +58,8 @@ int64_t ffw_stream_get_duration(const Stream* stream) {
     return stream->stream->duration;
 }
 
-// FIXME: Math is off
 int64_t ffw_stream_get_nb_frames(const Stream* stream) {
-    AVRational avg_frame_rate;
-    double avg_frame_rate_double;
-    int64_t duration;
-
-    avg_frame_rate = stream->stream->avg_frame_rate;
-    avg_frame_rate_double = (double)avg_frame_rate.num / avg_frame_rate.den;
-    duration = stream->stream->duration;
-
-    return duration * avg_frame_rate_double;
+  stream->stream->nb_frames;
 }
 
 int ffw_stream_seek_frame(Stream* stream, unsigned stream_index, int64_t timestamp, int seek_by, int seek_target) {

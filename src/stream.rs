@@ -38,7 +38,7 @@ pub enum SeekTarget {
     /// Seek, at most, to the requested target point in the stream. If the target cannot be met
     /// then move backward in the stream until a possible seek target can be hit.
     UpTo,
-    /// Force seeking to the requested target point in the stream, even if the Demuxerm for this
+    /// Force seeking to the requested target point in the stream, even if the Demuxer for this
     /// type of stream, does not support it.
     Precise,
 }
@@ -93,7 +93,11 @@ impl Stream {
         Timestamp::new(pts, self.time_base)
     }
 
-    /// Get the duration of the stream.
+    /// Get the number of frames in the stream.
+    ///
+    /// ## Note
+    /// May not represent the total number of frames, depending on the type of the stream and the
+    /// demuxer it may represent only the total number of keyframes.
     pub fn frame_count(&self) -> Option<usize> {
         let count = unsafe { ffw_stream_get_nb_frames(self.ptr) as usize };
 
