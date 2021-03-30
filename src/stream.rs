@@ -130,8 +130,9 @@ impl Stream {
 
     /// Seek to a specific byte offset in the stream.
     #[inline]
-    pub fn seek_to_byte(&self, byte: usize, seek_target: SeekTarget) -> Result<(), Error> {
-        self.seek(byte as _, SeekType::Byte, seek_target)
+    pub fn seek_to_byte(&self, byte: usize) -> Result<(), Error> {
+        // Use SeekTarget::Precise here since this flag seems to be ignored by FFMPEG
+        self.seek(byte as _, SeekType::Byte, SeekTarget::Precise)
     }
 
     fn seek(
