@@ -1,6 +1,14 @@
 #include <libavformat/avformat.h>
 #include <libavutil/opt.h>
 
+#define SEEK_TYPE_TIME  0
+#define SEEK_TYPE_BYTE  1
+#define SEEK_TYPE_FRAME 2
+
+#define SEEK_TARGET_FROM    0
+#define SEEK_TARGET_UP_TO   1
+#define SEEK_TARGET_PRECISE 2
+
 AVInputFormat* ffw_find_input_format(const char* short_name) {
     return av_find_input_format(short_name);
 }
@@ -18,6 +26,7 @@ int ffw_demuxer_find_stream_info(Demuxer* demuxer, int64_t max_analyze_duration)
 unsigned ffw_demuxer_get_nb_streams(const Demuxer* demuxer);
 AVCodecParameters* ffw_demuxer_get_codec_parameters(const Demuxer* demuxer, unsigned stream_index);
 int ffw_demuxer_read_frame(Demuxer* demuxer, AVPacket** packet, uint32_t* tb_num, uint32_t* tb_den);
+int ffw_demuxer_seek_frame(Demuxer* demuxer, int64_t timestamp, int seek_by, int seek_target);
 AVFormatContext* ffw_demuxer_get_format_context(Demuxer* demuxer);
 void ffw_demuxer_free(Demuxer* demuxer);
 
@@ -139,6 +148,36 @@ int ffw_demuxer_read_frame(Demuxer* demuxer, AVPacket** packet, uint32_t* tb_num
     *tb_den = stream->time_base.den;
 
     return ret;
+}
+
+int ffw_demuxer_seek_frame(Demuxer* demuxer, int64_t timestamp, int seek_by, int seek_target) {
+    int flags;
+
+    flags = 0;
+
+    switch (seek_by) {
+        case SEEK_TYPE_BYTE:
+            flags |= AVSEEK_FLAG_BYTE;
+            break;
+        case SEEK_TYPE_FRAME:
+            flags |= AVSEEK_FLAG_FRAME;
+            break;
+        default:
+            break;
+    }
+
+    switch (seek_target) {
+        case SEEK_TARGET_UP_TO:
+            flags |= AVSEEK_FLAG_BACKWARD;
+            break;
+        case SEEK_TARGET_PRECISE:
+            flags |= AVSEEK_FLAG_ANY;
+            break;
+        default:
+            break;
+    }
+
+    return av_seek_frame(demuxer->fc, -1, timestamp, flags);
 }
 
 AVFormatContext* ffw_demuxer_get_format_context(Demuxer* demuxer) {
