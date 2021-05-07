@@ -1,11 +1,10 @@
 //! A/V stream information.
 
-use std::os::raw::{c_int, c_uint, c_void};
+use std::os::raw::{c_int, c_void};
 
 use crate::time::{TimeBase, Timestamp};
 
 extern "C" {
-    fn ffw_stream_from_format_context(context: *mut c_void, stream_index: c_uint) -> *mut c_void;
     fn ffw_stream_get_id(stream: *const c_void) -> c_int;
     fn ffw_stream_get_time_base(stream: *const c_void, num: *mut u32, den: *mut u32);
     fn ffw_stream_get_start_time(stream: *const c_void) -> i64;
@@ -21,15 +20,13 @@ pub struct Stream {
 
 impl Stream {
     /// Create a new immutable stream from its raw representation.
-    pub(crate) unsafe fn from_format_context(ptr: *mut c_void, stream_index: c_uint) -> Self {
-        let stream = ffw_stream_from_format_context(ptr, stream_index);
-
+    pub(crate) unsafe fn from_raw(ptr: *mut c_void) -> Self {
         let mut num = 0_u32;
         let mut den = 0_u32;
-        ffw_stream_get_time_base(stream, &mut num, &mut den);
+        ffw_stream_get_time_base(ptr, &mut num, &mut den);
 
         Stream {
-            ptr: stream,
+            ptr,
             time_base: TimeBase::new(num, den),
         }
     }

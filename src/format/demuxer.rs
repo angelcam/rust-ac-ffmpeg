@@ -57,7 +57,7 @@ extern "C" {
         seek_by: c_int,
         seek_target: c_int,
     ) -> c_int;
-    fn ffw_demuxer_get_format_context(demuxer: *mut c_void) -> *mut c_void;
+    fn ffw_demuxer_get_stream(demuxer: *mut c_void, index: c_uint) -> *mut c_void;
     fn ffw_demuxer_free(demuxer: *mut c_void);
 }
 
@@ -67,9 +67,9 @@ enum SeekType {
     Frame,
 }
 
-impl From<SeekType> for i32 {
-    fn from(this: SeekType) -> Self {
-        match this {
+impl SeekType {
+    fn to_raw(self) -> i32 {
+        match self {
             SeekType::Time => 0,
             SeekType::Byte => 1,
             SeekType::Frame => 2,
@@ -91,9 +91,9 @@ pub enum SeekTarget {
     Precise,
 }
 
-impl From<SeekTarget> for i32 {
-    fn from(this: SeekTarget) -> Self {
-        match this {
+impl SeekTarget {
+    fn to_raw(self) -> i32 {
+        match self {
             SeekTarget::From => 0,
             SeekTarget::UpTo => 1,
             SeekTarget::Precise => 2,
@@ -176,7 +176,6 @@ impl DemuxerBuilder {
         let res = Demuxer {
             ptr,
             io,
-            streams: None,
         };
 
         Ok(res)
@@ -196,7 +195,6 @@ unsafe impl Sync for DemuxerBuilder {}
 pub struct Demuxer<T> {
     ptr: *mut c_void,
     io: IO<T>,
-    streams: Option<Vec<Stream>>,
 }
 
 impl Demuxer<()> {
@@ -283,13 +281,13 @@ impl<T> Demuxer<T> {
             codec_parameters.push(params);
 
             let stream = unsafe {
-                let ptr = ffw_demuxer_get_format_context(self.ptr);
+                let ptr = ffw_demuxer_get_stream(self.ptr, i as _);
 
                 if ptr.is_null() {
-                    panic!("unable to allocate codec parameters");
+                    panic!("unable to retrieve stream info for index {}", i);
                 }
 
-                Stream::from_format_context(ptr, i as _)
+                Stream::from_raw(ptr)
             };
 
             streams.push(stream);
@@ -312,18 +310,6 @@ impl<T> Demuxer<T> {
     /// Get mutable reference to the underlying IO.
     pub fn io_mut(&mut self) -> &mut IO<T> {
         &mut self.io
-    }
-
-    /// Get streams.
-    ///
-    /// Returns [`None`](Option::None) if [`find_stream_info()`](Self::find_stream_info)
-    /// was never called, or fails.
-    pub fn streams(&self) -> Option<&[Stream]> {
-        if let Some(streams) = &self.streams {
-            Some(streams)
-        } else {
-            None
-        }
     }
 }
 
@@ -355,8 +341,7 @@ impl<T> DemuxerWithCodecParameters<T> {
     }
 
     /// Deconstruct this object into a plain demuxer and codec parameters.
-    pub fn deconstruct(mut self) -> (Demuxer<T>, Vec<CodecParameters>) {
-        self.inner.streams = Some(self.streams);
+    pub fn deconstruct(self) -> (Demuxer<T>, Vec<CodecParameters>) {
         (self.inner, self.codec_parameters)
     }
 
@@ -399,8 +384,8 @@ impl<T> DemuxerWithCodecParameters<T> {
             ffw_demuxer_seek_frame(
                 self.ptr,
                 target_position,
-                seek_by.into(),
-                seek_target.into(),
+                seek_by.to_raw(),
+                seek_target.to_raw(),
             )
         };
 
