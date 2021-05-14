@@ -173,10 +173,7 @@ impl DemuxerBuilder {
 
         self.ptr = ptr::null_mut();
 
-        let res = Demuxer {
-            ptr,
-            io,
-        };
+        let res = Demuxer { ptr, io };
 
         Ok(res)
     }
