@@ -11,7 +11,14 @@ use std::{
     time::Duration,
 };
 
-use crate::{codec::CodecParameters, format::io::IO, packet::Packet, time::TimeBase, Error};
+use crate::{
+    codec::CodecParameters,
+    format::io::IO,
+    packet::Packet,
+    stream::Stream,
+    time::{TimeBase, Timestamp},
+    Error,
+};
 
 extern "C" {
     fn ffw_find_input_format(short_name: *const c_char) -> *mut c_void;
@@ -44,7 +51,54 @@ extern "C" {
         tb_num: *mut u32,
         tb_den: *mut u32,
     ) -> c_int;
+    fn ffw_demuxer_seek_frame(
+        demuxer: *mut c_void,
+        timestamp: i64,
+        seek_by: c_int,
+        seek_target: c_int,
+    ) -> c_int;
+    fn ffw_demuxer_get_stream(demuxer: *mut c_void, index: c_uint) -> *mut c_void;
     fn ffw_demuxer_free(demuxer: *mut c_void);
+}
+
+enum SeekType {
+    Time,
+    Byte,
+    Frame,
+}
+
+impl SeekType {
+    fn to_raw(self) -> i32 {
+        match self {
+            SeekType::Time => 0,
+            SeekType::Byte => 1,
+            SeekType::Frame => 2,
+        }
+    }
+}
+
+/// Used to specify a search direction when a stream cannot seek exactly to the requested target
+/// point; timestamp, frame or byte.
+pub enum SeekTarget {
+    /// Seek, at least, to the requested target point in the stream. If the target cannot be met
+    /// then move forward in the stream until a possible seek target can be hit.
+    From,
+    /// Seek, at most, to the requested target point in the stream. If the target cannot be met
+    /// then move backward in the stream until a possible seek target can be hit.
+    UpTo,
+    /// Force seeking to the requested target point in the stream, even if the Demuxer for this
+    /// type of stream, does not support it.
+    Precise,
+}
+
+impl SeekTarget {
+    fn to_raw(self) -> i32 {
+        match self {
+            SeekTarget::From => 0,
+            SeekTarget::UpTo => 1,
+            SeekTarget::Precise => 2,
+        }
+    }
 }
 
 /// Demuxer builder.
@@ -208,6 +262,7 @@ impl<T> Demuxer<T> {
         let stream_count = unsafe { ffw_demuxer_get_nb_streams(self.ptr) };
 
         let mut codec_parameters = Vec::with_capacity(stream_count as usize);
+        let mut streams = Vec::with_capacity(stream_count as usize);
 
         for i in 0..stream_count {
             let params = unsafe {
@@ -221,11 +276,24 @@ impl<T> Demuxer<T> {
             };
 
             codec_parameters.push(params);
+
+            let stream = unsafe {
+                let ptr = ffw_demuxer_get_stream(self.ptr, i as _);
+
+                if ptr.is_null() {
+                    panic!("unable to retrieve stream info for index {}", i);
+                }
+
+                Stream::from_raw(ptr)
+            };
+
+            streams.push(stream);
         }
 
         let res = DemuxerWithCodecParameters {
             inner: self,
             codec_parameters,
+            streams,
         };
 
         Ok(res)
@@ -255,6 +323,7 @@ unsafe impl<T> Sync for Demuxer<T> where T: Sync {}
 pub struct DemuxerWithCodecParameters<T> {
     inner: Demuxer<T>,
     codec_parameters: Vec<CodecParameters>,
+    streams: Vec<Stream>,
 }
 
 impl<T> DemuxerWithCodecParameters<T> {
@@ -263,9 +332,65 @@ impl<T> DemuxerWithCodecParameters<T> {
         &self.codec_parameters
     }
 
+    /// Get streams.
+    pub fn streams(&self) -> &[Stream] {
+        &self.streams
+    }
+
     /// Deconstruct this object into a plain demuxer and codec parameters.
     pub fn deconstruct(self) -> (Demuxer<T>, Vec<CodecParameters>) {
         (self.inner, self.codec_parameters)
+    }
+
+    /// Seek to a specific timestamp in the stream.
+    #[inline]
+    pub fn seek_to_timestamp(
+        &self,
+        timestamp: Timestamp,
+        seek_target: SeekTarget,
+    ) -> Result<(), Error> {
+        self.seek(
+            timestamp
+                .as_micros()
+                .ok_or(Error::new("Timestamp is null"))?,
+            SeekType::Time,
+            seek_target,
+        )
+    }
+
+    /// Seek to a specific frame in the stream.
+    #[inline]
+    pub fn seek_to_frame(&self, frame_index: usize, seek_target: SeekTarget) -> Result<(), Error> {
+        self.seek(frame_index as _, SeekType::Frame, seek_target)
+    }
+
+    /// Seek to a specific byte offset in the stream.
+    #[inline]
+    pub fn seek_to_byte(&self, byte: usize) -> Result<(), Error> {
+        // Use SeekTarget::Precise here since this flag seems to be ignored by FFMPEG
+        self.seek(byte as _, SeekType::Byte, SeekTarget::Precise)
+    }
+
+    fn seek(
+        &self,
+        target_position: i64,
+        seek_by: SeekType,
+        seek_target: SeekTarget,
+    ) -> Result<(), Error> {
+        let res = unsafe {
+            ffw_demuxer_seek_frame(
+                self.ptr,
+                target_position,
+                seek_by.to_raw(),
+                seek_target.to_raw(),
+            )
+        };
+
+        if res >= 0 {
+            Ok(())
+        } else {
+            Err(Error::from_raw_error_code(res))
+        }
     }
 }
 
