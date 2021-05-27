@@ -19,7 +19,11 @@ use crate::{
 };
 
 extern "C" {
-    fn ffw_find_input_format(short_name: *const c_char) -> *mut c_void;
+    fn ffw_guess_input_format(
+        short_name: *const c_char,
+        file_name: *const c_char,
+        mime_type: *const c_char,
+    ) -> *mut c_void;
 
     fn ffw_demuxer_new() -> *mut c_void;
     fn ffw_demuxer_init(
@@ -414,7 +418,37 @@ impl InputFormat {
     pub fn find_by_name(name: &str) -> Option<InputFormat> {
         let name = CString::new(name).expect("invalid format name");
 
-        let ptr = unsafe { ffw_find_input_format(name.as_ptr() as *const _) };
+        let ptr = unsafe { ffw_guess_input_format(name.as_ptr(), ptr::null(), ptr::null()) };
+
+        if ptr.is_null() {
+            return None;
+        }
+
+        let res = InputFormat { ptr };
+
+        Some(res)
+    }
+
+    /// Try to find an input format by a given MIME type.
+    pub fn find_by_mime_type(mime_type: &str) -> Option<InputFormat> {
+        let mime_type = CString::new(mime_type).expect("invalid MIME type");
+
+        let ptr = unsafe { ffw_guess_input_format(ptr::null(), ptr::null(), mime_type.as_ptr()) };
+
+        if ptr.is_null() {
+            return None;
+        }
+
+        let res = InputFormat { ptr };
+
+        Some(res)
+    }
+
+    /// Try to guess an input format based on a given file name.
+    pub fn guess_from_file_name(file_name: &str) -> Option<InputFormat> {
+        let file_name = CString::new(file_name).expect("invalid file name");
+
+        let ptr = unsafe { ffw_guess_input_format(ptr::null(), file_name.as_ptr(), ptr::null()) };
 
         if ptr.is_null() {
             return None;

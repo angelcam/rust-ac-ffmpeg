@@ -1,5 +1,6 @@
 #include <libavformat/avformat.h>
 #include <libavutil/opt.h>
+#include <libavutil/avstring.h>
 
 #define SEEK_TYPE_TIME  0
 #define SEEK_TYPE_BYTE  1
@@ -9,8 +10,38 @@
 #define SEEK_TARGET_UP_TO   1
 #define SEEK_TARGET_PRECISE 2
 
-AVInputFormat* ffw_find_input_format(const char* short_name) {
-    return av_find_input_format(short_name);
+AVInputFormat* ffw_guess_input_format(
+    const char* short_name,
+    const char* file_name,
+    const char* mime_type) {
+    const AVInputFormat* fmt = NULL;
+    const AVInputFormat* res = NULL;
+    void* i = NULL;
+    int score;
+    int max_score = 0;
+
+    while ((fmt = av_demuxer_iterate(&i))) {
+        score = 0;
+
+        if (short_name && fmt->name && av_match_name(short_name, fmt->name)) {
+            score += 100;
+        }
+
+        if (mime_type && fmt->mime_type && av_match_name(mime_type, fmt->mime_type)) {
+            score += 10;
+        }
+
+        if (file_name && fmt->extensions && av_match_ext(file_name, fmt->extensions)) {
+            score += 5;
+        }
+
+        if (score > max_score) {
+            max_score = score;
+            res = fmt;
+        }
+    }
+
+    return (AVInputFormat*)res;
 }
 
 typedef struct Demuxer {

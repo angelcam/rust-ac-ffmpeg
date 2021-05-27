@@ -7,6 +7,7 @@
 * Add a MuxerBuilder method for setting per-container metadata
 * Rename DemuxerWithCodecParameters to DemuxerWithStreamInfo
 * Deprecate MuxerBuilder.set_url() in favor of MuxerBuilder.set_option()
+* Improve input format lookup
 
 ## v0.16.0 (2021-03-01)
 
