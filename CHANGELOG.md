@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.17.0 (2021-XX-YY)
+
+* Add seek methods to Demuxer
+* Add Stream type with ability to set stream metadata
+* Add a MuxerBuilder method for setting per-container metadata
+* Rename DemuxerWithCodecParameters to DemuxerWithStreamInfo
+* Deprecate MuxerBuilder.set_url() in favor of MuxerBuilder.set_option()
+
 ## v0.16.0 (2021-03-01)
 
 * Remove unjustified dependencies

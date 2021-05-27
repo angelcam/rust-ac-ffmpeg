@@ -3,7 +3,7 @@ use std::fs::File;
 use ac_ffmpeg::{
     codec::{video::VideoDecoder, Decoder},
     format::{
-        demuxer::{Demuxer, DemuxerWithCodecParameters},
+        demuxer::{Demuxer, DemuxerWithStreamInfo},
         io::IO,
     },
     Error,
@@ -11,7 +11,7 @@ use ac_ffmpeg::{
 use clap::{App, Arg};
 
 /// Open a given input file.
-fn open_input(path: &str) -> Result<DemuxerWithCodecParameters<File>, Error> {
+fn open_input(path: &str) -> Result<DemuxerWithStreamInfo<File>, Error> {
     let input = File::open(path)
         .map_err(|err| Error::new(format!("unable to open input file {}: {}", path, err)))?;
 
@@ -29,8 +29,9 @@ fn print_video_frame_info(input: &str) -> Result<(), Error> {
     let mut demuxer = open_input(input)?;
 
     let (stream_index, params) = demuxer
-        .codec_parameters()
+        .streams()
         .iter()
+        .map(|stream| stream.codec_parameters())
         .enumerate()
         .find(|(_, params)| params.is_video_codec())
         .ok_or_else(|| Error::new("no video stream"))?;

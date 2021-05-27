@@ -20,12 +20,13 @@ typedef struct Muxer {
 
 Muxer* ffw_muxer_new();
 unsigned ffw_muxer_get_nb_streams(const Muxer*);
+AVStream* ffw_muxer_get_stream(Muxer* muxer, unsigned stream_index);
 int ffw_muxer_new_stream(Muxer*, const AVCodecParameters*);
-int ffw_muxer_set_stream_option(Muxer* const, int, const char*, const char*);
 int ffw_muxer_init(Muxer*, AVIOContext*, AVOutputFormat*);
 int ffw_muxer_get_option(Muxer*, const char*, uint8_t**);
 int ffw_muxer_set_initial_option(Muxer*, const char*, const char*);
 int ffw_muxer_set_option(Muxer*, const char*, const char*);
+int ffw_muxer_set_metadata(Muxer*, const char*, const char*);
 int ffw_muxer_write_frame(Muxer*, AVPacket*, uint32_t, uint32_t);
 int ffw_muxer_interleaved_write_frame(Muxer*, AVPacket*, uint32_t, uint32_t);
 int ffw_muxer_free(Muxer*);
@@ -57,6 +58,10 @@ unsigned ffw_muxer_get_nb_streams(const Muxer* muxer) {
     return muxer->fc->nb_streams;
 }
 
+AVStream* ffw_muxer_get_stream(Muxer* muxer, unsigned stream_index) {
+    return muxer->fc->streams[stream_index];
+}
+
 int ffw_muxer_new_stream(Muxer* muxer, const AVCodecParameters* params) {
     AVStream* s;
     int ret;
@@ -74,11 +79,6 @@ int ffw_muxer_new_stream(Muxer* muxer, const AVCodecParameters* params) {
     s->codecpar->codec_tag = 0;
 
     return s->index;
-}
-
-int ffw_muxer_set_stream_option(Muxer* const muxer, int stream_index, const char* key, const char* value) {
-    AVStream* stream = muxer->fc->streams[stream_index];
-    return av_dict_set(&stream->metadata, key, value, 0);
 }
 
 int ffw_muxer_init(
@@ -114,6 +114,10 @@ int ffw_muxer_set_url(Muxer* muxer, const char* url) {
     av_freep(&muxer->fc->url);
     muxer->fc->url = av_strdup(url);
     return muxer->fc->url ? 0 : AVERROR(ENOMEM);
+}
+
+int ffw_muxer_set_metadata(Muxer* muxer, const char* key, const char* value) {
+    return av_dict_set(&muxer->fc->metadata, key, value, 0);
 }
 
 static int ffw_rescale_packet_timestamps(Muxer* muxer, AVPacket* packet, uint32_t src_tb_num, uint32_t src_tb_den) {

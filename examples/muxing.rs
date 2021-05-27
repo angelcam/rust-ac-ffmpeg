@@ -3,7 +3,7 @@ use std::fs::File;
 use ac_ffmpeg::{
     codec::CodecParameters,
     format::{
-        demuxer::{Demuxer, DemuxerWithCodecParameters},
+        demuxer::{Demuxer, DemuxerWithStreamInfo},
         io::IO,
         muxer::{Muxer, OutputFormat},
     },
@@ -12,7 +12,7 @@ use ac_ffmpeg::{
 use clap::{App, Arg};
 
 /// Open a given input file.
-fn open_input(path: &str) -> Result<DemuxerWithCodecParameters<File>, Error> {
+fn open_input(path: &str) -> Result<DemuxerWithStreamInfo<File>, Error> {
     let input = File::open(path)
         .map_err(|err| Error::new(format!("unable to open input file {}: {}", path, err)))?;
 
@@ -46,7 +46,14 @@ fn open_output(path: &str, elementary_streams: &[CodecParameters]) -> Result<Mux
 /// Convert a given input file into a given output file.
 fn convert(input: &str, output: &str) -> Result<(), Error> {
     let mut demuxer = open_input(input)?;
-    let mut muxer = open_output(output, demuxer.codec_parameters())?;
+
+    let codec_parameters = demuxer
+        .streams()
+        .iter()
+        .map(|stream| stream.codec_parameters())
+        .collect::<Vec<_>>();
+
+    let mut muxer = open_output(output, &codec_parameters)?;
 
     // process data
     while let Some(packet) = demuxer.take()? {

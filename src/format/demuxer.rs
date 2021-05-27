@@ -12,10 +12,8 @@ use std::{
 };
 
 use crate::{
-    codec::CodecParameters,
-    format::io::IO,
+    format::{io::IO, stream::Stream},
     packet::Packet,
-    stream::Stream,
     time::{TimeBase, Timestamp},
     Error,
 };
@@ -41,26 +39,23 @@ extern "C" {
     ) -> c_int;
     fn ffw_demuxer_find_stream_info(demuxer: *mut c_void, max_analyze_duration: i64) -> c_int;
     fn ffw_demuxer_get_nb_streams(demuxer: *const c_void) -> c_uint;
-    fn ffw_demuxer_get_codec_parameters(
-        demuxer: *const c_void,
-        stream_index: c_uint,
-    ) -> *mut c_void;
+    fn ffw_demuxer_get_stream(demuxer: *mut c_void, index: c_uint) -> *mut c_void;
     fn ffw_demuxer_read_frame(
         demuxer: *mut c_void,
         packet: *mut *mut c_void,
         tb_num: *mut u32,
         tb_den: *mut u32,
     ) -> c_int;
-    fn ffw_demuxer_seek_frame(
+    fn ffw_demuxer_seek(
         demuxer: *mut c_void,
         timestamp: i64,
         seek_by: c_int,
         seek_target: c_int,
     ) -> c_int;
-    fn ffw_demuxer_get_stream(demuxer: *mut c_void, index: c_uint) -> *mut c_void;
     fn ffw_demuxer_free(demuxer: *mut c_void);
 }
 
+/// Seek type/mode.
 enum SeekType {
     Time,
     Byte,
@@ -68,7 +63,8 @@ enum SeekType {
 }
 
 impl SeekType {
-    fn to_raw(self) -> i32 {
+    /// Get the internal raw representation.
+    fn into_raw(self) -> i32 {
         match self {
             SeekType::Time => 0,
             SeekType::Byte => 1,
@@ -92,7 +88,8 @@ pub enum SeekTarget {
 }
 
 impl SeekTarget {
-    fn to_raw(self) -> i32 {
+    /// Get the internal raw representation.
+    fn into_raw(self) -> i32 {
         match self {
             SeekTarget::From => 0,
             SeekTarget::UpTo => 1,
@@ -220,8 +217,7 @@ impl<T> Demuxer<T> {
         }
     }
 
-    /// Take the next packet from the demuxer or None on EOF. The pts and dts fields of the
-    /// returned packet will be in microseconds.
+    /// Take the next packet from the demuxer or `None` on EOF.
     pub fn take(&mut self) -> Result<Option<Packet>, Error> {
         let mut pptr = ptr::null_mut();
 
@@ -241,12 +237,59 @@ impl<T> Demuxer<T> {
         }
     }
 
-    /// Try to find stream info. Optionally, you can pass `max_analyze_duration` which will tell
-    /// FFmpeg how far it should look for stream info.
+    /// Seek to a specific timestamp in the stream.
+    pub fn seek_to_timestamp(
+        &self,
+        timestamp: Timestamp,
+        seek_target: SeekTarget,
+    ) -> Result<(), Error> {
+        let micros = timestamp
+            .as_micros()
+            .ok_or_else(|| Error::new("null timestamp"))?;
+
+        self.seek(micros, SeekType::Time, seek_target)
+    }
+
+    /// Seek to a specific frame in the stream.
+    pub fn seek_to_frame(&self, frame: u64, seek_target: SeekTarget) -> Result<(), Error> {
+        self.seek(frame as _, SeekType::Frame, seek_target)
+    }
+
+    /// Seek to a specific byte offset in the stream.
+    pub fn seek_to_byte(&self, offset: u64) -> Result<(), Error> {
+        // use SeekTarget::Precise here since this flag seems to be ignored by FFmpeg
+        self.seek(offset as _, SeekType::Byte, SeekTarget::Precise)
+    }
+
+    /// Seek to a given position.
+    fn seek(
+        &self,
+        target_position: i64,
+        seek_by: SeekType,
+        seek_target: SeekTarget,
+    ) -> Result<(), Error> {
+        let res = unsafe {
+            ffw_demuxer_seek(
+                self.ptr,
+                target_position,
+                seek_by.into_raw(),
+                seek_target.into_raw(),
+            )
+        };
+
+        if res >= 0 {
+            Ok(())
+        } else {
+            Err(Error::from_raw_error_code(res))
+        }
+    }
+
+    /// Try to find stream info. Optionally, you can pass `max_analyze_duration` which tells FFmpeg
+    /// how far it should look for stream info.
     pub fn find_stream_info(
         self,
         max_analyze_duration: Option<Duration>,
-    ) -> Result<DemuxerWithCodecParameters<T>, (Demuxer<T>, Error)> {
+    ) -> Result<DemuxerWithStreamInfo<T>, (Self, Error)> {
         let max_analyze_duration = max_analyze_duration
             .unwrap_or_else(|| Duration::from_secs(0))
             .as_micros()
@@ -261,38 +304,24 @@ impl<T> Demuxer<T> {
 
         let stream_count = unsafe { ffw_demuxer_get_nb_streams(self.ptr) };
 
-        let mut codec_parameters = Vec::with_capacity(stream_count as usize);
         let mut streams = Vec::with_capacity(stream_count as usize);
 
         for i in 0..stream_count {
-            let params = unsafe {
-                let ptr = ffw_demuxer_get_codec_parameters(self.ptr, i as _);
-
-                if ptr.is_null() {
-                    panic!("unable to allocate codec parameters");
-                }
-
-                CodecParameters::from_raw_ptr(ptr)
-            };
-
-            codec_parameters.push(params);
-
             let stream = unsafe {
                 let ptr = ffw_demuxer_get_stream(self.ptr, i as _);
 
                 if ptr.is_null() {
-                    panic!("unable to retrieve stream info for index {}", i);
+                    panic!("unable to get stream info");
                 }
 
-                Stream::from_raw(ptr)
+                Stream::from_raw_ptr(ptr)
             };
 
             streams.push(stream);
         }
 
-        let res = DemuxerWithCodecParameters {
+        let res = DemuxerWithStreamInfo {
             inner: self,
-            codec_parameters,
             streams,
         };
 
@@ -320,105 +349,48 @@ unsafe impl<T> Send for Demuxer<T> where T: Send {}
 unsafe impl<T> Sync for Demuxer<T> where T: Sync {}
 
 /// Demuxer with information about individual streams.
-pub struct DemuxerWithCodecParameters<T> {
+pub struct DemuxerWithStreamInfo<T> {
     inner: Demuxer<T>,
-    codec_parameters: Vec<CodecParameters>,
     streams: Vec<Stream>,
 }
 
-impl<T> DemuxerWithCodecParameters<T> {
-    /// Get codec parameters.
-    pub fn codec_parameters(&self) -> &[CodecParameters] {
-        &self.codec_parameters
-    }
-
+impl<T> DemuxerWithStreamInfo<T> {
     /// Get streams.
     pub fn streams(&self) -> &[Stream] {
         &self.streams
     }
 
-    /// Deconstruct this object into a plain demuxer and codec parameters.
-    pub fn deconstruct(self) -> (Demuxer<T>, Vec<CodecParameters>) {
-        (self.inner, self.codec_parameters)
-    }
-
-    /// Seek to a specific timestamp in the stream.
-    #[inline]
-    pub fn seek_to_timestamp(
-        &self,
-        timestamp: Timestamp,
-        seek_target: SeekTarget,
-    ) -> Result<(), Error> {
-        self.seek(
-            timestamp
-                .as_micros()
-                .ok_or(Error::new("Timestamp is null"))?,
-            SeekType::Time,
-            seek_target,
-        )
-    }
-
-    /// Seek to a specific frame in the stream.
-    #[inline]
-    pub fn seek_to_frame(&self, frame_index: usize, seek_target: SeekTarget) -> Result<(), Error> {
-        self.seek(frame_index as _, SeekType::Frame, seek_target)
-    }
-
-    /// Seek to a specific byte offset in the stream.
-    #[inline]
-    pub fn seek_to_byte(&self, byte: usize) -> Result<(), Error> {
-        // Use SeekTarget::Precise here since this flag seems to be ignored by FFMPEG
-        self.seek(byte as _, SeekType::Byte, SeekTarget::Precise)
-    }
-
-    fn seek(
-        &self,
-        target_position: i64,
-        seek_by: SeekType,
-        seek_target: SeekTarget,
-    ) -> Result<(), Error> {
-        let res = unsafe {
-            ffw_demuxer_seek_frame(
-                self.ptr,
-                target_position,
-                seek_by.to_raw(),
-                seek_target.to_raw(),
-            )
-        };
-
-        if res >= 0 {
-            Ok(())
-        } else {
-            Err(Error::from_raw_error_code(res))
-        }
+    /// Get the underlying demuxer.
+    pub fn into_demuxer(self) -> Demuxer<T> {
+        self.inner
     }
 }
 
-impl<T> AsRef<Demuxer<T>> for DemuxerWithCodecParameters<T> {
+impl<T> AsRef<Demuxer<T>> for DemuxerWithStreamInfo<T> {
     fn as_ref(&self) -> &Demuxer<T> {
         &self.inner
     }
 }
 
-impl<T> AsMut<Demuxer<T>> for DemuxerWithCodecParameters<T> {
+impl<T> AsMut<Demuxer<T>> for DemuxerWithStreamInfo<T> {
     fn as_mut(&mut self) -> &mut Demuxer<T> {
         &mut self.inner
     }
 }
 
-impl<T> Borrow<Demuxer<T>> for DemuxerWithCodecParameters<T> {
+impl<T> Borrow<Demuxer<T>> for DemuxerWithStreamInfo<T> {
     fn borrow(&self) -> &Demuxer<T> {
         &self.inner
     }
 }
 
-impl<T> BorrowMut<Demuxer<T>> for DemuxerWithCodecParameters<T> {
+impl<T> BorrowMut<Demuxer<T>> for DemuxerWithStreamInfo<T> {
     fn borrow_mut(&mut self) -> &mut Demuxer<T> {
         &mut self.inner
     }
 }
 
-impl<T> Deref for DemuxerWithCodecParameters<T> {
+impl<T> Deref for DemuxerWithStreamInfo<T> {
     type Target = Demuxer<T>;
 
     fn deref(&self) -> &Self::Target {
@@ -426,7 +398,7 @@ impl<T> Deref for DemuxerWithCodecParameters<T> {
     }
 }
 
-impl<T> DerefMut for DemuxerWithCodecParameters<T> {
+impl<T> DerefMut for DemuxerWithStreamInfo<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }

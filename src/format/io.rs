@@ -27,6 +27,7 @@ extern "C" {
 }
 
 /// IO context.
+#[allow(clippy::upper_case_acronyms)]
 pub(crate) struct IOContext {
     ptr: *mut c_void,
 }
@@ -167,6 +168,7 @@ where
 }
 
 /// An AVIO IO that connects FFmpeg AVIO context with Rust streams.
+#[allow(clippy::upper_case_acronyms)]
 pub struct IO<T> {
     io_context: IOContext,
     stream: Box<T>,

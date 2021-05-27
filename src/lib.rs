@@ -4,7 +4,6 @@
 pub mod codec;
 pub mod format;
 pub mod packet;
-pub mod stream;
 pub mod time;
 
 use std::{

@@ -19,6 +19,8 @@ interface.
 
 * Demuxing any self-contained media container
 * Muxing any self-contained media container
+* Setting metadata
+* Seeking
 * Decoding audio and video
 * Encoding audio and video
 * Video frame scaling and pixel format transformations

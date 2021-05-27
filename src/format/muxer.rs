@@ -7,7 +7,12 @@ use std::{
     ptr,
 };
 
-use crate::{codec::CodecParameters, format::io::IO, packet::Packet, Error};
+use crate::{
+    codec::CodecParameters,
+    format::{io::IO, stream::Stream},
+    packet::Packet,
+    Error,
+};
 
 extern "C" {
     fn ffw_guess_output_format(
@@ -18,13 +23,8 @@ extern "C" {
 
     fn ffw_muxer_new() -> *mut c_void;
     fn ffw_muxer_get_nb_streams(muxer: *const c_void) -> c_uint;
+    fn ffw_muxer_get_stream(muxer: *mut c_void, stream_index: c_uint) -> *mut c_void;
     fn ffw_muxer_new_stream(muxer: *mut c_void, params: *const c_void) -> c_int;
-    fn ffw_muxer_set_stream_option(
-        muxer: *mut c_void,
-        stream_index: usize,
-        key: *const c_char,
-        value: *const c_char,
-    ) -> c_int;
     fn ffw_muxer_init(muxer: *mut c_void, io_context: *mut c_void, format: *mut c_void) -> c_int;
     fn ffw_muxer_set_initial_option(
         muxer: *mut c_void,
@@ -33,6 +33,11 @@ extern "C" {
     ) -> c_int;
     fn ffw_muxer_set_option(muxer: *mut c_void, key: *const c_char, value: *const c_char) -> c_int;
     fn ffw_muxer_set_url(muxer: *mut c_void, url: *const c_char) -> c_int;
+    fn ffw_muxer_set_metadata(
+        stream: *mut c_void,
+        key: *const c_char,
+        value: *const c_char,
+    ) -> c_int;
     fn ffw_muxer_write_frame(
         muxer: *mut c_void,
         packet: *mut c_void,
@@ -51,6 +56,7 @@ extern "C" {
 /// Muxer builder.
 pub struct MuxerBuilder {
     ptr: *mut c_void,
+    streams: Vec<Stream>,
     interleaved: bool,
 }
 
@@ -65,41 +71,40 @@ impl MuxerBuilder {
 
         MuxerBuilder {
             ptr,
+            streams: Vec::new(),
             interleaved: false,
         }
     }
 
-    /// Add a new stream with given parameters.
+    /// Add a new stream with given parameters and return index of the new stream.
     pub fn add_stream(&mut self, params: &CodecParameters) -> Result<usize, Error> {
         let stream_index = unsafe { ffw_muxer_new_stream(self.ptr, params.as_ptr()) };
 
         if stream_index < 0 {
             return Err(Error::from_raw_error_code(stream_index));
         }
+
+        let stream = unsafe { ffw_muxer_get_stream(self.ptr, stream_index as _) };
+
+        if stream.is_null() {
+            panic!("stream was not created");
+        }
+
+        let stream = unsafe { Stream::from_raw_ptr(stream) };
+
+        self.streams.push(stream);
+
         Ok(stream_index as usize)
     }
 
-    /// Set a stream option.
-    ///
-    /// # Panics
-    /// The method panics if there is no stream with a given index.
-    pub fn set_stream_option<V>(self, stream_index: usize, name: &str, value: V) -> MuxerBuilder
-    where
-        V: ToString,
-    {
-        let nb_streams = unsafe { ffw_muxer_get_nb_streams(self.ptr) as usize };
+    /// Get streams.
+    pub fn streams(&self) -> &[Stream] {
+        &self.streams
+    }
 
-        assert!(stream_index < nb_streams);
-
-        let key = CString::new(name).expect("invalid option name");
-        let value = CString::new(value.to_string()).expect("invalid option value");
-        let ret = unsafe {
-            ffw_muxer_set_stream_option(self.ptr, stream_index, key.as_ptr(), value.as_ptr())
-        };
-        if ret < 0 {
-            panic!("unable to allocate an option");
-        }
-        self
+    /// Get mutable streams.
+    pub fn streams_mut(&mut self) -> &mut [Stream] {
+        &mut self.streams
     }
 
     /// Set a muxer option.
@@ -107,15 +112,24 @@ impl MuxerBuilder {
     where
         V: ToString,
     {
-        let name = CString::new(name).expect("invalid option name");
         let value = CString::new(value.to_string()).expect("invalid option value");
 
-        let ret = unsafe {
-            ffw_muxer_set_initial_option(self.ptr, name.as_ptr() as _, value.as_ptr() as _)
-        };
+        // NOTE: the "url" field cannot be set using the options interface
+        if name == "url" {
+            let ret = unsafe { ffw_muxer_set_url(self.ptr, value.as_ptr()) };
 
-        if ret < 0 {
-            panic!("unable to allocate an option");
+            if ret < 0 {
+                panic!("unable to allocate URL")
+            }
+        } else {
+            let name = CString::new(name).expect("invalid option name");
+
+            let ret =
+                unsafe { ffw_muxer_set_initial_option(self.ptr, name.as_ptr(), value.as_ptr()) };
+
+            if ret < 0 {
+                panic!("unable to allocate an option");
+            }
         }
 
         self
@@ -126,12 +140,26 @@ impl MuxerBuilder {
     /// __WARNING__: this is a hack to accomodate certain muxer types (e.g.
     /// DASH) that bypass avio abstraction layer/produce multiple output files.
     /// Setting this can cause FFmpeg open its own files or sockets.
+    #[doc(hidden)]
+    #[deprecated(since = "0.17.0", note = "Use `set_option(\"url\", ...)` instead.")]
     pub fn set_url(self, url: &str) -> MuxerBuilder {
-        let url = CString::new(url).expect("invalid URL value");
-        let ret = unsafe { ffw_muxer_set_url(self.ptr, url.as_ptr() as _) };
+        self.set_option("url", url)
+    }
+
+    /// Set container metadata.
+    pub fn set_metadata<V>(self, key: &str, value: V) -> Self
+    where
+        V: ToString,
+    {
+        let key = CString::new(key).expect("invalid metadata key");
+        let value = CString::new(value.to_string()).expect("invalid metadata value");
+
+        let ret = unsafe { ffw_muxer_set_metadata(self.ptr, key.as_ptr(), value.as_ptr()) };
+
         if ret < 0 {
-            panic!("unable to allocate memory for URL")
+            panic!("unable to allocate metadata");
         }
+
         self
     }
 

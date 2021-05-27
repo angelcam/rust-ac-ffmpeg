@@ -24,10 +24,9 @@ int ffw_demuxer_set_initial_option(Demuxer* demuxer, const char* key, const char
 int ffw_demuxer_set_option(Demuxer* demuxer, const char* key, const char* value);
 int ffw_demuxer_find_stream_info(Demuxer* demuxer, int64_t max_analyze_duration);
 unsigned ffw_demuxer_get_nb_streams(const Demuxer* demuxer);
-AVCodecParameters* ffw_demuxer_get_codec_parameters(const Demuxer* demuxer, unsigned stream_index);
+AVStream* ffw_demuxer_get_stream(Demuxer* demuxer, unsigned stream_index);
 int ffw_demuxer_read_frame(Demuxer* demuxer, AVPacket** packet, uint32_t* tb_num, uint32_t* tb_den);
-int ffw_demuxer_seek_frame(Demuxer* demuxer, int64_t timestamp, int seek_by, int seek_target);
-AVStream* ffw_demuxer_get_stream(Demuxer* demuxer, unsigned int stream_index);
+int ffw_demuxer_seek(Demuxer* demuxer, int64_t timestamp, int seek_by, int seek_target);
 void ffw_demuxer_free(Demuxer* demuxer);
 
 Demuxer* ffw_demuxer_new() {
@@ -93,27 +92,8 @@ unsigned ffw_demuxer_get_nb_streams(const Demuxer* demuxer) {
     return demuxer->fc->nb_streams;
 }
 
-AVCodecParameters* ffw_demuxer_get_codec_parameters(const Demuxer* demuxer, unsigned stream_index) {
-    AVCodecParameters* res;
-    const AVStream* s;
-
-    s = demuxer->fc->streams[stream_index];
-
-    res = avcodec_parameters_alloc();
-    if (!res) {
-        return NULL;
-    }
-
-    if (avcodec_parameters_copy(res, s->codecpar) < 0) {
-        goto err;
-    }
-
-    return res;
-
-err:
-    avcodec_parameters_free(&res);
-
-    return NULL;
+AVStream* ffw_demuxer_get_stream(Demuxer* demuxer, unsigned stream_index) {
+    return demuxer->fc->streams[stream_index];
 }
 
 int ffw_demuxer_read_frame(Demuxer* demuxer, AVPacket** packet, uint32_t* tb_num, uint32_t* tb_den) {
@@ -150,7 +130,7 @@ int ffw_demuxer_read_frame(Demuxer* demuxer, AVPacket** packet, uint32_t* tb_num
     return ret;
 }
 
-int ffw_demuxer_seek_frame(Demuxer* demuxer, int64_t timestamp, int seek_by, int seek_target) {
+int ffw_demuxer_seek(Demuxer* demuxer, int64_t timestamp, int seek_by, int seek_target) {
     int flags;
 
     flags = 0;
@@ -178,10 +158,6 @@ int ffw_demuxer_seek_frame(Demuxer* demuxer, int64_t timestamp, int seek_by, int
     }
 
     return av_seek_frame(demuxer->fc, -1, timestamp, flags);
-}
-
-AVStream* ffw_demuxer_get_stream(Demuxer* demuxer, unsigned int stream_index) {
-    return demuxer->fc->streams[stream_index];
 }
 
 void ffw_demuxer_free(Demuxer* demuxer) {
