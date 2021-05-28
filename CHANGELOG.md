@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.17.0 (2021-XX-YY)
+## v0.17.0 (2021-05-28)
 
 * Add seek methods to Demuxer
 * Add Stream type with ability to set stream metadata
