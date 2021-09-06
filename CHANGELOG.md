@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.17.1 (2021-09-06)
+
+* Add convenience methods for creating decoder builders from Stream instances
+* Set pkt_timebase correctly when initializing decoders
+* Avoid using deprecated FFmpeg functions
+
 ## v0.17.0 (2021-05-28)
 
 * Add seek methods to Demuxer
