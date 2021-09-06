@@ -2,7 +2,7 @@
 
 use std::{
     cmp::{Eq, Ordering, PartialEq, PartialOrd},
-    fmt::{self, Debug, Formatter},
+    fmt::{self, Debug, Display, Formatter},
     ops::{Add, AddAssign, Sub, SubAssign},
     time::Duration,
 };
@@ -37,6 +37,12 @@ impl TimeBase {
     /// Get the denominator.
     pub fn den(&self) -> u32 {
         self.den
+    }
+}
+
+impl Debug for TimeBase {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}/{}", self.num(), self.den())
     }
 }
 
