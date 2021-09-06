@@ -47,6 +47,7 @@ AVInputFormat* ffw_guess_input_format(
 typedef struct Demuxer {
     AVFormatContext* fc;
     AVDictionary* options;
+    AVPacket* packet;
 } Demuxer;
 
 Demuxer* ffw_demuxer_new();
@@ -64,6 +65,11 @@ Demuxer* ffw_demuxer_new() {
     Demuxer* demuxer = calloc(1, sizeof(Demuxer));
     if (!demuxer) {
         return NULL;
+    }
+
+    demuxer->packet = av_packet_alloc();
+    if (!demuxer->packet) {
+        goto err;
     }
 
     demuxer->fc = avformat_alloc_context();
@@ -130,22 +136,23 @@ AVStream* ffw_demuxer_get_stream(Demuxer* demuxer, unsigned stream_index) {
 int ffw_demuxer_read_frame(Demuxer* demuxer, AVPacket** packet, uint32_t* tb_num, uint32_t* tb_den) {
     AVStream* stream;
     AVPacket* res;
-    AVPacket tmp;
     int ret;
 
-    av_init_packet(&tmp);
-
-    ret = av_read_frame(demuxer->fc, &tmp);
+    ret = av_read_frame(demuxer->fc, demuxer->packet);
     if (ret == AVERROR_EOF) {
+        av_packet_unref(demuxer->packet);
         *packet = NULL;
         return 0;
     } else if (ret < 0) {
+        av_packet_unref(demuxer->packet);
         return ret;
     }
 
-    res = av_packet_clone(&tmp);
+    // NOTE: Older versions of FFmpeg can guarantee packet buffer lifetime only
+    // until the next call of av_read_frame().
+    res = av_packet_clone(demuxer->packet);
 
-    av_packet_unref(&tmp);
+    av_packet_unref(demuxer->packet);
 
     if (!res) {
         return AVERROR(ENOMEM);
@@ -196,6 +203,7 @@ void ffw_demuxer_free(Demuxer* demuxer) {
         return;
     }
 
+    av_packet_free(&demuxer->packet);
     avformat_close_input(&demuxer->fc);
     av_dict_free(&demuxer->options);
 

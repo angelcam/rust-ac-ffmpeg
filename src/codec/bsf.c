@@ -51,22 +51,25 @@ int ffw_bsf_flush(AVBSFContext* context) {
 }
 
 int ffw_bsf_take(AVBSFContext* context, AVPacket** packet) {
-    AVPacket pkt;
+    AVPacket* pkt;
     int ret;
 
-    av_init_packet(&pkt);
+    pkt = av_packet_alloc();
+    if (!pkt) {
+        return AVERROR(ENOMEM);
+    }
 
-    ret = av_bsf_receive_packet(context, &pkt);
+    ret = av_bsf_receive_packet(context, pkt);
     if (ret < 0) {
-        return ret;
+        goto err;
     }
 
-    *packet = av_packet_clone(&pkt);
-    if (!*packet) {
-        ret = AVERROR(ENOMEM);
-    }
+    *packet = pkt;
 
-    av_packet_unref(&pkt);
+    return ret;
+
+err:
+    av_packet_free(&pkt);
 
     return ret;
 }
