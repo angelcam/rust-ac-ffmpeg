@@ -299,6 +299,15 @@ int ffw_decoder_set_initial_option(Decoder* decoder, const char* key, const char
     return av_dict_set(&decoder->options, key, value, 0);
 }
 
+void ffw_decoder_set_pkt_timebase(Decoder* decoder, int num, int den) {
+    AVRational r;
+
+    r.num = num;
+    r.den = den;
+
+    decoder->cc->pkt_timebase = r;
+}
+
 int ffw_decoder_open(Decoder* decoder) {
     return avcodec_open2(decoder->cc, decoder->decoder, &decoder->options);
 }

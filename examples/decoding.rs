@@ -28,17 +28,15 @@ fn open_input(path: &str) -> Result<DemuxerWithStreamInfo<File>, Error> {
 fn print_video_frame_info(input: &str) -> Result<(), Error> {
     let mut demuxer = open_input(input)?;
 
-    let (stream_index, params) = demuxer
+    let (stream_index, (stream, _)) = demuxer
         .streams()
         .iter()
-        .map(|stream| stream.codec_parameters())
+        .map(|stream| (stream, stream.codec_parameters()))
         .enumerate()
-        .find(|(_, params)| params.is_video_codec())
+        .find(|(_, (_, params))| params.is_video_codec())
         .ok_or_else(|| Error::new("no video stream"))?;
 
-    let params = params.as_video_codec_parameters().unwrap();
-
-    let mut decoder = VideoDecoder::from_codec_parameters(params)?.build()?;
+    let mut decoder = VideoDecoder::from_stream(stream)?.build()?;
 
     // process data
     while let Some(packet) = demuxer.take()? {

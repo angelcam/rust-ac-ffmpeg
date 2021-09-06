@@ -8,6 +8,7 @@ use std::{ffi::CString, os::raw::c_void, ptr};
 
 use crate::{
     codec::{AudioCodecParameters, CodecError, CodecParameters, Decoder, Encoder},
+    format::stream::Stream,
     packet::Packet,
     time::TimeBase,
     Error,
@@ -26,6 +27,15 @@ pub struct AudioDecoderBuilder {
 }
 
 impl AudioDecoderBuilder {
+    /// Create a new decoder builder from a given raw representation.
+    unsafe fn from_raw_ptr(ptr: *mut c_void) -> Self {
+        let time_base = TimeBase::MICROSECONDS;
+
+        super::ffw_decoder_set_pkt_timebase(ptr, time_base.num() as _, time_base.den() as _);
+
+        Self { ptr, time_base }
+    }
+
     /// Create a new builder for a given codec.
     fn new(codec: &str) -> Result<Self, Error> {
         let codec = CString::new(codec).expect("invalid codec name");
@@ -36,12 +46,7 @@ impl AudioDecoderBuilder {
             return Err(Error::new("unknown codec"));
         }
 
-        let res = Self {
-            ptr,
-            time_base: TimeBase::MICROSECONDS,
-        };
-
-        Ok(res)
+        unsafe { Ok(Self::from_raw_ptr(ptr)) }
     }
 
     /// Create a new builder from given codec parameters.
@@ -52,12 +57,7 @@ impl AudioDecoderBuilder {
             return Err(Error::new("unable to create a decoder"));
         }
 
-        let res = Self {
-            ptr,
-            time_base: TimeBase::MICROSECONDS,
-        };
-
-        Ok(res)
+        unsafe { Ok(Self::from_raw_ptr(ptr)) }
     }
 
     /// Set a decoder option.
@@ -83,6 +83,15 @@ impl AudioDecoderBuilder {
     /// time base). The default time base is in microseconds.
     pub fn time_base(mut self, time_base: TimeBase) -> Self {
         self.time_base = time_base;
+
+        unsafe {
+            super::ffw_decoder_set_pkt_timebase(
+                self.ptr,
+                time_base.num() as _,
+                time_base.den() as _,
+            );
+        }
+
         self
     }
 
@@ -160,6 +169,22 @@ impl AudioDecoder {
         codec_parameters: &AudioCodecParameters,
     ) -> Result<AudioDecoderBuilder, Error> {
         AudioDecoderBuilder::from_codec_parameters(codec_parameters)
+    }
+
+    /// Create a new decoder for a given stream.
+    ///
+    /// # Panics
+    /// The method panics if the stream is not an audio stream.
+    pub fn from_stream(stream: &Stream) -> Result<AudioDecoderBuilder, Error> {
+        let codec_parameters = stream
+            .codec_parameters()
+            .into_audio_codec_parameters()
+            .unwrap();
+
+        let builder = AudioDecoderBuilder::from_codec_parameters(&codec_parameters)?
+            .time_base(stream.time_base());
+
+        Ok(builder)
     }
 
     /// Get decoder builder for a given codec.
