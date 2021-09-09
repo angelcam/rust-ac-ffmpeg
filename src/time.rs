@@ -2,7 +2,7 @@
 
 use std::{
     cmp::{Eq, Ordering, PartialEq, PartialOrd},
-    fmt::{self, Debug, Display, Formatter},
+    fmt::{self, Debug, Formatter},
     ops::{Add, AddAssign, Sub, SubAssign},
     time::Duration,
 };
