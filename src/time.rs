@@ -40,6 +40,12 @@ impl TimeBase {
     }
 }
 
+impl Debug for TimeBase {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}/{}", self.num(), self.den())
+    }
+}
+
 /// A timestamp supporting various time bases. All comparisons are done within
 /// microsecond time base.
 #[derive(Copy, Clone)]
