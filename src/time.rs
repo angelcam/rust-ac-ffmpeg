@@ -1,11 +1,14 @@
 //! Time base aware timestamps.
 
 use std::{
+    borrow::Borrow,
     cmp::{Eq, Ordering, PartialEq, PartialOrd},
     fmt::{self, Debug, Formatter},
-    ops::{Add, AddAssign, Sub, SubAssign},
+    ops::{Add, AddAssign, Deref, Sub, SubAssign},
     time::Duration,
 };
+
+use crate::Rational;
 
 extern "C" {
     fn ffw_rescale_q(n: i64, aq_num: u32, aq_den: u32, bq_num: u32, bq_den: u32) -> i64;
@@ -15,8 +18,7 @@ extern "C" {
 /// A rational time base (e.g. 1/1000 is a millisecond time base).
 #[derive(Copy, Clone)]
 pub struct TimeBase {
-    num: u32,
-    den: u32,
+    rational: Rational,
 }
 
 impl TimeBase {
@@ -26,23 +28,51 @@ impl TimeBase {
     /// Create a new time base as a rational number with a given numerator and
     /// denominator.
     pub const fn new(num: u32, den: u32) -> Self {
-        Self { num, den }
+        Self {
+            rational: Rational::new(num as i32, den as i32),
+        }
     }
 
     /// Get the numerator.
     pub fn num(&self) -> u32 {
-        self.num
+        self.rational.num() as u32
     }
 
     /// Get the denominator.
     pub fn den(&self) -> u32 {
-        self.den
+        self.rational.den() as u32
+    }
+}
+
+impl AsRef<Rational> for TimeBase {
+    fn as_ref(&self) -> &Rational {
+        &self.rational
+    }
+}
+
+impl Borrow<Rational> for TimeBase {
+    fn borrow(&self) -> &Rational {
+        &self.rational
+    }
+}
+
+impl Deref for TimeBase {
+    type Target = Rational;
+
+    fn deref(&self) -> &Self::Target {
+        &self.rational
+    }
+}
+
+impl From<Rational> for TimeBase {
+    fn from(rational: Rational) -> Self {
+        TimeBase { rational }
     }
 }
 
 impl Debug for TimeBase {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        write!(f, "{}/{}", self.num(), self.den())
+        write!(f, "{:?}", self.rational)
     }
 }
 
@@ -117,10 +147,10 @@ impl Timestamp {
             unsafe {
                 ffw_rescale_q(
                     self.timestamp,
-                    self.time_base.num,
-                    self.time_base.den,
-                    time_base.num,
-                    time_base.den,
+                    self.time_base.num(),
+                    self.time_base.den(),
+                    time_base.num(),
+                    time_base.den(),
                 )
             }
         };

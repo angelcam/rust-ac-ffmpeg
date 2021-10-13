@@ -8,7 +8,7 @@ pub mod time;
 
 use std::{
     ffi::CStr,
-    fmt::{self, Display, Formatter},
+    fmt::{self, Debug, Display, Formatter},
     io,
     os::raw::{c_char, c_int},
     sync::RwLock,
@@ -158,3 +158,34 @@ impl Display for Error {
 }
 
 impl std::error::Error for Error {}
+
+/// A rational number with numerator num and denominator den (num/den).
+#[derive(Copy, Clone)]
+pub struct Rational {
+    num: i32,
+    den: i32,
+}
+
+impl Rational {
+    /// Create a rational number with a given numerator and
+    /// denominator.
+    pub const fn new(num: i32, den: i32) -> Self {
+        Self { num, den }
+    }
+
+    /// Get the numerator.
+    pub fn num(&self) -> i32 {
+        self.num
+    }
+
+    /// Get the denominator.
+    pub fn den(&self) -> i32 {
+        self.den
+    }
+}
+
+impl Debug for Rational {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}/{}", self.num(), self.den())
+    }
+}

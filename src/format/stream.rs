@@ -8,11 +8,13 @@ use std::{
 use crate::{
     codec::CodecParameters,
     time::{TimeBase, Timestamp},
+    Rational,
 };
 
 extern "C" {
     fn ffw_stream_get_time_base(stream: *const c_void, num: *mut u32, den: *mut u32);
-    fn ffw_stream_get_frame_rate(stream: *const c_void, num: *mut u32, den: *mut u32);
+    fn ffw_stream_get_r_frame_rate(stream: *const c_void, num: *mut i32, den: *mut i32);
+    fn ffw_stream_get_avg_frame_rate(stream: *const c_void, num: *mut i32, den: *mut i32);
     fn ffw_stream_get_start_time(stream: *const c_void) -> i64;
     fn ffw_stream_get_duration(stream: *const c_void) -> i64;
     fn ffw_stream_get_nb_frames(stream: *const c_void) -> i64;
@@ -49,16 +51,32 @@ impl Stream {
         self.time_base
     }
 
-    /// Get stream frame rate.
-    pub fn frame_rate(&self) -> TimeBase {
-        let mut num = 0_u32;
-        let mut den = 0_u32;
+    /// Get real base framerate of the stream.
+    pub fn r_frame_rate(&self) -> Rational {
+        let mut num = 0_i32;
+        let mut den = 0_i32;
 
         unsafe {
-            ffw_stream_get_frame_rate(self.ptr, &mut num, &mut den);
+            ffw_stream_get_r_frame_rate(self.ptr, &mut num, &mut den);
         }
 
-        TimeBase::new(num, den)
+        Rational::new(num, den)
+    }
+
+    /// Get average stream frame rate.
+    pub fn avg_frame_rate(&self) -> Option<Rational> {
+        let mut num = 0_i32;
+        let mut den = 0_i32;
+
+        unsafe {
+            ffw_stream_get_avg_frame_rate(self.ptr, &mut num, &mut den);
+        }
+
+        if num != 0 && den != 0 {
+            Some(Rational::new(num, den))
+        } else {
+            None
+        }
     }
 
     /// Get the pts of the first frame of the stream in presentation order.

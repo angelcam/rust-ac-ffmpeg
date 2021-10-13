@@ -13,9 +13,14 @@ void ffw_stream_get_time_base(const AVStream* stream, uint32_t* num, uint32_t* d
     *den = stream->time_base.den;
 }
 
-void ffw_stream_get_frame_rate(const AVStream* stream, uint32_t* num, uint32_t* den) {
+void ffw_stream_get_r_frame_rate(const AVStream* stream, int* num, int* den) {
     *num = stream->r_frame_rate.num;
     *den = stream->r_frame_rate.den;
+}
+
+void ffw_stream_get_avg_frame_rate(const AVStream* stream, int* num, int* den) {
+    *num = stream->avg_frame_rate.num;
+    *den = stream->avg_frame_rate.den;
 }
 
 int64_t ffw_stream_get_start_time(const AVStream* stream) {
