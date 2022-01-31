@@ -104,7 +104,7 @@ impl Timestamp {
     }
 
     /// Set the timestamp with the current time base.
-    pub fn with_new_timestamp(mut self, timestamp: i64) -> Self {
+    pub fn with_raw_timestamp(mut self, timestamp: i64) -> Self {
         self.timestamp = timestamp;
 
         self
