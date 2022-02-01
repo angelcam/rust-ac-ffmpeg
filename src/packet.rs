@@ -105,6 +105,13 @@ impl PacketMut {
         self
     }
 
+    /// Set packet presentation timestamp without time base.
+    pub fn with_raw_pts(self, pts: i64) -> Self {
+        unsafe { ffw_packet_set_pts(self.ptr, pts) }
+
+        self
+    }
+
     /// Get packet decoding timestamp.
     pub fn dts(&self) -> Timestamp {
         let dts = unsafe { ffw_packet_get_dts(self.ptr) };
@@ -117,6 +124,13 @@ impl PacketMut {
         let dts = dts.with_time_base(self.time_base);
 
         unsafe { ffw_packet_set_dts(self.ptr, dts.timestamp()) }
+
+        self
+    }
+
+    /// Set packet decoding timestamp without time base.
+    pub fn with_raw_dts(self, dts: i64) -> Self {
+        unsafe { ffw_packet_set_dts(self.ptr, dts) }
 
         self
     }
@@ -259,6 +273,13 @@ impl Packet {
         self
     }
 
+    /// Set packet presentation timestamp without time base.
+    pub fn with_raw_pts(self, pts: i64) -> Self {
+        unsafe { ffw_packet_set_pts(self.ptr, pts) }
+
+        self
+    }
+
     /// Get packet decoding timestamp.
     pub fn dts(&self) -> Timestamp {
         let dts = unsafe { ffw_packet_get_dts(self.ptr) };
@@ -271,6 +292,13 @@ impl Packet {
         let dts = dts.with_time_base(self.time_base);
 
         unsafe { ffw_packet_set_dts(self.ptr, dts.timestamp()) }
+
+        self
+    }
+
+    /// Set packet decoding timestamp without time base.
+    pub fn with_raw_dts(self, dts: i64) -> Self {
+        unsafe { ffw_packet_set_dts(self.ptr, dts) }
 
         self
     }
