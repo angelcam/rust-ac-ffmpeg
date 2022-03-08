@@ -271,6 +271,7 @@ where
 
 /// Writer that puts everything in memory. It also allows taking the data on
 /// the fly.
+#[derive(Default)]
 pub struct MemWriter {
     data: Vec<u8>,
 }
@@ -283,12 +284,6 @@ impl MemWriter {
         self.data.clear();
 
         res
-    }
-}
-
-impl Default for MemWriter {
-    fn default() -> Self {
-        Self { data: Vec::new() }
     }
 }
 
