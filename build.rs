@@ -4,6 +4,11 @@ use cc::Build;
 use pkg_config::Config;
 
 fn main() {
+    // skip building native resources during docs.rs builds
+    if std::env::var("DOCS_RS").is_ok() {
+        return;
+    }
+
     let mut build = Build::new();
 
     for dir in ffmpeg_include_dirs() {

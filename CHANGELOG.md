@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.17.3 (2022-03-08)
+
+* Fix docs.rs build
+
 ## v0.17.2 (2022-03-08)
 
 * TimeBase now implements the Debug trait
