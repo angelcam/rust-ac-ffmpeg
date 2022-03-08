@@ -1,4 +1,5 @@
 #include <libavcodec/avcodec.h>
+#include <libavcodec/bsf.h>
 
 int ffw_bsf_new(const char* name, AVBSFContext** context) {
     const AVBitStreamFilter* filter;
