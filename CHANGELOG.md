@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.17.4 (2022-05-17)
+
+* Fix broken build with FFmpeg 4.x
+
 ## v0.17.3 (2022-03-08)
 
 * Fix docs.rs build
