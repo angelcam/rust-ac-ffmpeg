@@ -89,7 +89,7 @@ where
         Err(err) => err
             .raw_os_error()
             .map(|code| unsafe { crate::ffw_error_from_posix(code as _) })
-            .unwrap_or(unsafe { crate::ffw_error_unknown() }) as i64,
+            .unwrap_or_else(|| unsafe { crate::ffw_error_unknown() }) as i64,
     }
 }
 
