@@ -1,5 +1,9 @@
 #include <libavcodec/avcodec.h>
+
+// BSF definitions have been moved into libavcodec/bsf.h in FFmpeg 5.x
+#if LIBAVCODEC_VERSION_MAJOR > 58
 #include <libavcodec/bsf.h>
+#endif
 
 int ffw_bsf_new(const char* name, AVBSFContext** context) {
     const AVBitStreamFilter* filter;
