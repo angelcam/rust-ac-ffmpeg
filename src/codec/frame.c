@@ -150,6 +150,10 @@ uint64_t ffw_frame_get_channel_layout(const AVFrame* frame) {
     return frame->channel_layout;
 }
 
+int64_t ffw_frame_get_best_effort_timestamp(const AVFrame* frame) {
+    return frame->best_effort_timestamp;
+}
+
 int64_t ffw_frame_get_pts(const AVFrame* frame) {
     return frame->pts;
 }
