@@ -12,6 +12,7 @@ use crate::{
 
 extern "C" {
     fn ffw_stream_get_time_base(stream: *const c_void, num: *mut u32, den: *mut u32);
+    fn ffw_stream_set_time_base(stream: *const c_void, num: u32, den: u32);
     fn ffw_stream_get_start_time(stream: *const c_void) -> i64;
     fn ffw_stream_get_duration(stream: *const c_void) -> i64;
     fn ffw_stream_get_nb_frames(stream: *const c_void) -> i64;
@@ -46,6 +47,14 @@ impl Stream {
     /// Get stream time base.
     pub fn time_base(&self) -> TimeBase {
         self.time_base
+    }
+
+    /// Provide a hint to the muxer about the desired timebase.
+    pub fn set_time_base(&mut self, time_base: TimeBase) {
+        self.time_base = time_base;
+        unsafe {
+            ffw_stream_set_time_base(self.ptr, self.time_base.num(), self.time_base.den());
+        }
     }
 
     /// Get the pts of the first frame of the stream in presentation order.
