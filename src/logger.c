@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <libavutil/log.h>
 
 #ifdef __GNUC__

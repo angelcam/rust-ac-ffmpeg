@@ -1,4 +1,5 @@
 #include <libavformat/avio.h>
+#include <libavutil/mem.h>
 
 typedef int read_packet_t(void*, uint8_t*, int);
 typedef int write_packet_t(void*, uint8_t*, int);
