@@ -5,13 +5,13 @@ use std::{
     cmp::{Eq, Ordering, PartialEq, PartialOrd},
     fmt::{self, Debug, Formatter},
     ops::{Add, AddAssign, Deref, Sub, SubAssign},
-    time::Duration,
+    time::Duration, os::raw::c_int,
 };
 
 use crate::Rational;
 
 extern "C" {
-    fn ffw_rescale_q(n: i64, aq_num: u32, aq_den: u32, bq_num: u32, bq_den: u32) -> i64;
+    fn ffw_rescale_q(n: i64, aq_num: c_int, aq_den: c_int, bq_num: c_int, bq_den: c_int) -> i64;
     fn ffw_null_timestamp() -> i64;
 }
 
@@ -27,20 +27,10 @@ impl TimeBase {
 
     /// Create a new time base as a rational number with a given numerator and
     /// denominator.
-    pub const fn new(num: u32, den: u32) -> Self {
+    pub const fn new(num: i32, den: i32) -> Self {
         Self {
-            rational: Rational::new(num as i32, den as i32),
+            rational: Rational::new(num, den),
         }
-    }
-
-    /// Get the numerator.
-    pub fn num(&self) -> u32 {
-        self.rational.num() as u32
-    }
-
-    /// Get the denominator.
-    pub fn den(&self) -> u32 {
-        self.rational.den() as u32
     }
 }
 

@@ -4,6 +4,7 @@
 //! audio decoder/resampler/encoder into a single pipeline.
 
 use std::collections::VecDeque;
+use std::convert::TryInto;
 
 use crate::Error;
 
@@ -67,12 +68,24 @@ impl AudioTranscoderBuilder {
     pub fn build(self) -> Result<AudioTranscoder, Error> {
         let decoder = self
             .decoder_builder
-            .time_base(TimeBase::new(1, self.input.sample_rate()))
+            .time_base(TimeBase::new(
+                1,
+                self.input
+                    .sample_rate()
+                    .try_into()
+                    .map_err(|e| Error::new(e))?,
+            ))
             .build()?;
 
         let encoder = self
             .encoder_builder
-            .time_base(TimeBase::new(1, self.output.sample_rate()))
+            .time_base(TimeBase::new(
+                1,
+                self.output
+                    .sample_rate()
+                    .try_into()
+                    .map_err(|e| Error::new(e))?,
+            ))
             .build()?;
 
         let resampler = AudioResampler::builder()
