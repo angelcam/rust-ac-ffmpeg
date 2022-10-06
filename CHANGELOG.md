@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.17.4 (2022-05-17)
+
+* Fix broken build with FFmpeg 4.x
+
+## v0.17.3 (2022-03-08)
+
+* Fix docs.rs build
+
+## v0.17.2 (2022-03-08)
+
+* TimeBase now implements the Debug trait
+* Allow setting raw packet timestamps
+* Build support for FFmpeg 5
+
 ## v0.17.1 (2021-09-06)
 
 * Add convenience methods for creating decoder builders from Stream instances

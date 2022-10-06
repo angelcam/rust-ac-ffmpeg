@@ -89,7 +89,7 @@ where
         Err(err) => err
             .raw_os_error()
             .map(|code| unsafe { crate::ffw_error_from_posix(code as _) })
-            .unwrap_or(unsafe { crate::ffw_error_unknown() }) as i64,
+            .unwrap_or_else(|| unsafe { crate::ffw_error_unknown() }) as i64,
     }
 }
 
@@ -271,6 +271,7 @@ where
 
 /// Writer that puts everything in memory. It also allows taking the data on
 /// the fly.
+#[derive(Default)]
 pub struct MemWriter {
     data: Vec<u8>,
 }
@@ -283,12 +284,6 @@ impl MemWriter {
         self.data.clear();
 
         res
-    }
-}
-
-impl Default for MemWriter {
-    fn default() -> Self {
-        Self { data: Vec::new() }
     }
 }
 

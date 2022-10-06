@@ -41,13 +41,15 @@ fn encode_black_video(
     height: u32,
     duration: Duration,
 ) -> Result<(), Error> {
+    // note: it is 1/fps
+    let time_base = TimeBase::new(1, 25);
+
     let pixel_format = video::frame::get_pixel_format("yuv420p");
 
     // create a black video frame with a given resolution
-    let frame = VideoFrameMut::black(pixel_format, width as _, height as _).freeze();
-
-    // note: it is 1/fps
-    let time_base = TimeBase::new(1, 25);
+    let frame = VideoFrameMut::black(pixel_format, width as _, height as _)
+        .with_time_base(time_base)
+        .freeze();
 
     let mut encoder = VideoEncoder::builder("libx264")?
         .pixel_format(pixel_format)
@@ -62,7 +64,7 @@ fn encode_black_video(
 
     let mut frame_idx = 0;
     let mut frame_timestamp = Timestamp::new(frame_idx, time_base);
-    let max_timestamp = Timestamp::from_secs(0) + duration;
+    let max_timestamp = Timestamp::from_millis(0) + duration;
 
     while frame_timestamp < max_timestamp {
         let cloned_frame = frame.clone().with_pts(frame_timestamp);

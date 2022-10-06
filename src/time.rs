@@ -133,6 +133,13 @@ impl Timestamp {
         self.timestamp
     }
 
+    /// Set the timestamp with the current time base.
+    pub fn with_raw_timestamp(mut self, timestamp: i64) -> Self {
+        self.timestamp = timestamp;
+
+        self
+    }
+
     /// Check if this is the "null" timestamp (i.e. it is equal to the
     /// AV_NOPTS_VALUE).
     pub fn is_null(&self) -> bool {

@@ -22,6 +22,7 @@ extern "C" {
     fn ffw_frame_get_format(frame: *const c_void) -> c_int;
     fn ffw_frame_get_width(frame: *const c_void) -> c_int;
     fn ffw_frame_get_height(frame: *const c_void) -> c_int;
+    fn ffw_frame_get_best_effort_timestamp(frame: *const c_void) -> i64;
     fn ffw_frame_get_pts(frame: *const c_void) -> i64;
     fn ffw_frame_set_pts(frame: *mut c_void, pts: i64);
     fn ffw_frame_get_plane_data(frame: *mut c_void, index: usize) -> *mut u8;
@@ -460,6 +461,13 @@ impl VideoFrame {
         self.time_base = time_base;
 
         self
+    }
+
+    /// Get timestamp estimated using various heuristics.
+    pub fn best_effort_timestamp(&self) -> Timestamp {
+        let pts = unsafe { ffw_frame_get_best_effort_timestamp(self.ptr) };
+
+        Timestamp::new(pts, self.time_base)
     }
 
     /// Get presentation timestamp.
