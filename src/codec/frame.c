@@ -197,3 +197,11 @@ int ffw_frame_is_writable(const AVFrame* frame) {
 int ffw_frame_make_writable(AVFrame* frame) {
     return av_frame_make_writable(frame);
 }
+
+int ffw_frame_get_picture_type(const AVFrame* frame) {
+    return frame->pict_type;
+}
+
+void ffw_frame_set_picture_type(AVFrame* frame, int picture_type) {
+    frame->pict_type = picture_type;
+}
