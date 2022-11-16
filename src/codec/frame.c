@@ -191,7 +191,7 @@ uint8_t* ffw_frame_get_plane_data(AVFrame* frame, size_t index) {
 }
 
 int ffw_frame_is_writable(const AVFrame* frame) {
-    return av_frame_is_writable(frame);
+    return av_frame_is_writable((AVFrame*)frame);
 }
 
 int ffw_frame_make_writable(AVFrame* frame) {
