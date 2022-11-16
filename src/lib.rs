@@ -50,6 +50,7 @@ extern "C" fn log_callback(level: c_int, message: *const c_char) {
 }
 
 /// Wrapper around a log closure.
+#[allow(clippy::type_complexity)]
 struct LogCallback {
     callback: Option<Box<dyn Fn(i32, &str) + Send + Sync>>,
 }
