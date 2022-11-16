@@ -497,11 +497,11 @@ impl VideoFrame {
     /// into mutable without copying the data, otherwise returns VideoFrame.
     pub fn try_into_mut(self) -> Result<VideoFrameMut, VideoFrame> {
         let res = unsafe { ffw_frame_is_writable(self.ptr) };
-        return if res > 0 {
+        if res > 0 {
             Ok(self.into_mut())
         } else {
             Err(self)
-        };
+        }
     }
 
     /// Make this frame mutable. This will copy the data if it is not already
