@@ -38,7 +38,7 @@ int ffw_bsf_set_output_codec_parameters(AVBSFContext* context, const AVCodecPara
     return avcodec_parameters_copy(context->par_out, params);
 }
 
-int ffw_bsf_init(AVBSFContext* context, uint32_t itb_num, uint32_t itb_den, uint32_t otb_num, uint32_t otb_den) {
+int ffw_bsf_init(AVBSFContext* context, int itb_num, int itb_den, int otb_num, int otb_den) {
     context->time_base_in.num = itb_num;
     context->time_base_in.den = itb_den;
     context->time_base_out.num = otb_num;

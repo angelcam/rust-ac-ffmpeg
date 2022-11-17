@@ -47,8 +47,8 @@ extern "C" {
     fn ffw_demuxer_read_frame(
         demuxer: *mut c_void,
         packet: *mut *mut c_void,
-        tb_num: *mut u32,
-        tb_den: *mut u32,
+        tb_num: *mut c_int,
+        tb_den: *mut c_int,
     ) -> c_int;
     fn ffw_demuxer_seek(
         demuxer: *mut c_void,

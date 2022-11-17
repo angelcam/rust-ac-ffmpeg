@@ -1,6 +1,7 @@
 //! Audio resampler.
 
 use std::{
+    convert::TryInto,
     os::raw::{c_int, c_void},
     ptr,
 };
@@ -211,7 +212,12 @@ impl AudioResampler {
             ));
         }
 
-        let frame = frame.with_time_base(TimeBase::new(1, self.source_sample_rate));
+        let frame = frame.with_time_base(TimeBase::new(
+            1,
+            self.source_sample_rate
+                .try_into()
+                .map_err(|e| CodecError::error(e))?,
+        ));
 
         unsafe {
             match ffw_audio_resampler_push_frame(self.ptr, frame.as_ptr()) {
@@ -250,7 +256,12 @@ impl AudioResampler {
     pub fn take(&mut self) -> Result<Option<AudioFrame>, Error> {
         let mut fptr = ptr::null_mut();
 
-        let tb = TimeBase::new(1, self.target_sample_rate);
+        let tb = TimeBase::new(
+            1,
+            self.target_sample_rate
+                .try_into()
+                .map_err(|e| Error::new(e))?,
+        );
 
         unsafe {
             match ffw_audio_resampler_take_frame(self.ptr, &mut fptr) {
