@@ -189,3 +189,11 @@ size_t ffw_frame_get_line_count(const AVFrame* frame, size_t plane) {
 uint8_t* ffw_frame_get_plane_data(AVFrame* frame, size_t index) {
     return frame->extended_data[index];
 }
+
+int ffw_frame_is_writable(const AVFrame* frame) {
+    return av_frame_is_writable((AVFrame*)frame);
+}
+
+int ffw_frame_make_writable(AVFrame* frame) {
+    return av_frame_make_writable(frame);
+}

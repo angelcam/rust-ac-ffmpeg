@@ -39,6 +39,8 @@ extern "C" {
     fn ffw_frame_get_line_size(frame: *const c_void, plane: usize) -> usize;
     fn ffw_frame_clone(frame: *const c_void) -> *mut c_void;
     fn ffw_frame_free(frame: *mut c_void);
+    fn ffw_frame_is_writable(frame: *const c_void) -> c_int;
+    fn ffw_frame_make_writable(frame: *mut c_void) -> c_int;
 }
 
 /// An error indicating an unknown channel layout.
@@ -496,6 +498,36 @@ impl AudioFrame {
     /// Get raw pointer.
     pub(crate) fn as_ptr(&self) -> *const c_void {
         self.ptr
+    }
+
+    /// Try to make this frame mutable. Returns AudioFrameMut if it can be made
+    /// into mutable without copying the data, otherwise returns AudioFrame.
+    pub fn try_into_mut(self) -> Result<AudioFrameMut, AudioFrame> {
+        let res = unsafe { ffw_frame_is_writable(self.ptr) };
+        if res > 0 {
+            Ok(self.into_mut())
+        } else {
+            Err(self)
+        }
+    }
+
+    /// Make this frame mutable. This will copy the data if it is not already
+    /// mutable.
+    pub fn into_mut(mut self) -> AudioFrameMut {
+        let res = unsafe { ffw_frame_make_writable(self.ptr) };
+
+        if res < 0 {
+            panic!("unable to make the frame mutable");
+        }
+
+        let ptr = self.ptr;
+
+        self.ptr = ptr::null_mut();
+
+        AudioFrameMut {
+            ptr,
+            time_base: self.time_base,
+        }
     }
 }
 
