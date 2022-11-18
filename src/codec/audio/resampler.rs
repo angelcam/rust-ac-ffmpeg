@@ -16,11 +16,11 @@ use crate::{
 
 extern "C" {
     fn ffw_audio_resampler_new(
-        target_channel_layout: u64,
+        target_channel_layout: *const c_void,
         target_sample_format: c_int,
         target_sample_rate: c_int,
         target_frame_samples: c_int,
-        source_channel_layout: u64,
+        source_channel_layout: *const c_void,
         source_sample_format: c_int,
         source_sample_rate: c_int,
     ) -> *mut c_void;
@@ -127,11 +127,11 @@ impl AudioResamplerBuilder {
 
         let ptr = unsafe {
             ffw_audio_resampler_new(
-                target_channel_layout.into_raw(),
+                target_channel_layout.as_ptr(),
                 target_sample_format.into_raw(),
                 target_sample_rate as _,
                 target_frame_samples as _,
-                source_channel_layout.into_raw(),
+                source_channel_layout.as_ptr(),
                 source_sample_format.into_raw(),
                 source_sample_rate as _,
             )
@@ -193,7 +193,7 @@ impl AudioResampler {
 
     /// Push a given frame to the resampler.
     pub fn try_push(&mut self, frame: AudioFrame) -> Result<(), CodecError> {
-        if frame.channel_layout() != self.source_channel_layout {
+        if frame.channel_layout() != &self.source_channel_layout {
             return Err(CodecError::error(
                 "invalid frame, channel layout does not match",
             ));

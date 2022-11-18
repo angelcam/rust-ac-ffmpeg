@@ -1,11 +1,21 @@
-use std::{env, path::PathBuf};
+use std::{
+    env,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use cc::Build;
 use pkg_config::Config;
 
 fn main() {
+    let docs_rs = std::env::var_os("DOCS_RS");
+
+    for feature in get_ffmpeg_features(docs_rs.is_some()) {
+        println!("cargo:rustc-cfg={}", feature);
+    }
+
     // skip building native resources during docs.rs builds
-    if std::env::var("DOCS_RS").is_ok() {
+    if docs_rs.is_some() {
         return;
     }
 
@@ -16,6 +26,7 @@ fn main() {
     }
 
     build
+        .include("src")
         .file("src/error.c")
         .file("src/logger.c")
         .file("src/packet.c")
@@ -102,4 +113,54 @@ fn lib_mode(lib: &str) -> &'static str {
         Some(_) => "static",
         None => "dylib",
     }
+}
+
+fn get_ffmpeg_features(all: bool) -> Vec<String> {
+    let out_dir = std::env::var_os("OUT_DIR").expect("output directory is not defined");
+
+    std::fs::create_dir_all(&out_dir).expect("unable to create the output directory");
+
+    let root_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+
+    let src_dir = root_dir.join("src");
+
+    let src_file = root_dir.join("build").join("native-features.c");
+
+    let bin = Path::new(&out_dir).join("native-features");
+
+    let mut cmd = Command::new("cc");
+
+    for dir in ffmpeg_include_dirs() {
+        cmd.arg(format!("-I{}", dir.to_string_lossy()));
+    }
+
+    if all {
+        cmd.arg("-DPRINT_ALL_FEATURES");
+    }
+
+    let output = cmd
+        .arg(format!("-I{}", src_dir.to_string_lossy()))
+        .arg(src_file)
+        .arg("-o")
+        .arg(&bin)
+        .output()
+        .unwrap();
+
+    if !output.status.success() {
+        panic!(
+            "unable to get FFmpeg features: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    let output = Command::new(bin).output().unwrap();
+
+    if !output.status.success() {
+        panic!("unable to get FFmpeg features");
+    }
+
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|line| line.to_string())
+        .collect()
 }

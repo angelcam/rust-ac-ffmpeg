@@ -1,3 +1,4 @@
+#include <libavutil/avutil.h>
 #include <libavutil/channel_layout.h>
 #include <libavutil/frame.h>
 #include <libavutil/imgutils.h>
@@ -5,6 +6,92 @@
 #include <libavutil/pixfmt.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/avutil.h>
+
+#include "ffmpeg-features.h"
+
+#ifdef FFW_FEATURE_CHANNEL_LAYOUT_V2
+
+int ffw_channel_layout_get_default(AVChannelLayout** layout, uint32_t channels) {
+    AVChannelLayout* res;
+
+    if (!(res = calloc(1, sizeof(AVChannelLayout)))) {
+        return AVERROR(ENOMEM);
+    }
+
+    av_channel_layout_default(res, channels);
+
+    *layout = res;
+
+    return 0;
+}
+
+int ffw_channel_layout_from_string(AVChannelLayout** layout, const char* str) {
+    AVChannelLayout* res;
+    int ret;
+
+    if (!(res = calloc(1, sizeof(AVChannelLayout)))) {
+        return AVERROR(ENOMEM);
+    }
+
+    if ((ret = av_channel_layout_from_string(res, str)) != 0) {
+        goto err;
+    }
+
+    *layout = res;
+
+    return 0;
+
+err:
+    free(res);
+
+    return ret;
+}
+
+int ffw_channel_layout_clone(AVChannelLayout** dst, const AVChannelLayout* src) {
+    AVChannelLayout* res;
+    int ret;
+
+    if (!(res = calloc(1, sizeof(AVChannelLayout)))) {
+        return AVERROR(ENOMEM);
+    }
+
+    if ((ret = av_channel_layout_copy(res, src)) != 0) {
+        goto err;
+    }
+
+    *dst = res;
+
+    return 0;
+
+err:
+    free(res);
+
+    return ret;
+}
+
+int ffw_channel_layout_is_valid(const AVChannelLayout* layout) {
+    return av_channel_layout_check(layout);
+}
+
+uint32_t ffw_channel_layout_get_channels(const AVChannelLayout* layout) {
+    return layout->nb_channels;
+}
+
+int ffw_channel_layout_compare(const AVChannelLayout* a, const AVChannelLayout* b) {
+    return av_channel_layout_compare(a, b);
+}
+
+void ffw_channel_layout_free(AVChannelLayout* layout) {
+    if (!layout) {
+        return;
+    }
+
+    av_channel_layout_uninit(layout);
+
+    free(layout);
+}
+
+#else // FFW_FEATURE_CHANNEL_LAYOUT_V2
 
 uint64_t ffw_get_channel_layout_by_name(const char* name) {
     return av_get_channel_layout(name);
@@ -17,6 +104,8 @@ uint64_t ffw_get_default_channel_layout(int channels) {
 int ffw_get_channel_layout_channels(uint64_t layout) {
     return av_get_channel_layout_nb_channels(layout);
 }
+
+#endif // FFW_FEATURE_CHANNEL_LAYOUT_V2
 
 int ffw_get_sample_format_by_name(const char* name) {
     return av_get_sample_fmt(name);
@@ -46,23 +135,50 @@ int ffw_pixel_format_is_none(int format) {
     return format == AV_PIX_FMT_NONE;
 }
 
-AVFrame* ffw_frame_new_silence(uint64_t, int, int, int);
 AVFrame* ffw_frame_new_black(int, int, int);
 void ffw_frame_free(AVFrame*);
 
-AVFrame* ffw_frame_new_silence(uint64_t channel_layout, int sample_fmt, int sample_rate, int nb_samples) {
-    AVFrame* frame;
-    int channels;
+#ifdef FFW_FEATURE_CHANNEL_LAYOUT_V2
+AVFrame* ffw_frame_new_silence(const AVChannelLayout* channel_layout, int sample_fmt, int sample_rate, int nb_samples) {
+    AVFrame* frame = av_frame_alloc();
 
-    frame = av_frame_alloc();
-
-    if (frame == NULL) {
+    if (!frame) {
         return NULL;
     }
 
-    channels = av_get_channel_layout_nb_channels(channel_layout);
+    frame->format = sample_fmt;
+    frame->sample_rate = sample_rate;
+    frame->nb_samples = nb_samples;
 
-    frame->channel_layout = channel_layout;
+    if (av_channel_layout_copy(&frame->ch_layout, channel_layout) != 0) {
+        goto err;
+    }
+
+    if (av_frame_get_buffer(frame, 0) != 0) {
+        goto err;
+    }
+
+    av_samples_set_silence(frame->extended_data, 0, nb_samples, frame->ch_layout.nb_channels, sample_fmt);
+
+    return frame;
+
+err:
+    ffw_frame_free(frame);
+
+    return NULL;
+}
+#else // FFW_FEATURE_CHANNEL_LAYOUT_V2
+AVFrame* ffw_frame_new_silence(const uint64_t* channel_layout, int sample_fmt, int sample_rate, int nb_samples) {
+    AVFrame* frame;
+    int channels;
+
+    if (!(frame = av_frame_alloc())) {
+        return NULL;
+    }
+
+    channels = av_get_channel_layout_nb_channels(*channel_layout);
+
+    frame->channel_layout = *channel_layout;
     frame->channels = channels;
     frame->format = sample_fmt;
     frame->sample_rate = sample_rate;
@@ -81,6 +197,7 @@ err:
 
     return NULL;
 }
+#endif // FFW_FEATURE_CHANNEL_LAYOUT_V2
 
 AVFrame* ffw_frame_new_black(int pixel_format, int width, int height) {
     AVFrame* frame;
@@ -143,13 +260,15 @@ int ffw_frame_get_nb_samples(const AVFrame* frame) {
     return frame->nb_samples;
 }
 
-int ffw_frame_get_channels(const AVFrame* frame) {
-    return frame->channels;
+#ifdef FFW_FEATURE_CHANNEL_LAYOUT_V2
+const AVChannelLayout * ffw_frame_get_channel_layout(const AVFrame* frame) {
+    return &frame->ch_layout;
 }
-
-uint64_t ffw_frame_get_channel_layout(const AVFrame* frame) {
-    return frame->channel_layout;
+#else
+const uint64_t * ffw_frame_get_channel_layout(const AVFrame* frame) {
+    return &frame->channel_layout;
 }
+#endif
 
 int64_t ffw_frame_get_best_effort_timestamp(const AVFrame* frame) {
     return frame->best_effort_timestamp;
