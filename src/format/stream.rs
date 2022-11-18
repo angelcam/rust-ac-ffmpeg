@@ -12,7 +12,7 @@ use crate::{
 
 extern "C" {
     fn ffw_stream_get_time_base(stream: *const c_void, num: *mut u32, den: *mut u32);
-    fn ffw_stream_set_time_base(stream: *const c_void, num: u32, den: u32);
+    fn ffw_stream_set_time_base(stream: *mut c_void, num: u32, den: u32);
     fn ffw_stream_get_start_time(stream: *const c_void) -> i64;
     fn ffw_stream_get_duration(stream: *const c_void) -> i64;
     fn ffw_stream_get_nb_frames(stream: *const c_void) -> i64;
