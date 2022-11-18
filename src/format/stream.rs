@@ -16,11 +16,13 @@ extern "C" {
     fn ffw_stream_get_duration(stream: *const c_void) -> i64;
     fn ffw_stream_get_nb_frames(stream: *const c_void) -> i64;
     fn ffw_stream_get_codec_parameters(stream: *const c_void) -> *mut c_void;
+    fn ffw_stream_get_id(stream: *const c_void) -> c_int;
     fn ffw_stream_set_metadata(
         stream: *mut c_void,
         key: *const c_char,
         value: *const c_char,
     ) -> c_int;
+    fn ffw_stream_set_id(stream: *mut c_void, id: c_int);
 }
 
 /// Stream.
@@ -90,6 +92,11 @@ impl Stream {
         }
     }
 
+    /// Get stream id.
+    pub fn get_stream_id(&self) -> i32 {
+        unsafe { ffw_stream_get_id(self.ptr) as i32 }
+    }
+
     /// Set stream metadata.
     pub fn set_metadata<V>(&mut self, key: &str, value: V)
     where
@@ -103,6 +110,11 @@ impl Stream {
         if ret < 0 {
             panic!("unable to allocate metadata");
         }
+    }
+
+    /// Set stream id.
+    pub fn set_stream_id(&mut self, id: i32) {
+        unsafe { ffw_stream_set_id(self.ptr, id as c_int) };
     }
 }
 

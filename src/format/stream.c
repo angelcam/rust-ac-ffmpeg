@@ -24,6 +24,10 @@ int64_t ffw_stream_get_nb_frames(const AVStream* stream) {
     return stream->nb_frames;
 }
 
+int ffw_stream_get_id(const AVStream* stream) {
+    return stream->id;
+}
+
 AVCodecParameters* ffw_stream_get_codec_parameters(const AVStream* stream) {
     AVCodecParameters* res = avcodec_parameters_alloc();
     if (!res) {
@@ -44,4 +48,8 @@ err:
 
 int ffw_stream_set_metadata(AVStream* stream, const char* key, const char* value) {
     return av_dict_set(&stream->metadata, key, value, 0);
+}
+
+void ffw_stream_set_id(AVStream* stream, int id) {
+    stream->id = id;
 }
