@@ -56,17 +56,16 @@ pub enum PictureType {
 }
 
 impl PictureType {
-    pub fn from_i32(value: i32) -> Option<Self> {
+    pub(crate) fn from_raw(value: c_int) -> Self {
         match value {
-            0 => Some(PictureType::None),
-            1 => Some(PictureType::I),
-            2 => Some(PictureType::P),
-            3 => Some(PictureType::B),
-            4 => Some(PictureType::S),
-            5 => Some(PictureType::Si),
-            6 => Some(PictureType::Sp),
-            7 => Some(PictureType::Bi),
-            _ => None,
+            1 => PictureType::I,
+            2 => PictureType::P,
+            3 => PictureType::B,
+            4 => PictureType::S,
+            5 => PictureType::Si,
+            6 => PictureType::Sp,
+            7 => PictureType::Bi,
+            _ => PictureType::None,
         }
     }
 }
@@ -421,12 +420,12 @@ impl VideoFrameMut {
 
     /// Get picture type
     pub fn picture_type(&self) -> PictureType {
-        unsafe { PictureType::from_i32(ffw_frame_get_picture_type(self.ptr)).unwrap() }
+        unsafe { PictureType::from_raw(ffw_frame_get_picture_type(self.ptr)) }
     }
 
     /// Set picture type
     pub fn with_picture_type(self, picture_type: PictureType) -> Self {
-        unsafe { ffw_frame_set_picture_type(self.ptr, picture_type as i32) };
+        unsafe { ffw_frame_set_picture_type(self.ptr, picture_type as c_int) };
         self
     }
 
@@ -538,7 +537,7 @@ impl VideoFrame {
 
     /// Get picture type
     pub fn picture_type(&self) -> PictureType {
-        unsafe { PictureType::from_i32(ffw_frame_get_picture_type(self.ptr)).unwrap() }
+        unsafe { PictureType::from_raw(ffw_frame_get_picture_type(self.ptr)) }
     }
 
     /// Get raw pointer.

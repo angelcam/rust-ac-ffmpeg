@@ -4,6 +4,7 @@
 #include <libavutil/pixdesc.h>
 #include <libavutil/pixfmt.h>
 #include <libavutil/samplefmt.h>
+#include <libavutil/avutil.h>
 
 uint64_t ffw_get_channel_layout_by_name(const char* name) {
     return av_get_channel_layout(name);
@@ -199,9 +200,28 @@ int ffw_frame_make_writable(AVFrame* frame) {
 }
 
 int ffw_frame_get_picture_type(const AVFrame* frame) {
-    return frame->pict_type;
+    switch (frame->pict_type) {
+    case AV_PICTURE_TYPE_I: return 1;
+    case AV_PICTURE_TYPE_P: return 2;
+    case AV_PICTURE_TYPE_B: return 3;
+    case AV_PICTURE_TYPE_S: return 4;
+    case AV_PICTURE_TYPE_SI: return 5;
+    case AV_PICTURE_TYPE_SP: return 6;
+    case AV_PICTURE_TYPE_BI: return 7;
+    }
+    return 0; // None
 }
 
 void ffw_frame_set_picture_type(AVFrame* frame, int picture_type) {
-    frame->pict_type = picture_type;
+    enum AVPictureType type = AV_PICTURE_TYPE_NONE;
+    switch(picture_type) {
+    case 1: type = AV_PICTURE_TYPE_I; break;
+    case 2: type = AV_PICTURE_TYPE_P; break;
+    case 3: type = AV_PICTURE_TYPE_B; break;
+    case 4: type = AV_PICTURE_TYPE_S; break;
+    case 5: type = AV_PICTURE_TYPE_SI; break;
+    case 6: type = AV_PICTURE_TYPE_SP; break;
+    case 7: type = AV_PICTURE_TYPE_BI; break;
+    }
+    frame->pict_type = type;
 }
