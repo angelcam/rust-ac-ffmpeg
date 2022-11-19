@@ -93,7 +93,7 @@ impl Stream {
     }
 
     /// Get stream id.
-    pub fn get_stream_id(&self) -> i32 {
+    pub fn stream_id(&self) -> i32 {
         unsafe { ffw_stream_get_id(self.ptr) as i32 }
     }
 
