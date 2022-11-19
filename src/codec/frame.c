@@ -213,15 +213,18 @@ int ffw_frame_get_picture_type(const AVFrame* frame) {
 }
 
 void ffw_frame_set_picture_type(AVFrame* frame, int picture_type) {
-    enum AVPictureType type = AV_PICTURE_TYPE_NONE;
+    enum AVPictureType type;
+
     switch(picture_type) {
-    case 1: type = AV_PICTURE_TYPE_I; break;
-    case 2: type = AV_PICTURE_TYPE_P; break;
-    case 3: type = AV_PICTURE_TYPE_B; break;
-    case 4: type = AV_PICTURE_TYPE_S; break;
-    case 5: type = AV_PICTURE_TYPE_SI; break;
-    case 6: type = AV_PICTURE_TYPE_SP; break;
-    case 7: type = AV_PICTURE_TYPE_BI; break;
+        case 1: type = AV_PICTURE_TYPE_I; break;
+        case 2: type = AV_PICTURE_TYPE_P; break;
+        case 3: type = AV_PICTURE_TYPE_B; break;
+        case 4: type = AV_PICTURE_TYPE_S; break;
+        case 5: type = AV_PICTURE_TYPE_SI; break;
+        case 6: type = AV_PICTURE_TYPE_SP; break;
+        case 7: type = AV_PICTURE_TYPE_BI; break;
+        default: type = AV_PICTURE_TYPE_NONE; break;
     }
+
     frame->pict_type = type;
 }
