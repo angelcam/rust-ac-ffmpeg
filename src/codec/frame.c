@@ -201,15 +201,15 @@ int ffw_frame_make_writable(AVFrame* frame) {
 
 int ffw_frame_get_picture_type(const AVFrame* frame) {
     switch (frame->pict_type) {
-    case AV_PICTURE_TYPE_I: return 1;
-    case AV_PICTURE_TYPE_P: return 2;
-    case AV_PICTURE_TYPE_B: return 3;
-    case AV_PICTURE_TYPE_S: return 4;
-    case AV_PICTURE_TYPE_SI: return 5;
-    case AV_PICTURE_TYPE_SP: return 6;
-    case AV_PICTURE_TYPE_BI: return 7;
+        case AV_PICTURE_TYPE_I: return 1;
+        case AV_PICTURE_TYPE_P: return 2;
+        case AV_PICTURE_TYPE_B: return 3;
+        case AV_PICTURE_TYPE_S: return 4;
+        case AV_PICTURE_TYPE_SI: return 5;
+        case AV_PICTURE_TYPE_SP: return 6;
+        case AV_PICTURE_TYPE_BI: return 7;
+        default: return 0;
     }
-    return 0; // None
 }
 
 void ffw_frame_set_picture_type(AVFrame* frame, int picture_type) {
