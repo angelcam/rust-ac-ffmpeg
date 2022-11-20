@@ -32,6 +32,42 @@ extern "C" {
     fn ffw_frame_free(frame: *mut c_void);
     fn ffw_frame_is_writable(frame: *const c_void) -> c_int;
     fn ffw_frame_make_writable(frame: *mut c_void) -> c_int;
+    fn ffw_frame_get_picture_type(frame: *const c_void) -> c_int;
+    fn ffw_frame_set_picture_type(frame: *mut c_void, picture_type: c_int);
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum PictureType {
+    None = 0,
+    /// Intra.
+    I = 1,
+    /// Predicted.
+    P = 2,
+    /// Bi-dir predicted.
+    B = 3,
+    /// S(GMC)-VOP MPEG4.
+    S = 4,
+    /// Switching Intra.
+    Si = 5,
+    /// Switching Predicted.
+    Sp = 6,
+    /// BI type.
+    Bi = 7,
+}
+
+impl PictureType {
+    pub(crate) fn from_raw(value: c_int) -> Self {
+        match value {
+            1 => PictureType::I,
+            2 => PictureType::P,
+            3 => PictureType::B,
+            4 => PictureType::S,
+            5 => PictureType::Si,
+            6 => PictureType::Sp,
+            7 => PictureType::Bi,
+            _ => PictureType::None,
+        }
+    }
 }
 
 /// An error indicating an unknown pixel format.
@@ -382,6 +418,17 @@ impl VideoFrameMut {
         self
     }
 
+    /// Get picture type
+    pub fn picture_type(&self) -> PictureType {
+        unsafe { PictureType::from_raw(ffw_frame_get_picture_type(self.ptr)) }
+    }
+
+    /// Set picture type
+    pub fn with_picture_type(self, picture_type: PictureType) -> Self {
+        unsafe { ffw_frame_set_picture_type(self.ptr, picture_type as c_int) };
+        self
+    }
+
     /// Get picture planes.
     pub fn planes(&self) -> Planes {
         Planes::from(self)
@@ -486,6 +533,11 @@ impl VideoFrame {
         unsafe { ffw_frame_set_pts(self.ptr, pts.timestamp()) }
 
         self
+    }
+
+    /// Get picture type
+    pub fn picture_type(&self) -> PictureType {
+        unsafe { PictureType::from_raw(ffw_frame_get_picture_type(self.ptr)) }
     }
 
     /// Get raw pointer.
