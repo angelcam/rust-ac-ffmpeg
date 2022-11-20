@@ -13,7 +13,7 @@ use std::{
 
 use crate::{
     codec::{
-        audio::{ChannelLayout, SampleFormat},
+        audio::{ChannelLayoutRef, SampleFormat},
         video::PixelFormat,
     },
     packet::Packet,
@@ -35,7 +35,7 @@ extern "C" {
     fn ffw_codec_parameters_get_width(params: *const c_void) -> c_int;
     fn ffw_codec_parameters_get_height(params: *const c_void) -> c_int;
     fn ffw_codec_parameters_get_sample_rate(params: *const c_void) -> c_int;
-    fn ffw_codec_parameters_get_channel_layout(params: *const c_void) -> u64;
+    fn ffw_codec_parameters_get_channel_layout(params: *const c_void) -> *const c_void;
     fn ffw_codec_parameters_get_extradata(params: *mut c_void) -> *mut c_void;
     fn ffw_codec_parameters_get_extradata_size(params: *const c_void) -> c_int;
     fn ffw_codec_parameters_set_bit_rate(params: *mut c_void, bit_rate: i64);
@@ -43,7 +43,8 @@ extern "C" {
     fn ffw_codec_parameters_set_width(params: *mut c_void, width: c_int);
     fn ffw_codec_parameters_set_height(params: *mut c_void, height: c_int);
     fn ffw_codec_parameters_set_sample_rate(params: *mut c_void, rate: c_int);
-    fn ffw_codec_parameters_set_channel_layout(params: *mut c_void, layout: u64);
+    fn ffw_codec_parameters_set_channel_layout(params: *mut c_void, layout: *const c_void)
+        -> c_int;
     fn ffw_codec_parameters_set_extradata(
         params: *mut c_void,
         extradata: *const u8,
@@ -74,7 +75,7 @@ extern "C" {
     fn ffw_encoder_get_height(encoder: *const c_void) -> c_int;
     fn ffw_encoder_get_sample_format(encoder: *const c_void) -> c_int;
     fn ffw_encoder_get_sample_rate(encoder: *const c_void) -> c_int;
-    fn ffw_encoder_get_channel_layout(encoder: *const c_void) -> u64;
+    fn ffw_encoder_get_channel_layout(encoder: *const c_void) -> *const c_void;
     fn ffw_encoder_get_frame_size(encoder: *const c_void) -> c_int;
     fn ffw_encoder_set_time_base(encoder: *mut c_void, num: c_int, den: c_int);
     fn ffw_encoder_set_bit_rate(encoder: *mut c_void, bit_rate: i64);
@@ -83,7 +84,7 @@ extern "C" {
     fn ffw_encoder_set_height(encoder: *mut c_void, height: c_int);
     fn ffw_encoder_set_sample_format(encoder: *mut c_void, format: c_int);
     fn ffw_encoder_set_sample_rate(encoder: *mut c_void, sample_rate: c_int);
-    fn ffw_encoder_set_channel_layout(encoder: *mut c_void, channel_layout: u64);
+    fn ffw_encoder_set_channel_layout(encoder: *mut c_void, layout: *const c_void) -> c_int;
     fn ffw_encoder_set_initial_option(
         encoder: *mut c_void,
         key: *const c_char,
@@ -475,9 +476,12 @@ impl AudioCodecParametersBuilder {
     }
 
     /// Set channel layout.
-    pub fn channel_layout(self, layout: ChannelLayout) -> Self {
-        unsafe {
-            ffw_codec_parameters_set_channel_layout(self.inner.ptr, layout.into_raw());
+    pub fn channel_layout(self, layout: &ChannelLayoutRef) -> Self {
+        let ret =
+            unsafe { ffw_codec_parameters_set_channel_layout(self.inner.ptr, layout.as_ptr()) };
+
+        if ret != 0 {
+            panic!("unable to copy channel layout");
         }
 
         self
@@ -569,8 +573,10 @@ impl AudioCodecParameters {
     }
 
     /// Get channel layout.
-    pub fn channel_layout(&self) -> ChannelLayout {
-        unsafe { ChannelLayout::from_raw(ffw_codec_parameters_get_channel_layout(self.inner.ptr)) }
+    pub fn channel_layout(&self) -> &ChannelLayoutRef {
+        unsafe {
+            ChannelLayoutRef::from_raw_ptr(ffw_codec_parameters_get_channel_layout(self.inner.ptr))
+        }
     }
 
     /// Get extradata.

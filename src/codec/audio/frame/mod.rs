@@ -1,5 +1,11 @@
 //! Audio frame.
 
+#[cfg(not(channel_layout_v2))]
+mod channels_v1;
+
+#[cfg(channel_layout_v2)]
+mod channels_v2;
+
 use std::{
     ffi::{CStr, CString},
     fmt::{self, Display, Formatter},
@@ -12,18 +18,20 @@ use std::{
 
 use crate::time::{TimeBase, Timestamp};
 
-extern "C" {
-    fn ffw_get_channel_layout_by_name(name: *const c_char) -> u64;
-    fn ffw_get_channel_layout_channels(layout: u64) -> c_int;
-    fn ffw_get_default_channel_layout(channels: c_int) -> u64;
+#[cfg(not(channel_layout_v2))]
+pub use channels_v1::{ChannelLayout, ChannelLayoutRef};
 
+#[cfg(channel_layout_v2)]
+pub use channels_v2::{ChannelLayout, ChannelLayoutRef};
+
+extern "C" {
     fn ffw_get_sample_format_by_name(name: *const c_char) -> c_int;
     fn ffw_get_sample_format_name(format: c_int) -> *const c_char;
     fn ffw_sample_format_is_planar(format: c_int) -> c_int;
     fn ffw_sample_format_is_none(format: c_int) -> c_int;
 
     fn ffw_frame_new_silence(
-        channel_layout: u64,
+        channel_layout: *const c_void,
         sample_fmt: c_int,
         sample_rate: c_int,
         nb_samples: c_int,
@@ -31,8 +39,7 @@ extern "C" {
     fn ffw_frame_get_format(frame: *const c_void) -> c_int;
     fn ffw_frame_get_nb_samples(frame: *const c_void) -> c_int;
     fn ffw_frame_get_sample_rate(frame: *const c_void) -> c_int;
-    fn ffw_frame_get_channels(frame: *const c_void) -> c_int;
-    fn ffw_frame_get_channel_layout(frame: *const c_void) -> u64;
+    fn ffw_frame_get_channel_layout(frame: *const c_void) -> *const c_void;
     fn ffw_frame_get_pts(frame: *const c_void) -> i64;
     fn ffw_frame_set_pts(frame: *mut c_void, pts: i64);
     fn ffw_frame_get_plane_data(frame: *mut c_void, index: usize) -> *mut u8;
@@ -54,56 +61,6 @@ impl Display for UnknownChannelLayout {
 }
 
 impl std::error::Error for UnknownChannelLayout {}
-
-/// Channel layout.
-#[derive(Copy, Clone, Eq, PartialEq)]
-pub struct ChannelLayout(u64);
-
-impl ChannelLayout {
-    /// Create channel layout from its raw representation.
-    pub(crate) fn from_raw(v: u64) -> Self {
-        Self(v)
-    }
-
-    /// Get the raw representation.
-    pub(crate) fn into_raw(self) -> u64 {
-        let Self(layout) = self;
-
-        layout
-    }
-
-    /// Get default channel layout for a given number of channels.
-    pub fn from_channels(channels: u32) -> Option<Self> {
-        let layout = unsafe { ffw_get_default_channel_layout(channels as _) };
-
-        if layout == 0 {
-            None
-        } else {
-            Some(Self(layout))
-        }
-    }
-
-    /// Get number of channels.
-    pub fn channels(self) -> u32 {
-        unsafe { ffw_get_channel_layout_channels(self.into_raw()) as _ }
-    }
-}
-
-impl FromStr for ChannelLayout {
-    type Err = UnknownChannelLayout;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let name = CString::new(s).expect("invalid channel layout name");
-
-        let layout = unsafe { ffw_get_channel_layout_by_name(name.as_ptr() as _) };
-
-        if layout == 0 {
-            Err(UnknownChannelLayout)
-        } else {
-            Ok(Self(layout))
-        }
-    }
-}
 
 /// Get channel layout with a given name.
 pub fn get_channel_layout(name: &str) -> ChannelLayout {
@@ -146,6 +103,8 @@ impl SampleFormat {
         }
     }
 
+    /// Check if the sample format is planar (i.e. each channel has its own
+    /// plane).
     pub fn is_planar(self) -> bool {
         unsafe { ffw_sample_format_is_planar(self.into_raw()) != 0 }
     }
@@ -243,16 +202,22 @@ pub struct Planes<'a> {
 
 impl<'a> From<&'a AudioFrame> for Planes<'a> {
     fn from(frame: &'a AudioFrame) -> Self {
+        let sample_format = frame.sample_format();
+        let channel_layout = frame.channel_layout();
+
         Self {
-            inner: get_audio_planes(frame.ptr, frame.sample_format(), frame.channels() as _),
+            inner: get_audio_planes(frame.ptr, sample_format, channel_layout.channels() as _),
         }
     }
 }
 
 impl<'a> From<&'a AudioFrameMut> for Planes<'a> {
     fn from(frame: &'a AudioFrameMut) -> Self {
+        let sample_format = frame.sample_format();
+        let channel_layout = frame.channel_layout();
+
         Self {
-            inner: get_audio_planes(frame.ptr, frame.sample_format(), frame.channels() as _),
+            inner: get_audio_planes(frame.ptr, sample_format, channel_layout.channels() as _),
         }
     }
 }
@@ -272,8 +237,11 @@ pub struct PlanesMut<'a> {
 
 impl<'a> From<&'a mut AudioFrameMut> for PlanesMut<'a> {
     fn from(frame: &'a mut AudioFrameMut) -> Self {
+        let sample_format = frame.sample_format();
+        let channel_layout = frame.channel_layout();
+
         Self {
-            inner: get_audio_planes(frame.ptr, frame.sample_format(), frame.channels() as _),
+            inner: get_audio_planes(frame.ptr, sample_format, channel_layout.channels() as _),
         }
     }
 }
@@ -302,14 +270,14 @@ impl AudioFrameMut {
     /// Create an audio frame containing silence. The time base of the frame
     /// will be in microseconds.
     pub fn silence(
-        channel_layout: ChannelLayout,
+        channel_layout: &ChannelLayoutRef,
         sample_format: SampleFormat,
         sample_rate: u32,
         samples: usize,
     ) -> Self {
         let ptr = unsafe {
             ffw_frame_new_silence(
-                channel_layout.into_raw(),
+                channel_layout.as_ptr(),
                 sample_format.into_raw(),
                 sample_rate as _,
                 samples as _,
@@ -351,14 +319,9 @@ impl AudioFrameMut {
         PlanesMut::from(self)
     }
 
-    /// Get number of channels.
-    pub fn channels(&self) -> u32 {
-        unsafe { ffw_frame_get_channels(self.ptr) as _ }
-    }
-
     /// Get channel layout.
-    pub fn channel_layout(&self) -> ChannelLayout {
-        unsafe { ChannelLayout::from_raw(ffw_frame_get_channel_layout(self.ptr)) }
+    pub fn channel_layout(&self) -> &ChannelLayoutRef {
+        unsafe { ChannelLayoutRef::from_raw_ptr(ffw_frame_get_channel_layout(self.ptr)) }
     }
 
     /// Get frame time base.
@@ -450,14 +413,9 @@ impl AudioFrame {
         Planes::from(self)
     }
 
-    /// Get number of channels.
-    pub fn channels(&self) -> u32 {
-        unsafe { ffw_frame_get_channels(self.ptr) as _ }
-    }
-
     /// Get channel layout.
-    pub fn channel_layout(&self) -> ChannelLayout {
-        unsafe { ChannelLayout::from_raw(ffw_frame_get_channel_layout(self.ptr)) }
+    pub fn channel_layout(&self) -> &ChannelLayoutRef {
+        unsafe { ChannelLayoutRef::from_raw_ptr(ffw_frame_get_channel_layout(self.ptr)) }
     }
 
     /// Get frame time base.

@@ -1,6 +1,8 @@
 #include <libavcodec/avcodec.h>
 #include <libavutil/channel_layout.h>
 
+#include "ffmpeg-features.h"
+
 static const AVCodec* ffw_find_codec(const char* name, int type) {
     const AVCodec* codec;
     void* i = NULL;
@@ -120,9 +122,15 @@ int ffw_codec_parameters_get_sample_rate(const AVCodecParameters* params) {
     return params->sample_rate;
 }
 
-uint64_t ffw_codec_parameters_get_channel_layout(const AVCodecParameters* params) {
-    return params->channel_layout;
+#ifdef FFW_FEATURE_CHANNEL_LAYOUT_V2
+const AVChannelLayout * ffw_codec_parameters_get_channel_layout(const AVCodecParameters* params) {
+    return &params->ch_layout;
 }
+#else
+const uint64_t * ffw_codec_parameters_get_channel_layout(const AVCodecParameters* params) {
+    return &params->channel_layout;
+}
+#endif
 
 uint8_t* ffw_codec_parameters_get_extradata(AVCodecParameters* params) {
     return params->extradata;
@@ -152,10 +160,20 @@ void ffw_codec_parameters_set_sample_rate(AVCodecParameters* params, int sample_
     params->sample_rate = sample_rate;
 }
 
-void ffw_codec_parameters_set_channel_layout(AVCodecParameters* params, uint64_t channel_layout) {
-    params->channel_layout = channel_layout;
-    params->channels = av_get_channel_layout_nb_channels(channel_layout);
+#ifdef FFW_FEATURE_CHANNEL_LAYOUT_V2
+int ffw_codec_parameters_set_channel_layout(AVCodecParameters* params, const AVChannelLayout* channel_layout) {
+    return av_channel_layout_copy(&params->ch_layout, channel_layout);
 }
+#else
+int ffw_codec_parameters_set_channel_layout(AVCodecParameters* params, const uint64_t* channel_layout) {
+    uint64_t ch_layout = *channel_layout;
+
+    params->channel_layout = ch_layout;
+    params->channels = av_get_channel_layout_nb_channels(ch_layout);
+
+    return 0;
+}
+#endif
 
 int ffw_codec_parameters_set_extradata(AVCodecParameters* params, const uint8_t* extradata, int size) {
     if (params->extradata) {
@@ -394,7 +412,6 @@ int ffw_encoder_get_width(const Encoder* encoder);
 int ffw_encoder_get_height(const Encoder* encoder);
 int ffw_encoder_get_sample_format(const Encoder* encoder);
 int ffw_encoder_get_sample_rate(const Encoder* encoder);
-uint64_t ffw_encoder_get_channel_layout(const Encoder* encoder);
 void ffw_encoder_set_time_base(Encoder* encoder, int num, int den);
 void ffw_encoder_set_bit_rate(Encoder* encoder, int64_t bit_rate);
 void ffw_encoder_set_pixel_format(Encoder* encoder, int format);
@@ -402,12 +419,19 @@ void ffw_encoder_set_width(Encoder* encoder, int width);
 void ffw_encoder_set_height(Encoder* encoder, int height);
 void ffw_encoder_set_sample_format(Encoder* encoder, int format);
 void ffw_encoder_set_sample_rate(Encoder* encoder, int sample_rate);
-void ffw_encoder_set_channel_layout(Encoder* encoder, uint64_t channel_layout);
 int ffw_encoder_set_initial_option(Encoder* encoder, const char* key, const char* value);
 int ffw_encoder_open(Encoder* encoder);
 int ffw_encoder_push_frame(Encoder* encoder, const AVFrame* frame);
 int ffw_encoder_take_packet(Encoder* encoder, AVPacket** packet);
 void ffw_encoder_free(Encoder* encoder);
+
+#ifdef FFW_FEATURE_CHANNEL_LAYOUT_V2
+const AVChannelLayout * ffw_encoder_get_channel_layout(const Encoder* encoder);
+int ffw_encoder_set_channel_layout(Encoder* encoder, const AVChannelLayout* layout);
+#else
+const uint64_t * ffw_encoder_get_channel_layout(const Encoder* encoder);
+int ffw_encoder_set_channel_layout(Encoder* encoder, const uint64_t* layout);
+#endif
 
 Encoder* ffw_encoder_new(const char* codec) {
     const AVCodec* encoder = avcodec_find_encoder_by_name(codec);
@@ -524,9 +548,15 @@ int ffw_encoder_get_sample_rate(const Encoder* encoder) {
     return encoder->cc->sample_rate;
 }
 
-uint64_t ffw_encoder_get_channel_layout(const Encoder* encoder) {
-    return encoder->cc->channel_layout;
+#ifdef FFW_FEATURE_CHANNEL_LAYOUT_V2
+const AVChannelLayout * ffw_encoder_get_channel_layout(const Encoder* encoder) {
+    return &encoder->cc->ch_layout;
 }
+#else
+const uint64_t * ffw_encoder_get_channel_layout(const Encoder* encoder) {
+    return &encoder->cc->channel_layout;
+}
+#endif
 
 int ffw_encoder_get_frame_size(const Encoder* encoder) {
     return encoder->cc->frame_size;
@@ -561,10 +591,20 @@ void ffw_encoder_set_sample_rate(Encoder* encoder, int sample_rate) {
     encoder->cc->sample_rate = sample_rate;
 }
 
-void ffw_encoder_set_channel_layout(Encoder* encoder, uint64_t channel_layout) {
-    encoder->cc->channel_layout = channel_layout;
-    encoder->cc->channels = av_get_channel_layout_nb_channels(channel_layout);
+#ifdef FFW_FEATURE_CHANNEL_LAYOUT_V2
+int ffw_encoder_set_channel_layout(Encoder* encoder, const AVChannelLayout* layout) {
+    return av_channel_layout_copy(&encoder->cc->ch_layout, layout);
 }
+#else
+int ffw_encoder_set_channel_layout(Encoder* encoder, const uint64_t* layout) {
+    uint64_t ch_layout = *layout;
+
+    encoder->cc->channel_layout = ch_layout;
+    encoder->cc->channels = av_get_channel_layout_nb_channels(ch_layout);
+
+    return 0;
+}
+#endif
 
 int ffw_encoder_set_initial_option(Encoder* encoder, const char* key, const char* value) {
     return av_dict_set(&encoder->options, key, value, 0);

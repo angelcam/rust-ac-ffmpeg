@@ -75,11 +75,14 @@ impl AudioTranscoderBuilder {
             .time_base(TimeBase::new(1, self.output.sample_rate()))
             .build()?;
 
+        let source_channel_layout = self.input.channel_layout();
+        let target_channel_layout = self.output.channel_layout();
+
         let resampler = AudioResampler::builder()
-            .source_channel_layout(self.input.channel_layout())
+            .source_channel_layout(source_channel_layout.to_owned())
             .source_sample_format(self.input.sample_format())
             .source_sample_rate(self.input.sample_rate())
-            .target_channel_layout(self.output.channel_layout())
+            .target_channel_layout(target_channel_layout.to_owned())
             .target_sample_format(self.output.sample_format())
             .target_sample_rate(self.output.sample_rate())
             .target_frame_samples(encoder.samples_per_frame())
