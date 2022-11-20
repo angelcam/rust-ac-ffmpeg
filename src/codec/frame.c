@@ -5,7 +5,6 @@
 #include <libavutil/pixdesc.h>
 #include <libavutil/pixfmt.h>
 #include <libavutil/samplefmt.h>
-#include <libavutil/avutil.h>
 
 #include "ffmpeg-features.h"
 
