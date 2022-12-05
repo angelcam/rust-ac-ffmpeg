@@ -58,11 +58,21 @@ fn main() {
 }
 
 fn ffmpeg_include_dirs() -> Vec<PathBuf> {
-    if let Ok(dir) = env::var("FFMPEG_INCLUDE_DIR") {
-        let dir = PathBuf::from(dir);
+    if let Some(target) = normalized_target() {
+        if let Ok(dir) = env::var(&format!("FFMPEG_INCLUDE_DIR_{}", target)) {
+            let dir = PathBuf::from(dir);
 
-        if dir.is_dir() {
-            return vec![dir];
+            if dir.is_dir() {
+                return vec![dir];
+            }
+        }
+    } else {
+        if let Ok(dir) = env::var("FFMPEG_INCLUDE_DIR") {
+            let dir = PathBuf::from(dir);
+
+            if dir.is_dir() {
+                return vec![dir];
+            }
         }
     }
 
@@ -78,11 +88,21 @@ fn ffmpeg_include_dirs() -> Vec<PathBuf> {
 }
 
 fn ffmpeg_lib_dirs() -> Vec<PathBuf> {
-    if let Ok(dir) = env::var("FFMPEG_LIB_DIR") {
-        let dir = PathBuf::from(dir);
+    if let Some(target) = normalized_target() {
+        if let Ok(dir) = env::var(&format!("FFMPEG_LIB_DIR_{}", target)) {
+            let dir = PathBuf::from(dir);
 
-        if dir.is_dir() {
-            return vec![dir];
+            if dir.is_dir() {
+                return vec![dir];
+            }
+        }
+    } else {
+        if let Ok(dir) = env::var("FFMPEG_LIB_DIR") {
+            let dir = PathBuf::from(dir);
+
+            if dir.is_dir() {
+                return vec![dir];
+            }
         }
     }
 
@@ -95,6 +115,12 @@ fn ffmpeg_lib_dirs() -> Vec<PathBuf> {
         .expect("Unable to find FFmpeg lib dir. You can specify it explicitly by setting the FFMPEG_LIB_DIR environment variable.");
 
     lib.link_paths
+}
+
+fn normalized_target() -> Option<String> {
+    env::var("TARGET")
+        .ok()
+        .map(|t| t.to_uppercase().replace('-', "_"))
 }
 
 fn link_static(lib: &str) {
