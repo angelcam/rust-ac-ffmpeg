@@ -137,7 +137,7 @@ impl MuxerBuilder {
 
     /// Set the `url` field of FFmpeg format context to the specified value.
     ///
-    /// __WARNING__: this is a hack to accomodate certain muxer types (e.g.
+    /// __WARNING__: this is a hack to accommodate certain muxer types (e.g.
     /// DASH) that bypass avio abstraction layer/produce multiple output files.
     /// Setting this can cause FFmpeg open its own files or sockets.
     #[doc(hidden)]
