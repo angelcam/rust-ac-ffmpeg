@@ -1,6 +1,5 @@
 use std::{
     env,
-    fmt::format,
     path::{Path, PathBuf},
     process::Command,
 };
