@@ -66,7 +66,9 @@ fn ffmpeg_include_dirs() -> Vec<PathBuf> {
                 return vec![dir];
             }
         }
-    } else if let Ok(dir) = env::var("FFMPEG_INCLUDE_DIR") {
+    }
+
+    if let Ok(dir) = env::var("FFMPEG_INCLUDE_DIR") {
         let dir = PathBuf::from(dir);
 
         if dir.is_dir() {
@@ -94,7 +96,9 @@ fn ffmpeg_lib_dirs() -> Vec<PathBuf> {
                 return vec![dir];
             }
         }
-    } else if let Ok(dir) = env::var("FFMPEG_LIB_DIR") {
+    }
+
+    if let Ok(dir) = env::var("FFMPEG_LIB_DIR") {
         let dir = PathBuf::from(dir);
 
         if dir.is_dir() {
