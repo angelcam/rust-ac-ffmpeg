@@ -186,7 +186,7 @@ impl<T> IO<T> {
         let stream_ptr = stream.as_mut() as *mut T;
         let opaque_ptr = stream_ptr as *mut c_void;
 
-        let write_flag = if write_packet.is_some() { 1 } else { 0 };
+        let write_flag = i32::from(write_packet.is_some());
 
         let io_context = unsafe {
             ffw_io_context_new(
