@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.18.0 (2023-01-05)
+
+* Add try_into_mut() and into_mut() for audio and video frames
+* Add try_into_mut() for Packet
+* Add the ability to provide a hint to the muxer about the desired timebase
+* Add the ability to get/set stream ID
+* Add support for the new channel layout API introduced in FFmpeg 5.1
+* Expose best effort timestamp for video frames
+* Expose picture type for video frames
+* Allow using per-target lib/include paths
+* Fix segfault caused by implicit av_malloc declaration in new FFmpeg versions
+
 ## v0.17.4 (2022-05-17)
 
 * Fix broken build with FFmpeg 4.x

@@ -44,7 +44,9 @@ files and libraries:
 * `FFMPEG_INCLUDE_DIR` - path to the FFmpeg header files
 * `FFMPEG_LIB_DIR` - path to the FFmpeg libs
 
-If you require building for multiple platforms, you can append `_PLATFORM_TARGET_TRIPLET` to both of the above to create platform specific env. variables, for example:
+If you require building for multiple platforms, you can append
+`_PLATFORM_TARGET_TRIPLET` to both of the above to create platform specific
+env. variables, for example:
 * `FFMPEG_INCLUDE_DIR_AARCH64_LINUX_ANDROID = ${jniInclude}/arm64-v8a/`
 * `FFMPEG_LIB_DIR_AARCH64_LINUX_ANDROID     = ${jniLibs}/arm64-v8a/`
 * `FFMPEG_INCLUDE_DIR_X86_64_LINUX_ANDROID = ${jniInclude}/x86_64/`
