@@ -25,6 +25,7 @@ extern "C" {
     fn ffw_packet_set_key(packet: *mut c_void, key: c_int);
     fn ffw_packet_get_stream_index(packet: *const c_void) -> c_int;
     fn ffw_packet_set_stream_index(packet: *mut c_void, index: c_int);
+    fn ffw_packet_is_writable(packet: *const c_void) -> c_int;
     fn ffw_packet_make_writable(packet: *mut c_void) -> c_int;
 }
 
@@ -334,9 +335,24 @@ impl Packet {
         }
     }
 
-    /// Make this packet mutable. If there are no other references to the
-    /// packet data, the mutable packet will be created without copying the
-    /// data.
+    /// Try to make this packet mutable.
+    ///
+    /// The method returns `PacketMut` if the packet can be made mutable
+    /// without copying the data, otherwise it returns `Packet`.
+    pub fn try_into_mut(self) -> Result<PacketMut, Self> {
+        let res = unsafe { ffw_packet_is_writable(self.ptr) };
+
+        if res == 0 {
+            Err(self)
+        } else {
+            Ok(self.into_mut())
+        }
+    }
+
+    /// Make this packet mutable.
+    ///
+    /// If there are no other references to the packet data, the mutable packet
+    /// will be created without copying the data.
     pub fn into_mut(mut self) -> PacketMut {
         let res = unsafe { ffw_packet_make_writable(self.ptr) };
 

@@ -1,4 +1,5 @@
 #include <libavcodec/avcodec.h>
+#include <libavutil/buffer.h>
 
 AVPacket* ffw_packet_alloc() {
     return av_packet_alloc();
@@ -72,6 +73,12 @@ int ffw_packet_get_size(const AVPacket* packet) {
 
 uint8_t* ffw_packet_get_data(AVPacket* packet) {
     return packet->data;
+}
+
+int ffw_packet_is_writable(const AVPacket* packet) {
+    // XXX: There is no av_packet_is_writable() function. The following check
+    // has been copied from the av_packet_make_writable() function.
+    return packet->buf && av_buffer_is_writable(packet->buf);
 }
 
 int ffw_packet_make_writable(AVPacket* packet) {
