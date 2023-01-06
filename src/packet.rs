@@ -6,6 +6,7 @@
 use std::{
     os::raw::{c_int, c_void},
     ptr, slice,
+    time::Duration,
 };
 
 use crate::time::{TimeBase, Timestamp};
@@ -21,6 +22,8 @@ extern "C" {
     fn ffw_packet_set_pts(packet: *mut c_void, pts: i64);
     fn ffw_packet_get_dts(packet: *const c_void) -> i64;
     fn ffw_packet_set_dts(packet: *mut c_void, pts: i64);
+    fn ffw_packet_get_duration(packet: *const c_void) -> i64;
+    fn ffw_packet_set_duration(packet: *mut c_void, duration: i64);
     fn ffw_packet_is_key(packet: *const c_void) -> c_int;
     fn ffw_packet_set_key(packet: *mut c_void, key: c_int);
     fn ffw_packet_get_stream_index(packet: *const c_void) -> c_int;
@@ -132,6 +135,43 @@ impl PacketMut {
     /// Set packet decoding timestamp without time base.
     pub fn with_raw_dts(self, dts: i64) -> Self {
         unsafe { ffw_packet_set_dts(self.ptr, dts) }
+
+        self
+    }
+
+    /// Get packet duration.
+    ///
+    /// The method returns `None` if the duration is lower or equal to zero.
+    pub fn duration(&self) -> Option<Duration> {
+        let duration = self.raw_duration();
+
+        if duration > 0 {
+            let z = Timestamp::new(0, self.time_base);
+            let d = Timestamp::new(duration, self.time_base);
+
+            Some(d - z)
+        } else {
+            None
+        }
+    }
+
+    /// Set packet duration.
+    pub fn with_duration(self, duration: Duration) -> Self {
+        let d = Timestamp::new(0, self.time_base) + duration;
+
+        unsafe { ffw_packet_set_duration(self.ptr, d.timestamp()) }
+
+        self
+    }
+
+    /// Get packet duration in time base units.
+    pub fn raw_duration(&self) -> i64 {
+        unsafe { ffw_packet_get_duration(self.ptr) }
+    }
+
+    /// Set packet duration in time base units.
+    pub fn with_raw_duration(self, duration: i64) -> Self {
+        unsafe { ffw_packet_set_duration(self.ptr, duration) }
 
         self
     }
@@ -300,6 +340,43 @@ impl Packet {
     /// Set packet decoding timestamp without time base.
     pub fn with_raw_dts(self, dts: i64) -> Self {
         unsafe { ffw_packet_set_dts(self.ptr, dts) }
+
+        self
+    }
+
+    /// Get packet duration.
+    ///
+    /// The method returns `None` if the duration is lower or equal to zero.
+    pub fn duration(&self) -> Option<Duration> {
+        let duration = self.raw_duration();
+
+        if duration > 0 {
+            let z = Timestamp::new(0, self.time_base);
+            let d = Timestamp::new(duration, self.time_base);
+
+            Some(d - z)
+        } else {
+            None
+        }
+    }
+
+    /// Set packet duration.
+    pub fn with_duration(self, duration: Duration) -> Self {
+        let d = Timestamp::new(0, self.time_base) + duration;
+
+        unsafe { ffw_packet_set_duration(self.ptr, d.timestamp()) }
+
+        self
+    }
+
+    /// Get packet duration in time base units.
+    pub fn raw_duration(&self) -> i64 {
+        unsafe { ffw_packet_get_duration(self.ptr) }
+    }
+
+    /// Set packet duration in time base units.
+    pub fn with_raw_duration(self, duration: i64) -> Self {
+        unsafe { ffw_packet_set_duration(self.ptr, duration) }
 
         self
     }

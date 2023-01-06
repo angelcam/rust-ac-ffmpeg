@@ -47,6 +47,14 @@ void ffw_packet_set_dts(AVPacket* packet, int64_t dts) {
     packet->dts = dts;
 }
 
+int64_t ffw_packet_get_duration(const AVPacket* packet) {
+    return packet->duration;
+}
+
+void ffw_packet_set_duration(AVPacket* packet, int64_t duration) {
+    packet->duration = duration;
+}
+
 int ffw_packet_get_stream_index(const AVPacket* packet) {
     return packet->stream_index;
 }
