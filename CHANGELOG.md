@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.18.1 (2023-01-06)
+
+* Expose packet duration
+
 ## v0.18.0 (2023-01-05)
 
 * Add try_into_mut() and into_mut() for audio and video frames
