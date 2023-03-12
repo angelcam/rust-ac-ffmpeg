@@ -1,0 +1,17 @@
+[package]
+name = "ac-ffmpeg-build"
+version = "0.1.0"
+authors = ["Angelcam, Inc. <dev@angelcam.com>"]
+edition = "2021"
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/angelcam/rust-ac-ffmpeg"
+description = """
+Helper crate for FFmpeg lookup during ac-ffmpeg build.
+"""
+keywords = ["ffmpeg"]
+
+[dependencies]
+cfg-if = "1"
+pkg-config = "0.3"
+vcpkg = "0.2"

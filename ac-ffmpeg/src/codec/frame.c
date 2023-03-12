@@ -6,8 +6,6 @@
 #include <libavutil/pixfmt.h>
 #include <libavutil/samplefmt.h>
 
-#include "ffmpeg-features.h"
-
 #ifdef FFW_FEATURE_CHANNEL_LAYOUT_V2
 
 int ffw_channel_layout_get_default(AVChannelLayout** layout, uint32_t channels) {

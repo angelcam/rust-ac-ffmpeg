@@ -1,7 +1,5 @@
 #include <libswresample/swresample.h>
 
-#include "ffmpeg-features.h"
-
 typedef struct AudioResampler {
     struct SwrContext* resample_context;
     struct AVFrame* tmp_frame;
