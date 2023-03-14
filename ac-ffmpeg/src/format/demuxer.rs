@@ -335,7 +335,7 @@ impl<T> Demuxer<T> {
         Ok(res)
     }
 
-    pub fn get_input_format(self) -> InputFormat {
+    pub fn get_input_format(&self) -> InputFormat {
         unsafe {
             let input_format = ffw_demuxer_get_input_format(self.ptr);
             InputFormat { ptr: input_format }
@@ -469,7 +469,7 @@ impl InputFormat {
         Some(res)
     }
 
-    pub fn name(self) -> String {
+    pub fn name(&self) -> String {
         unsafe {
             let name = ffw_input_format_name(self.ptr);
 
