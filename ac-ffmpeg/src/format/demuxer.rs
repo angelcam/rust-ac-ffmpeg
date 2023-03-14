@@ -1,5 +1,6 @@
 //! A/V demuxer.
 
+use std::ffi::CStr;
 use std::{
     borrow::{Borrow, BorrowMut},
     convert::TryInto,
@@ -44,6 +45,7 @@ extern "C" {
     fn ffw_demuxer_find_stream_info(demuxer: *mut c_void, max_analyze_duration: i64) -> c_int;
     fn ffw_demuxer_get_nb_streams(demuxer: *const c_void) -> c_uint;
     fn ffw_demuxer_get_stream(demuxer: *mut c_void, index: c_uint) -> *mut c_void;
+    fn ffw_demuxer_get_input_format(demuxer: *mut c_void) -> *mut c_void; // todo: const?
     fn ffw_demuxer_read_frame(
         demuxer: *mut c_void,
         packet: *mut *mut c_void,
@@ -57,6 +59,7 @@ extern "C" {
         seek_target: c_int,
     ) -> c_int;
     fn ffw_demuxer_free(demuxer: *mut c_void);
+    fn ffw_input_format_name(input_format: *mut c_void) -> *const c_char;
 }
 
 /// Seek type/mode.
@@ -332,6 +335,13 @@ impl<T> Demuxer<T> {
         Ok(res)
     }
 
+    pub fn get_input_format(self) -> InputFormat {
+        unsafe {
+            let input_format = ffw_demuxer_get_input_format(self.ptr);
+            InputFormat { ptr: input_format }
+        }
+    }
+
     /// Get reference to the underlying IO.
     pub fn io(&self) -> &IO<T> {
         &self.io
@@ -458,7 +468,31 @@ impl InputFormat {
 
         Some(res)
     }
+
+    pub fn name(self) -> String {
+        unsafe {
+            let name = ffw_input_format_name(self.ptr);
+
+            CStr::from_ptr(name)
+                .to_str()
+                .expect("invalid format name")
+                .to_string()
+        }
+    }
 }
 
 unsafe impl Send for InputFormat {}
 unsafe impl Sync for InputFormat {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_format_name() {
+        let input_format =
+            InputFormat::guess_from_file_name("file.mp3").expect("to find input format");
+
+        assert_eq!(input_format.name(), "mp3");
+    }
+}
