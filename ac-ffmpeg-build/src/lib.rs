@@ -37,7 +37,7 @@ pub fn ffmpeg_lib_dirs(env_metadata: bool) -> Vec<PathBuf> {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(target_os = "linux")] {
+    if #[cfg(any(target_os = "linux", target_os = "macos"))] {
         use pkg_config::{Config, Library};
 
         /// Find a given library using pkg-config.
