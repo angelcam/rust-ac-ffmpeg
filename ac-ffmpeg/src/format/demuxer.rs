@@ -335,13 +335,17 @@ impl<T> Demuxer<T> {
         Ok(res)
     }
 
-    pub fn get_input_format(&self) -> InputFormat {
+    pub fn input_format(&self) -> InputFormat {
+        // XXX: This is potentially very ugly as we rely on the fact that the
+        // input formats are statically allocated by FFmpeg and not owned by
+        // demuxers (and the underlying format contexts). In future versions,
+        // we should capture lifetime of the demuxer in the returned type.
         unsafe {
-            let input_format = ffw_demuxer_get_input_format(self.ptr);
-            InputFormat { ptr: input_format }
+            InputFormat {
+                ptr: ffw_demuxer_get_input_format(self.ptr) as _,
+            }
         }
     }
-
     /// Get reference to the underlying IO.
     pub fn io(&self) -> &IO<T> {
         &self.io
