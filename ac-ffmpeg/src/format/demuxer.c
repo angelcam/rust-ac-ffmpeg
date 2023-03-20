@@ -138,7 +138,7 @@ AVStream* ffw_demuxer_get_stream(Demuxer* demuxer, unsigned stream_index) {
     return demuxer->fc->streams[stream_index];
 }
 
-const struct AVInputFormat* ffw_demuxer_get_input_format(Demuxer* demuxer) {
+const AVInputFormat* ffw_demuxer_get_input_format(const Demuxer* demuxer) {
     return demuxer->fc->iformat;
 }
 
