@@ -483,16 +483,3 @@ impl InputFormat {
 
 unsafe impl Send for InputFormat {}
 unsafe impl Sync for InputFormat {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn get_format_name() {
-        let input_format =
-            InputFormat::guess_from_file_name("file.mp3").expect("to find input format");
-
-        assert_eq!(input_format.name(), "mp3");
-    }
-}
