@@ -45,7 +45,7 @@ extern "C" {
     fn ffw_demuxer_find_stream_info(demuxer: *mut c_void, max_analyze_duration: i64) -> c_int;
     fn ffw_demuxer_get_nb_streams(demuxer: *const c_void) -> c_uint;
     fn ffw_demuxer_get_stream(demuxer: *mut c_void, index: c_uint) -> *mut c_void;
-    fn ffw_demuxer_get_input_format(demuxer: *mut c_void) -> *mut c_void; // todo: const?
+    fn ffw_demuxer_get_input_format(demuxer: *const c_void) -> *const c_void;
     fn ffw_demuxer_read_frame(
         demuxer: *mut c_void,
         packet: *mut *mut c_void,
