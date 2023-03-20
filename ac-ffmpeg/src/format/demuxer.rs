@@ -59,7 +59,7 @@ extern "C" {
         seek_target: c_int,
     ) -> c_int;
     fn ffw_demuxer_free(demuxer: *mut c_void);
-    fn ffw_input_format_name(input_format: *mut c_void) -> *const c_char;
+    fn ffw_input_format_name(input_format: *const c_void) -> *const c_char;
 }
 
 /// Seek type/mode.
