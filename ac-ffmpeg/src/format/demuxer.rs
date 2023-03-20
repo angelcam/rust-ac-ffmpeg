@@ -1,10 +1,9 @@
 //! A/V demuxer.
 
-use std::ffi::CStr;
 use std::{
     borrow::{Borrow, BorrowMut},
     convert::TryInto,
-    ffi::CString,
+    ffi::{CString, CStr},
     io::Read,
     ops::{Deref, DerefMut},
     os::raw::{c_char, c_int, c_uint, c_void},
