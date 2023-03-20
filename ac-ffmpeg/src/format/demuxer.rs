@@ -469,14 +469,11 @@ impl InputFormat {
         Some(res)
     }
 
-    pub fn name(&self) -> String {
+    pub fn name(&self) -> &str {
         unsafe {
-            let name = ffw_input_format_name(self.ptr);
-
-            CStr::from_ptr(name)
+            CStr::from_ptr(ffw_input_format_name(self.ptr))
                 .to_str()
                 .expect("invalid format name")
-                .to_string()
         }
     }
 }
