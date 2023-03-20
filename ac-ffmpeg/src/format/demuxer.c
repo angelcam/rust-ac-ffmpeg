@@ -44,9 +44,7 @@ AVInputFormat* ffw_guess_input_format(
     return (AVInputFormat*)res;
 }
 
-const char* ffw_input_format_name(
-    AVInputFormat* input_format
-) {
+const char* ffw_input_format_name(const AVInputFormat* input_format) {
     return input_format->name;
 }
 
