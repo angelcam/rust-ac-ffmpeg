@@ -2,6 +2,7 @@
 
 pub mod audio;
 pub mod bsf;
+pub mod subtitle;
 pub mod video;
 
 use std::{
@@ -802,6 +803,11 @@ impl SubtitleCodecParameters {
 
         let res = SubtitleCodecParameters { inner: params };
         Ok(res)
+    }
+
+    /// Get raw pointer to the underlying object.
+    pub(crate) fn as_ptr(&self) -> *const c_void {
+        self.inner.ptr
     }
 
     /// Get name of the decoder that is able to decode this codec or None
