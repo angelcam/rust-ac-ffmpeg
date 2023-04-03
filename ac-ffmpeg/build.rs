@@ -51,6 +51,7 @@ fn main() {
         .file(src_codec_dir.join("frame.c"))
         .file(src_codec_audio_dir.join("resampler.c"))
         .file(src_codec_video_dir.join("scaler.c"))
+        .file(src_codec_video_dir.join("filter.c"))
         .compile("ffwrapper");
 
     for dir in ac_ffmpeg_build::ffmpeg_lib_dirs(true) {
@@ -60,6 +61,7 @@ fn main() {
     let ffmpeg_link_mode = link_mode();
 
     link("avcodec", ffmpeg_link_mode);
+    link("avfilter", ffmpeg_link_mode);
     link("avformat", ffmpeg_link_mode);
     link("avutil", ffmpeg_link_mode);
     link("swresample", ffmpeg_link_mode);
