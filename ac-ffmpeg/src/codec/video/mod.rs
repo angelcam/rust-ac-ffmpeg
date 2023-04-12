@@ -6,7 +6,7 @@ pub mod scaler;
 use std::{ffi::CString, os::raw::c_void, ptr};
 
 use crate::{
-    codec::{CodecError, CodecParameters, Decoder, Encoder, VideoCodecParameters},
+    codec::{CodecError, CodecParameters, CodecTag, Decoder, Encoder, VideoCodecParameters},
     format::stream::Stream,
     packet::Packet,
     time::TimeBase,
@@ -380,6 +380,15 @@ impl VideoEncoderBuilder {
     /// Set frame height.
     pub fn height(mut self, height: usize) -> Self {
         self.height = Some(height);
+        self
+    }
+
+    /// Set codec tag.
+    pub fn codec_tag(self, codec_tag: impl Into<CodecTag>) -> Self {
+        unsafe {
+            super::ffw_encoder_set_codec_tag(self.ptr, codec_tag.into().into());
+        }
+
         self
     }
 
