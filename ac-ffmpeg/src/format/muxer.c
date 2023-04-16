@@ -76,8 +76,6 @@ int ffw_muxer_new_stream(Muxer* muxer, const AVCodecParameters* params) {
         return ret;
     }
 
-    s->codecpar->codec_tag = 0;
-
     return s->index;
 }
 
@@ -85,10 +83,19 @@ int ffw_muxer_init(
     Muxer* muxer,
     AVIOContext* avio_context,
     const AVOutputFormat* format) {
+    AVStream* s;
+    enum AVCodecID codec_id;
     int ret;
 
     muxer->fc->pb = avio_context;
     muxer->fc->oformat = (AVOutputFormat*)format;
+
+    for (unsigned int j = 0; j < muxer->fc->nb_streams; j++) {
+        s = muxer->fc->streams[j];
+        codec_id = av_codec_get_id(muxer->fc->oformat->codec_tag, s->codecpar->codec_tag);
+        if (codec_id == AV_CODEC_ID_NONE || codec_id != s->codecpar->codec_id)
+            s->codecpar->codec_tag = 0;
+    }
 
     ret = avformat_write_header(muxer->fc, &muxer->options);
     if (ret < 0) {

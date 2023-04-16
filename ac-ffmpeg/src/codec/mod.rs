@@ -36,6 +36,7 @@ extern "C" {
     fn ffw_codec_parameters_get_height(params: *const c_void) -> c_int;
     fn ffw_codec_parameters_get_sample_rate(params: *const c_void) -> c_int;
     fn ffw_codec_parameters_get_channel_layout(params: *const c_void) -> *const c_void;
+    fn ffw_codec_parameters_get_codec_tag(params: *const c_void) -> u32;
     fn ffw_codec_parameters_get_extradata(params: *mut c_void) -> *mut c_void;
     fn ffw_codec_parameters_get_extradata_size(params: *const c_void) -> c_int;
     fn ffw_codec_parameters_set_bit_rate(params: *mut c_void, bit_rate: i64);
@@ -45,6 +46,7 @@ extern "C" {
     fn ffw_codec_parameters_set_sample_rate(params: *mut c_void, rate: c_int);
     fn ffw_codec_parameters_set_channel_layout(params: *mut c_void, layout: *const c_void)
         -> c_int;
+    fn ffw_codec_parameters_set_codec_tag(params: *mut c_void, codec_tag: u32);
     fn ffw_codec_parameters_set_extradata(
         params: *mut c_void,
         extradata: *const u8,
@@ -85,6 +87,7 @@ extern "C" {
     fn ffw_encoder_set_sample_format(encoder: *mut c_void, format: c_int);
     fn ffw_encoder_set_sample_rate(encoder: *mut c_void, sample_rate: c_int);
     fn ffw_encoder_set_channel_layout(encoder: *mut c_void, layout: *const c_void) -> c_int;
+    fn ffw_encoder_set_codec_tag(encoder: *mut c_void, codec_tag: u32);
     fn ffw_encoder_set_initial_option(
         encoder: *mut c_void,
         key: *const c_char,
@@ -238,6 +241,12 @@ impl InnerCodecParameters {
                 Some(name.to_str().unwrap())
             }
         }
+    }
+
+    /// Get codec tag.
+    pub fn codec_tag(&self) -> CodecTag {
+        let codec_tag = unsafe { ffw_codec_parameters_get_codec_tag(self.ptr) };
+        codec_tag.into()
     }
 }
 
@@ -487,6 +496,15 @@ impl AudioCodecParametersBuilder {
         self
     }
 
+    /// Set codec tag.
+    pub fn codec_tag(self, codec_tag: impl Into<CodecTag>) -> Self {
+        unsafe {
+            ffw_codec_parameters_set_codec_tag(self.inner.ptr, codec_tag.into().into());
+        }
+
+        self
+    }
+
     /// Set extradata.
     pub fn extradata<T>(self, data: Option<T>) -> Self
     where
@@ -579,6 +597,11 @@ impl AudioCodecParameters {
         }
     }
 
+    /// Get codec tag.
+    pub fn codec_tag(&self) -> CodecTag {
+        self.inner.codec_tag()
+    }
+
     /// Get extradata.
     pub fn extradata(&self) -> Option<&[u8]> {
         unsafe {
@@ -660,6 +683,15 @@ impl VideoCodecParametersBuilder {
     pub fn height(self, height: usize) -> Self {
         unsafe {
             ffw_codec_parameters_set_height(self.inner.ptr, height as _);
+        }
+
+        self
+    }
+
+    /// Set codec tag.
+    pub fn codec_tag(self, codec_tag: impl Into<CodecTag>) -> Self {
+        unsafe {
+            ffw_codec_parameters_set_codec_tag(self.inner.ptr, codec_tag.into().into());
         }
 
         self
@@ -755,6 +787,11 @@ impl VideoCodecParameters {
         unsafe { ffw_codec_parameters_get_height(self.inner.ptr) as _ }
     }
 
+    /// Get codec tag.
+    pub fn codec_tag(&self) -> CodecTag {
+        self.inner.codec_tag()
+    }
+
     /// Get extradata.
     pub fn extradata(&self) -> Option<&[u8]> {
         unsafe {
@@ -844,6 +881,28 @@ impl AsRef<InnerCodecParameters> for OtherCodecParameters {
 impl From<InnerCodecParameters> for OtherCodecParameters {
     fn from(params: InnerCodecParameters) -> Self {
         Self { inner: params }
+    }
+}
+
+/// A codec tag.
+#[derive(Copy, Clone, PartialEq)]
+pub struct CodecTag(u32);
+
+impl From<u32> for CodecTag {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<CodecTag> for u32 {
+    fn from(value: CodecTag) -> Self {
+        value.0
+    }
+}
+
+impl From<&[u8; 4]> for CodecTag {
+    fn from(value: &[u8; 4]) -> Self {
+        Self(u32::from_le_bytes(*value))
     }
 }
 

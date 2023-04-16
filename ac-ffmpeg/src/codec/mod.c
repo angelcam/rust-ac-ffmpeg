@@ -130,6 +130,10 @@ const uint64_t * ffw_codec_parameters_get_channel_layout(const AVCodecParameters
 }
 #endif
 
+uint32_t ffw_codec_parameters_get_codec_tag(const AVCodecParameters* params) {
+    return params->codec_tag;
+}
+
 uint8_t* ffw_codec_parameters_get_extradata(AVCodecParameters* params) {
     return params->extradata;
 }
@@ -172,6 +176,10 @@ int ffw_codec_parameters_set_channel_layout(AVCodecParameters* params, const uin
     return 0;
 }
 #endif
+
+void ffw_codec_parameters_set_codec_tag(AVCodecParameters* params, uint32_t codec_tag) {
+    params->codec_tag = codec_tag;
+}
 
 int ffw_codec_parameters_set_extradata(AVCodecParameters* params, const uint8_t* extradata, int size) {
     if (params->extradata) {
@@ -417,6 +425,7 @@ void ffw_encoder_set_width(Encoder* encoder, int width);
 void ffw_encoder_set_height(Encoder* encoder, int height);
 void ffw_encoder_set_sample_format(Encoder* encoder, int format);
 void ffw_encoder_set_sample_rate(Encoder* encoder, int sample_rate);
+void ffw_encoder_set_codec_tag(Encoder* encoder, uint32_t codec_tag);
 int ffw_encoder_set_initial_option(Encoder* encoder, const char* key, const char* value);
 int ffw_encoder_open(Encoder* encoder);
 int ffw_encoder_push_frame(Encoder* encoder, const AVFrame* frame);
@@ -603,6 +612,10 @@ int ffw_encoder_set_channel_layout(Encoder* encoder, const uint64_t* layout) {
     return 0;
 }
 #endif
+
+void ffw_encoder_set_codec_tag(Encoder* encoder, uint32_t codec_tag) {
+    encoder->cc->codec_tag = codec_tag;
+}
 
 int ffw_encoder_set_initial_option(Encoder* encoder, const char* key, const char* value) {
     return av_dict_set(&encoder->options, key, value, 0);
