@@ -3,7 +3,7 @@
 use std::{
     borrow::{Borrow, BorrowMut},
     convert::TryInto,
-    ffi::CString,
+    ffi::{CString, CStr},
     io::Read,
     ops::{Deref, DerefMut},
     os::raw::{c_char, c_int, c_uint, c_void},
@@ -44,6 +44,7 @@ extern "C" {
     fn ffw_demuxer_find_stream_info(demuxer: *mut c_void, max_analyze_duration: i64) -> c_int;
     fn ffw_demuxer_get_nb_streams(demuxer: *const c_void) -> c_uint;
     fn ffw_demuxer_get_stream(demuxer: *mut c_void, index: c_uint) -> *mut c_void;
+    fn ffw_demuxer_get_input_format(demuxer: *const c_void) -> *const c_void;
     fn ffw_demuxer_read_frame(
         demuxer: *mut c_void,
         packet: *mut *mut c_void,
@@ -57,6 +58,7 @@ extern "C" {
         seek_target: c_int,
     ) -> c_int;
     fn ffw_demuxer_free(demuxer: *mut c_void);
+    fn ffw_input_format_name(input_format: *const c_void) -> *const c_char;
 }
 
 /// Seek type/mode.
@@ -332,6 +334,17 @@ impl<T> Demuxer<T> {
         Ok(res)
     }
 
+    pub fn input_format(&self) -> InputFormat {
+        // XXX: This is potentially very ugly as we rely on the fact that the
+        // input formats are statically allocated by FFmpeg and not owned by
+        // demuxers (and the underlying format contexts). In future versions,
+        // we should capture lifetime of the demuxer in the returned type.
+        unsafe {
+            InputFormat {
+                ptr: ffw_demuxer_get_input_format(self.ptr) as _,
+            }
+        }
+    }
     /// Get reference to the underlying IO.
     pub fn io(&self) -> &IO<T> {
         &self.io
@@ -457,6 +470,14 @@ impl InputFormat {
         let res = InputFormat { ptr };
 
         Some(res)
+    }
+
+    pub fn name(&self) -> &str {
+        unsafe {
+            CStr::from_ptr(ffw_input_format_name(self.ptr))
+                .to_str()
+                .expect("invalid format name")
+        }
     }
 }
 
