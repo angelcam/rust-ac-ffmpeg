@@ -28,3 +28,11 @@ path = "../ac-ffmpeg-features"
 
 [dev-dependencies]
 clap = "2.33"
+
+[features]
+filters = []
+
+[[example]]
+name = "filtering"
+path = "examples/filtering.rs"
+required-features = ["filters"]
