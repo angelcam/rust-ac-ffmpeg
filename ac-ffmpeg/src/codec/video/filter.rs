@@ -1,4 +1,4 @@
-//! AV filter.
+//! Video filter.
 
 use crate::{
     codec::{CodecError, Filter},

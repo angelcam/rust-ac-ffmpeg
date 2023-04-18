@@ -1,5 +1,5 @@
 //! Video decoder/encoder.
-
+#[cfg(feature = "filters")]
 pub mod filter;
 pub mod frame;
 pub mod scaler;
