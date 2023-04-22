@@ -58,3 +58,25 @@ int ffw_stream_set_metadata(AVStream* stream, const char* key, const char* value
 void ffw_stream_set_id(AVStream* stream, int id) {
     stream->id = id;
 }
+
+size_t ffw_stream_get_nb_side_data(const AVStream* stream) {
+    return stream->nb_side_data;
+}
+
+const AVPacketSideData* ffw_stream_get_side_data(const AVStream* stream, size_t index) {
+    return &stream->side_data[index];
+}
+
+int ffw_stream_add_side_data(AVStream* stream, enum AVPacketSideDataType data_type, uint8_t* data, size_t size) {
+    void* dup_data = av_memdup(data, size);
+    if (!dup_data) {
+        return AVERROR(ENOMEM);
+    }
+
+    int ret = av_stream_add_side_data(stream, data_type, dup_data, size);
+    if (ret < 0) {
+        av_free(dup_data);
+    }
+
+    return ret;
+}

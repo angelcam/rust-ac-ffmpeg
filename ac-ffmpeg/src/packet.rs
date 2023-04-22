@@ -4,7 +4,8 @@
 //! stream (i.e. audio or video stream).
 
 use std::{
-    os::raw::{c_int, c_void},
+    ffi::CStr,
+    os::raw::{c_char, c_int, c_void},
     ptr, slice,
     time::Duration,
 };
@@ -30,6 +31,10 @@ extern "C" {
     fn ffw_packet_set_stream_index(packet: *mut c_void, index: c_int);
     fn ffw_packet_is_writable(packet: *const c_void) -> c_int;
     fn ffw_packet_make_writable(packet: *mut c_void) -> c_int;
+    fn ffw_packet_side_data_get_size(side_data: *const c_void) -> usize;
+    fn ffw_packet_side_data_get_data(side_data: *const c_void) -> *const u8;
+    fn ffw_packet_side_data_get_type(side_data: *const c_void) -> c_int;
+    fn ffw_packet_get_side_data_name(side_data_type: c_int) -> *const c_char;
 }
 
 /// Packet with mutable data.
@@ -471,3 +476,65 @@ impl Drop for Packet {
 
 unsafe impl Send for Packet {}
 unsafe impl Sync for Packet {}
+
+/// Reference to the packet side data.
+pub struct SideDataRef(());
+
+impl SideDataRef {
+    /// Create a packet side data from its raw representation.
+    pub(crate) unsafe fn from_raw_ptr<'a>(ptr: *const c_void) -> &'a Self {
+        unsafe { &*(ptr as *const Self) }
+    }
+
+    /// Get raw pointer.
+    fn as_ptr(&self) -> *const c_void {
+        self as *const Self as _
+    }
+
+    /// Get data.
+    pub fn data(&self) -> &[u8] {
+        unsafe {
+            let data = ffw_packet_side_data_get_data(self.as_ptr());
+            let len = ffw_packet_side_data_get_size(self.as_ptr());
+
+            std::slice::from_raw_parts(data, len)
+        }
+    }
+
+    /// Get data type.
+    pub fn data_type(&self) -> SideDataType {
+        let data_type = unsafe { ffw_packet_side_data_get_type(self.as_ptr()) };
+
+        SideDataType::from_raw(data_type)
+    }
+}
+
+/// Packet side data type.
+pub struct SideDataType(c_int);
+
+impl SideDataType {
+    /// Create a packet side data type value from a given raw representation.
+    pub(crate) fn from_raw(v: c_int) -> Self {
+        Self(v)
+    }
+
+    /// Get the raw value.
+    pub(crate) fn into_raw(self) -> c_int {
+        self.0
+    }
+
+    /// Get name of the packet side data type.
+    pub fn name(self) -> &'static str {
+        unsafe {
+            let ptr = ffw_packet_get_side_data_name(self.into_raw());
+
+            if ptr.is_null() {
+                panic!("invalid packet side data type");
+            }
+
+            let name = CStr::from_ptr(ptr as _);
+
+            name.to_str().unwrap()
+        }
+    }
+}
