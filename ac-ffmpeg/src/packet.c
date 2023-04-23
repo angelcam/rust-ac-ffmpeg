@@ -92,3 +92,19 @@ int ffw_packet_is_writable(const AVPacket* packet) {
 int ffw_packet_make_writable(AVPacket* packet) {
     return av_packet_make_writable(packet);
 }
+
+size_t ffw_packet_side_data_get_size(const AVPacketSideData* side_data) {
+    return side_data->size;
+}
+
+const uint8_t* ffw_packet_side_data_get_data(const AVPacketSideData* side_data) {
+    return side_data->data;
+}
+
+int ffw_packet_side_data_get_type(const AVPacketSideData* side_data) {
+    return side_data->type;
+}
+
+const char* ffw_packet_get_side_data_name(int side_data_type) {
+    return av_packet_side_data_name(side_data_type);
+}

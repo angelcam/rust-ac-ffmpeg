@@ -7,7 +7,9 @@ use std::{
 
 use crate::{
     codec::CodecParameters,
+    packet::{SideDataRef, SideDataType},
     time::{TimeBase, Timestamp},
+    Error,
 };
 
 extern "C" {
@@ -24,6 +26,14 @@ extern "C" {
         value: *const c_char,
     ) -> c_int;
     fn ffw_stream_set_id(stream: *mut c_void, id: c_int);
+    fn ffw_stream_get_nb_side_data(stream: *const c_void) -> usize;
+    fn ffw_stream_get_side_data(stream: *const c_void, index: usize) -> *const c_void;
+    fn ffw_stream_add_side_data(
+        stream: *mut c_void,
+        data_type: c_int,
+        data: *const u8,
+        size: usize,
+    ) -> c_int;
 }
 
 /// Stream.
@@ -125,7 +135,62 @@ impl Stream {
     pub fn set_stream_id(&mut self, id: i32) {
         unsafe { ffw_stream_set_id(self.ptr, id as c_int) };
     }
+
+    /// Get stream side data.
+    pub fn side_data(&self) -> SideDataIter<'_> {
+        let len = unsafe { ffw_stream_get_nb_side_data(self.ptr) };
+
+        SideDataIter {
+            stream: self,
+            index: 0,
+            len,
+        }
+    }
+
+    /// Add stream side data.
+    pub fn add_side_data(&mut self, data_type: SideDataType, data: &[u8]) -> Result<(), Error> {
+        let ret = unsafe {
+            ffw_stream_add_side_data(self.ptr, data_type.into_raw(), data.as_ptr(), data.len())
+        };
+
+        if ret < 0 {
+            return Err(Error::from_raw_error_code(ret));
+        }
+
+        Ok(())
+    }
 }
 
 unsafe impl Send for Stream {}
 unsafe impl Sync for Stream {}
+
+/// Iterator over stream side data.
+pub struct SideDataIter<'a> {
+    stream: &'a Stream,
+    index: usize,
+    len: usize,
+}
+
+impl<'a> Iterator for SideDataIter<'a> {
+    type Item = &'a SideDataRef;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index == self.len {
+            return None;
+        }
+
+        let side_data = unsafe {
+            SideDataRef::from_raw_ptr(ffw_stream_get_side_data(self.stream.ptr, self.index))
+        };
+        self.index += 1;
+
+        Some(side_data)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let hint = self.len - self.index;
+        (hint, Some(hint))
+    }
+}
+
+impl ExactSizeIterator for SideDataIter<'_> {}
