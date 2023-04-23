@@ -21,6 +21,7 @@ fn main() {
     let src_format_dir = src_dir.join("format");
     let src_codec_dir = src_dir.join("codec");
     let src_codec_audio_dir = src_codec_dir.join("audio");
+    let src_codec_subtitles_dir = src_codec_dir.join("subtitle");
     let src_codec_video_dir = src_codec_dir.join("video");
 
     println!("cargo:rerun-if-changed={}", src_dir.display());
@@ -50,6 +51,7 @@ fn main() {
         .file(src_codec_dir.join("mod.c"))
         .file(src_codec_dir.join("frame.c"))
         .file(src_codec_audio_dir.join("resampler.c"))
+        .file(src_codec_subtitles_dir.join("transcoder.c"))
         .file(src_codec_video_dir.join("scaler.c"))
         .compile("ffwrapper");
 
