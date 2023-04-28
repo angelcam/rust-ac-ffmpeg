@@ -60,7 +60,7 @@ fn encode_black_video_with_bitc(
 
     let codec_parameters: VideoCodecParameters = encoder.codec_parameters().into();
 
-    let mut drawtext_filter = VideoFilter::builder()?
+    let mut drawtext_filter = VideoFilter::builder()
         .input_codec_parameters(&codec_parameters)
         .input_time_base(time_base)
         .filter_description(

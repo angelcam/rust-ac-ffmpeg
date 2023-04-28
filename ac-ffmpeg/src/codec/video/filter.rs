@@ -44,18 +44,18 @@ pub struct VideoFilterBuilder {
 
 impl VideoFilterBuilder {
     /// Create a video filter builder with the given description.
-    fn new() -> Result<Self, Error> {
+    fn new() -> Self {
         let graph = unsafe { ffw_filtergraph_new() };
         if graph.is_null() {
-            return Err(Error::new("unable to allocate a filtergraph"));
+            panic!("unable to allocate a filtergraph");
         }
-        Ok(Self {
+        Self {
             ptr: graph,
             input_time_base: None,
             output_time_base: None,
             description: None,
             codec_parameters: None,
-        })
+        }
     }
 
     /// Set input codec parameters.
@@ -166,7 +166,7 @@ pub struct VideoFilter {
 }
 
 impl VideoFilter {
-    pub fn builder() -> Result<VideoFilterBuilder, Error> {
+    pub fn builder() -> VideoFilterBuilder {
         VideoFilterBuilder::new()
     }
 }

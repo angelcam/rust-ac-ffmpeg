@@ -6,8 +6,7 @@
 #include <libavutil/opt.h>
 
 AVFilterGraph* ffw_filtergraph_new() {
-    AVFilterGraph* filter_graph = avfilter_graph_alloc();
-    return filter_graph;
+    return avfilter_graph_alloc();
 }
 
 AVFilterContext* ffw_filtersource_new(AVFilterGraph* filter_graph, AVCodecParameters* codec_params, int tb_num, int tb_den) {
