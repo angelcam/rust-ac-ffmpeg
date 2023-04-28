@@ -59,15 +59,17 @@ int ffw_filtergraph_init(AVFilterGraph* filter_graph,
     inputs->pad_idx = 0;
     inputs->next = NULL;
 
-    ret = avfilter_graph_parse_ptr(filter_graph, filters_descr, &inputs, &outputs, NULL);
-    if (ret < 0) {
-        return ret;
+    if ((ret = avfilter_graph_parse_ptr(filter_graph, filters_descr, &inputs, &outputs, NULL)) < 0) {
+        goto end;
     }
 
-    ret = avfilter_graph_config(filter_graph, NULL);
-    if (ret < 0) {
-        return ret;
+    if ((ret = avfilter_graph_config(filter_graph, NULL)) < 0) {
+        goto end;
     }
+
+end:
+    avfilter_inout_free(&inputs);
+    avfilter_inout_free(&outputs);
 
     return ret;
 }
