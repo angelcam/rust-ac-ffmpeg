@@ -16,12 +16,13 @@ use super::{VideoCodecParameters, VideoFrame};
 extern "C" {
     fn ffw_filtergraph_new() -> *mut c_void;
     fn ffw_filtersource_new(
+        source: *mut *mut c_void,
         graph: *mut c_void,
         codec: *mut c_void,
         tb_num: c_int,
         tb_den: c_int,
-    ) -> *mut c_void;
-    fn ffw_filtersink_new(graph: *mut c_void) -> *mut c_void;
+    ) -> c_int;
+    fn ffw_filtersink_new(sink: *mut *mut c_void, graph: *mut c_void) -> c_int;
     fn ffw_filtergraph_init(
         graph: *mut c_void,
         source: *mut c_void,
@@ -104,20 +105,28 @@ impl VideoFilterBuilder {
         };
 
         // init source and sink buffer filters
-        let source = unsafe {
+        let mut source = ptr::null_mut();
+        let ret = unsafe {
             ffw_filtersource_new(
+                &mut source,
                 self.ptr,
                 codec_parameters.as_ptr() as _,
                 input_time_base.num() as _,
                 input_time_base.den() as _,
             )
         };
-        if source.is_null() {
+        if ret < 0 {
+            return Err(Error::from_raw_error_code(ret));
+        } else if source.is_null() {
             return Err(Error::new("unable to allocate a source"));
         }
-        let sink = unsafe { ffw_filtersink_new(self.ptr) };
-        if sink.is_null() {
-            return Err(Error::new("unable to allocate a sink"));
+
+        let mut sink = ptr::null_mut();
+        let ret = unsafe { ffw_filtersink_new(&mut sink, self.ptr) };
+        if ret < 0 {
+            return Err(Error::from_raw_error_code(ret));
+        } else if sink.is_null() {
+            return Err(Error::new("unable to allocate a source"));
         }
 
         // init the filtergraph
