@@ -85,24 +85,23 @@ impl VideoFilterBuilder {
 
     /// Build the filtergraph.
     pub fn build(mut self) -> Result<VideoFilter, Error> {
-        // parse params
-        let filters_descr = match &self.description {
-            Some(fd) => CString::new(fd.to_owned()).expect("invalid filter description"),
-            None => return Err(Error::new("filter description not set")),
-        };
-        let codec_parameters = match &self.codec_parameters {
-            Some(cp) => cp.to_owned(),
-            None => return Err(Error::new("codec parameters not set")),
-        };
+        // vaidate params
+        let filters_descr = self
+            .description
+            .take()
+            .map(CString::new)
+            .ok_or_else(|| Error::new("filter description not set"))?
+            .expect("invalid filter description");
+        let codec_parameters = self
+            .codec_parameters
+            .take()
+            .ok_or_else(|| Error::new("codec parameters not set"))?;
         let input_time_base = self
             .input_time_base
             .ok_or_else(|| Error::new("input time base not set"))?;
 
-        // fallabck on input timebase if not supplied
-        let output_time_base = match self.output_time_base {
-            Some(tb) => tb,
-            None => input_time_base,
-        };
+        // fallback on input timebase if not supplied
+        let output_time_base = self.output_time_base.unwrap_or(input_time_base);
 
         // init source and sink buffer filters
         let mut source = ptr::null_mut();
