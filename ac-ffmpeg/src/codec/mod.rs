@@ -93,6 +93,8 @@ extern "C" {
         key: *const c_char,
         value: *const c_char,
     ) -> c_int;
+    fn ffw_encoder_set_flag(encoder: *mut c_void, flag: c_int);
+    fn ffw_encoder_set_flag2(encoder: *mut c_void, flag2: c_int);
     fn ffw_encoder_open(encoder: *mut c_void) -> c_int;
     fn ffw_encoder_push_frame(encoder: *mut c_void, frame: *const c_void) -> c_int;
     fn ffw_encoder_take_packet(encoder: *mut c_void, packet: *mut *mut c_void) -> c_int;
@@ -903,6 +905,94 @@ impl From<CodecTag> for u32 {
 impl From<&[u8; 4]> for CodecTag {
     fn from(value: &[u8; 4]) -> Self {
         Self(u32::from_le_bytes(*value))
+    }
+}
+
+/// Codec flags used to control encoder behavior when passed to AVCodecContext
+pub enum CodecFlag {
+    Unaligned,
+    QScale,
+    FourMV,
+    OutputCorrupt,
+    QPEL,
+    DropChanged,
+    ReconFrame,
+    CopyOpaque,
+    FrameDuration,
+    Pass1,
+    Pass2,
+    LoopFilter,
+    Gray,
+    PSNR,
+    Truncated,
+    InterlacedDCT,
+    LowDelay,
+    GlobalHeader,
+    BitExact,
+    ACPred,
+    InterlacedME,
+    ClosedGOP,
+}
+
+impl CodecFlag {
+    fn into_raw(self) -> i32 {
+        match self {
+            CodecFlag::Unaligned => 1 << 0,
+            CodecFlag::QScale => 1 << 1,
+            CodecFlag::FourMV => 1 << 2,
+            CodecFlag::OutputCorrupt => 1 << 3,
+            CodecFlag::QPEL => 1 << 4,
+            CodecFlag::DropChanged => 1 << 5,
+            CodecFlag::ReconFrame => 1 << 6,
+            CodecFlag::CopyOpaque => 1 << 7,
+            CodecFlag::FrameDuration => 1 << 8,
+            CodecFlag::Pass1 => 1 << 9,
+            CodecFlag::Pass2 => 1 << 10,
+            CodecFlag::LoopFilter => 1 << 11,
+            CodecFlag::Gray => 1 << 13,
+            CodecFlag::PSNR => 1 << 15,
+            CodecFlag::Truncated => 1 << 16,
+            CodecFlag::InterlacedDCT => 1 << 18,
+            CodecFlag::LowDelay => 1 << 19,
+            CodecFlag::GlobalHeader => 1 << 22,
+            CodecFlag::BitExact => 1 << 23,
+            CodecFlag::ACPred => 1 << 24,
+            CodecFlag::InterlacedME => 1 << 29,
+            CodecFlag::ClosedGOP => 1 << 31,
+        }
+    }
+}
+
+/// More codec flags used to control encoder behavior when passed to AVCodecContext
+pub enum CodecFlag2 {
+    Fast,
+    NoOutput,
+    LocalHeader,
+    DropFrameTimecode,
+    Chunks,
+    IgnoreCrop,
+    ShowAll,
+    ExportMVS,
+    SkipManual,
+    ROFlushNoOp,
+    ICCProfiles
+}
+
+impl CodecFlag2 {
+    fn into_raw(self) -> i32 {
+        match self {
+            CodecFlag2::Fast => 1 << 0,
+            CodecFlag2::NoOutput => 1 << 2,
+            CodecFlag2::LocalHeader => 1 << 3,
+            CodecFlag2::DropFrameTimecode => 1 << 13,
+            CodecFlag2::Chunks => 1 << 15,
+            CodecFlag2::IgnoreCrop => 1 << 16,
+            CodecFlag2::ShowAll => 1 << 22,
+            CodecFlag2::ExportMVS => 1 << 28,
+            CodecFlag2::SkipManual => 1 << 29,
+            CodecFlag2::ROFlushNoOp => 1 << 30,
+            CodecFlag2::ICCProfiles => 1 << 31,
+        }
     }
 }
 

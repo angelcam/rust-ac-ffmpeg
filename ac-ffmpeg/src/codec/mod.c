@@ -427,6 +427,8 @@ void ffw_encoder_set_sample_format(Encoder* encoder, int format);
 void ffw_encoder_set_sample_rate(Encoder* encoder, int sample_rate);
 void ffw_encoder_set_codec_tag(Encoder* encoder, uint32_t codec_tag);
 int ffw_encoder_set_initial_option(Encoder* encoder, const char* key, const char* value);
+void ffw_encoder_set_flag(Encoder* encoder, int flag);
+void ffw_encoder_set_flag2(Encoder* encoder, int flag2);
 int ffw_encoder_open(Encoder* encoder);
 int ffw_encoder_push_frame(Encoder* encoder, const AVFrame* frame);
 int ffw_encoder_take_packet(Encoder* encoder, AVPacket** packet);
@@ -619,6 +621,14 @@ void ffw_encoder_set_codec_tag(Encoder* encoder, uint32_t codec_tag) {
 
 int ffw_encoder_set_initial_option(Encoder* encoder, const char* key, const char* value) {
     return av_dict_set(&encoder->options, key, value, 0);
+}
+
+void ffw_encoder_set_flag(Encoder* encoder, int flag) {
+    encoder->cc->flags |= flag;
+}
+
+void ffw_encoder_set_flag2(Encoder* encoder, int flag2) {
+    encoder->cc->flags2 |= flag2;
 }
 
 int ffw_encoder_open(Encoder* encoder) {

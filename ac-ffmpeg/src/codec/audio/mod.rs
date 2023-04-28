@@ -7,7 +7,10 @@ pub mod transcoder;
 use std::{ffi::CString, os::raw::c_void, ptr};
 
 use crate::{
-    codec::{AudioCodecParameters, CodecError, CodecParameters, CodecTag, Decoder, Encoder},
+    codec::{
+        AudioCodecParameters, CodecError, CodecFlag, CodecFlag2, CodecParameters, CodecTag,
+        Decoder, Encoder,
+    },
     format::stream::Stream,
     packet::Packet,
     time::TimeBase,
@@ -417,6 +420,24 @@ impl AudioEncoderBuilder {
     pub fn codec_tag(self, codec_tag: impl Into<CodecTag>) -> Self {
         unsafe {
             super::ffw_encoder_set_codec_tag(self.raw.ptr, codec_tag.into().into());
+        }
+
+        self
+    }
+
+    /// Set a codec flag.
+    pub fn set_flag(self, flag: CodecFlag) -> Self {
+        unsafe {
+            super::ffw_encoder_set_flag(self.raw.ptr, flag.into_raw());
+        }
+
+        self
+    }
+
+    /// Set a codec flag using the second set of flags.
+    pub fn set_flag2(self, flag2: CodecFlag2) -> Self {
+        unsafe {
+            super::ffw_encoder_set_flag2(self.raw.ptr, flag2.into_raw());
         }
 
         self
