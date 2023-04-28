@@ -991,3 +991,34 @@ pub trait Encoder {
     /// Take the next packet from the encoder.
     fn take(&mut self) -> Result<Option<Packet>, Error>;
 }
+
+pub trait Filter {
+    type Frame;
+
+    /// Push a given frame to the filter.
+    ///
+    /// # Panics
+    /// The method panics if the operation is not expected (i.e. another
+    /// operation needs to be done).
+    fn push(&mut self, frame: Self::Frame) -> Result<(), Error> {
+        self.try_push(frame).map_err(|err| err.unwrap_inner())
+    }
+
+    /// Push a given frame to the filter.
+    fn try_push(&mut self, frame: Self::Frame) -> Result<(), CodecError>;
+
+    /// Flush the filter.
+    ///
+    /// # Panics
+    /// The method panics if the operation is not expected (i.e. another
+    /// operation needs to be done).
+    fn flush(&mut self) -> Result<(), Error> {
+        self.try_flush().map_err(|err| err.unwrap_inner())
+    }
+
+    /// Flush the filter.
+    fn try_flush(&mut self) -> Result<(), CodecError>;
+
+    /// Take the next frame from the filter.
+    fn take(&mut self) -> Result<Option<Self::Frame>, Error>;
+}
