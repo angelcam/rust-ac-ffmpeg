@@ -9,52 +9,20 @@ AVFilterGraph* ffw_filtergraph_new() {
     return avfilter_graph_alloc();
 }
 
-AVFilterContext* ffw_filtersource_new(AVFilterGraph* filter_graph, AVCodecParameters* codec_params, int tb_num, int tb_den) {
+int ffw_filtersource_new(AVFilterContext** filter_ctx, AVFilterGraph* filter_graph, AVCodecParameters* codec_params, int tb_num, int tb_den) {
+    /* init buffer source: frames from the decoder will be inserted here. */
     char args[512];
-    AVFilterContext* buffersrc_ctx;
-    const AVFilter* buffersrc = avfilter_get_by_name("buffer");
-
-    /* buffer video source: the decoded frames from the decoder will be inserted here. */
     snprintf(args, sizeof(args),
         "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
         codec_params->width, codec_params->height, codec_params->format,
         tb_num, tb_den,
         codec_params->sample_aspect_ratio.num, codec_params->sample_aspect_ratio.den);
-    if (avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, NULL, filter_graph) < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Cannot create buffer source\n");
-        return NULL;
-    }
-    if (buffersrc_ctx == NULL) {
-        av_log(NULL, AV_LOG_ERROR, "Buffer source initialisation failed\n");
-        return NULL;
-    }
-
-    return buffersrc_ctx;
+    return avfilter_graph_create_filter(filter_ctx, avfilter_get_by_name("buffer"), "in", args, NULL, filter_graph);
 }
 
-AVFilterContext* ffw_filtersink_new(AVFilterGraph* filter_graph) {
-    AVFilterContext* buffersink_ctx;
-    const AVFilter* buffersink = avfilter_get_by_name("buffersink");
-    enum AVPixelFormat pix_fmts[] = { AV_PIX_FMT_YUV422P, AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE };
-
-    /* buffer video sink: to terminate the filter chain. */
-    int ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", NULL, NULL, filter_graph);
-    if (ret < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Cannot create buffer sink\n");
-        return NULL;
-    }
-    if (buffersink_ctx == NULL) {
-        av_log(NULL, AV_LOG_ERROR, "Buffer sink initialisation failed\n");
-        return NULL;
-    }
-
-    ret = av_opt_set_int_list(buffersink_ctx, "pix_fmts", pix_fmts, AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
-    if (ret < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Cannot set output pixel format\n");
-        return NULL;
-    }
-
-    return buffersink_ctx;
+int ffw_filtersink_new(AVFilterContext** filter_ctx, AVFilterGraph* filter_graph) {
+    /* init buffer sink to terminate the filter chain. */
+    return avfilter_graph_create_filter(filter_ctx, avfilter_get_by_name("buffersink"), "out", NULL, NULL, filter_graph);
 }
 
 int ffw_filtergraph_init(AVFilterGraph* filter_graph,
