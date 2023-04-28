@@ -139,8 +139,6 @@ impl VideoFilterBuilder {
         };
         if ret < 0 {
             return Err(Error::from_raw_error_code(ret));
-        } else if self.ptr.is_null() {
-            return Err(Error::new("unable to allocate a filtergraph"));
         }
 
         let ptr = self.ptr;
