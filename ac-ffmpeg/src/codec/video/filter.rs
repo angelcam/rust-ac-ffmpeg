@@ -193,11 +193,15 @@ impl Filter for VideoFilter {
     fn try_push(&mut self, frame: VideoFrame) -> Result<(), CodecError> {
         let frame = frame.with_time_base(self.input_time_base);
 
-        let ret = unsafe { ffw_filtergraph_push_frame(self.source, frame.as_ptr()) };
-        if ret < 0 {
-            CodecError::from_raw_error_code(ret);
+        unsafe {
+            match ffw_filtergraph_push_frame(self.source, frame.as_ptr()) {
+                1 => Ok(()),
+                0 => Err(CodecError::again(
+                    "all frames must be consumed before pushing a new frame",
+                )),
+                e => Err(CodecError::from_raw_error_code(e)),
+            }
         }
-        Ok(())
     }
 
     /// Flush the filter.
