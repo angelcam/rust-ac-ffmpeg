@@ -1,6 +1,7 @@
 //! Elementary IO used by the muxer and demuxer.
 
 use std::{
+    convert::TryFrom,
     io::{self, Read, Seek, SeekFrom, Write},
     os::raw::{c_int, c_void},
     slice,
@@ -81,7 +82,24 @@ where
     let seek = if is_avseek_size {
         get_seekable_length(input)
     } else {
-        input.seek(SeekFrom::Start(offset as u64))
+        let pos = match whence {
+            0 => {
+                // 0 means SEEK_SET, which means relative to file beginning
+                u64::try_from(offset)
+                    .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid offset"))
+                    .map(|offset| SeekFrom::Start(offset))
+            },
+            1 => {
+                // 1 means SEEK_CUR, which means relative to current position
+                Ok(SeekFrom::Current(offset))
+            },
+            2 => {
+                // 2 means SEEK_END, which means relative to the end of the file
+                Ok(SeekFrom::End(offset))
+            },
+            _ => Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid whence")),
+        };
+        pos.and_then(|pos| input.seek(pos))
     };
 
     match seek {
