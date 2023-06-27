@@ -4,6 +4,7 @@
 //! stream (i.e. audio or video stream).
 
 use std::{
+    convert::TryFrom,
     ffi::CStr,
     os::raw::{c_char, c_int, c_void},
     ptr, slice,
@@ -19,6 +20,8 @@ extern "C" {
     fn ffw_packet_free(packet: *mut c_void);
     fn ffw_packet_get_size(packet: *const c_void) -> c_int;
     fn ffw_packet_get_data(packet: *mut c_void) -> *mut c_void;
+    fn ffw_packet_get_pos(packet: *const c_void) -> i64;
+    fn ffw_packet_set_pos(packet: *mut c_void, pos: i64);
     fn ffw_packet_get_pts(packet: *const c_void) -> i64;
     fn ffw_packet_set_pts(packet: *mut c_void, pts: i64);
     fn ffw_packet_get_dts(packet: *const c_void) -> i64;
@@ -221,6 +224,24 @@ impl PacketMut {
         }
     }
 
+    /// Get the byte position of the packet data within the input stream, if known.
+    pub fn pos(&self) -> Option<u64> {
+        let pos = unsafe { ffw_packet_get_pos(self.ptr) };
+        if pos >= 0 {
+            Some(pos as u64)
+        } else {
+            None
+        }
+    }
+
+    /// Get the byte position of the packet data within the input stream, if known.
+    pub fn with_pos(self, pos: Option<u64>) {
+        let set_pos = pos.and_then(|pos| i64::try_from(pos).ok()).unwrap_or(-1);
+        unsafe {
+            ffw_packet_set_pos(self.ptr, set_pos);
+        }
+    }
+
     /// Make the packet immutable.
     pub fn freeze(mut self) -> Packet {
         let ptr = self.ptr;
@@ -414,6 +435,16 @@ impl Packet {
             } else {
                 slice::from_raw_parts(data, size)
             }
+        }
+    }
+
+    /// Get the byte position of the packet data within the input stream, if known.
+    pub fn pos(&self) -> Option<u64> {
+        let pos = unsafe { ffw_packet_get_pos(self.ptr) };
+        if pos >= 0 {
+            Some(pos as u64)
+        } else {
+            None
         }
     }
 
