@@ -1,6 +1,7 @@
 //! Elementary IO used by the muxer and demuxer.
 
 use std::{
+    convert::{TryFrom, TryInto},
     io::{self, Read, Seek, SeekFrom, Write},
     os::raw::{c_int, c_void},
     slice,
@@ -13,7 +14,7 @@ type WritePacketCallback =
 type SeekCallback = extern "C" fn(opaque: *mut c_void, offset: i64, whence: c_int) -> i64;
 
 extern "C" {
-    fn ffw_io_is_avseek_size(whence: c_int) -> c_int;
+    fn ffw_io_whence_to_seek_mode(whence: c_int) -> c_int;
 
     fn ffw_io_context_new(
         buffer_size: c_int,
@@ -72,19 +73,45 @@ extern "C" fn io_seek<T>(opaque: *mut c_void, offset: i64, whence: c_int) -> i64
 where
     T: Seek,
 {
+    fn inner<U>(input: &mut U, offset: i64, mode: c_int) -> io::Result<i64>
+    where
+        U: Seek,
+    {
+        // 0 indicates that the AVSEEK_SIZE flag was set and we should return the current position
+        if mode == 0 {
+            return get_seekable_length(input)?
+                .try_into()
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "out of range"));
+        }
+
+        let pos = match mode {
+            // 1 means seek relative to the beginning
+            1 => u64::try_from(offset)
+                .map(SeekFrom::Start)
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid offset"))?,
+            // 2 means seek relative to the current position
+            2 => SeekFrom::Current(offset),
+            // 3 means seek relative to the end position
+            3 => SeekFrom::End(offset),
+            _ => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "invalid whence",
+                ))
+            }
+        };
+
+        input
+            .seek(pos)?
+            .try_into()
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "out of range"))
+    }
+
     let input_ptr = opaque as *mut T;
-
     let input = unsafe { &mut *input_ptr };
+    let mode = unsafe { ffw_io_whence_to_seek_mode(whence) };
 
-    let is_avseek_size = unsafe { ffw_io_is_avseek_size(whence) != 0 };
-
-    let seek = if is_avseek_size {
-        get_seekable_length(input)
-    } else {
-        input.seek(SeekFrom::Start(offset as u64))
-    };
-
-    match seek {
+    match inner(input, offset, mode) {
         Ok(len) => len as i64,
         Err(err) => err
             .raw_os_error()
