@@ -5,8 +5,17 @@ typedef int read_packet_t(void*, uint8_t*, int);
 typedef int write_packet_t(void*, uint8_t*, int);
 typedef int64_t seek_t(void*, int64_t, int);
 
-int ffw_io_is_avseek_size(int whence) {
-    return whence & AVSEEK_SIZE;
+int ffw_io_whence_to_seek_mode(int whence) {
+    if (whence & AVSEEK_SIZE) {
+        return 0;
+    }
+
+    switch (whence) {
+        case SEEK_SET: return 1;
+        case SEEK_CUR: return 2;
+        case SEEK_END: return 3;
+        default: return -1;
+    }
 }
 
 AVIOContext * ffw_io_context_new(
