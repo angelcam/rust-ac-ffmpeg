@@ -125,7 +125,11 @@ where
 }
 
 /// A WritePacketCallback function for the IO.
-extern "C" fn io_write_packet<T>(opaque: *mut c_void, buffer: *const u8, buffer_size: c_int) -> c_int
+extern "C" fn io_write_packet<T>(
+    opaque: *mut c_void,
+    buffer: *const u8,
+    buffer_size: c_int,
+) -> c_int
 where
     T: Write,
 {

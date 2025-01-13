@@ -28,4 +28,4 @@ version = "=0.1"
 path = "../ac-ffmpeg-features"
 
 [dev-dependencies]
-clap = "2.33"
+clap = "4"

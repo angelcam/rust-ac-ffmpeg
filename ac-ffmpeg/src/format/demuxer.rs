@@ -3,7 +3,7 @@
 use std::{
     borrow::{Borrow, BorrowMut},
     convert::TryInto,
-    ffi::{CString, CStr},
+    ffi::{CStr, CString},
     io::Read,
     ops::{Deref, DerefMut},
     os::raw::{c_char, c_int, c_uint, c_void},

@@ -12,7 +12,7 @@ use ac_ffmpeg::{
     time::{TimeBase, Timestamp},
     Error,
 };
-use clap::{App, Arg};
+use clap::{Arg, Command};
 
 /// Open a given output file.
 fn open_output(path: &str, elementary_streams: &[CodecParameters]) -> Result<Muxer<File>, Error> {
@@ -89,44 +89,43 @@ fn encode_black_video(
 }
 
 fn main() {
-    let matches = App::new("encoding")
+    let matches = Command::new("encoding")
         .arg(
-            Arg::with_name("output")
+            Arg::new("output")
                 .required(true)
-                .takes_value(true)
                 .value_name("OUTPUT")
                 .help("Output file"),
         )
         .arg(
-            Arg::with_name("width")
-                .short("w")
-                .takes_value(true)
+            Arg::new("width")
+                .short('W')
                 .value_name("WIDTH")
                 .help("width")
-                .default_value("640"),
+                .default_value("640")
+                .value_parser(clap::value_parser!(u32)),
         )
         .arg(
-            Arg::with_name("height")
-                .short("h")
-                .takes_value(true)
+            Arg::new("height")
+                .short('H')
                 .value_name("HEIGHT")
                 .help("height")
-                .default_value("480"),
+                .default_value("480")
+                .value_parser(clap::value_parser!(u32)),
         )
         .arg(
-            Arg::with_name("duration")
-                .short("d")
-                .takes_value(true)
+            Arg::new("duration")
+                .short('D')
                 .value_name("DURATION")
                 .help("duration in seconds")
-                .default_value("10"),
+                .default_value("10")
+                .value_parser(clap::value_parser!(f32)),
         )
         .get_matches();
 
-    let output_filename = matches.value_of("output").unwrap();
-    let width = matches.value_of("width").unwrap().parse().unwrap();
-    let height = matches.value_of("height").unwrap().parse().unwrap();
-    let duration = matches.value_of("duration").unwrap().parse().unwrap();
+    let output_filename = matches.get_one::<String>("output").unwrap();
+    let width = *matches.get_one("width").unwrap();
+    let height = *matches.get_one("height").unwrap();
+    let duration = *matches.get_one("duration").unwrap();
 
     let duration = Duration::from_secs_f32(duration);
 

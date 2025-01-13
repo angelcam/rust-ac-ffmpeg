@@ -9,7 +9,7 @@ use ac_ffmpeg::{
     },
     Error,
 };
-use clap::{App, Arg};
+use clap::{Arg, Command};
 
 /// Open a given input file.
 fn open_input(path: &str) -> Result<DemuxerWithStreamInfo<File>, Error> {
@@ -65,25 +65,23 @@ fn convert(input: &str, output: &str) -> Result<(), Error> {
 }
 
 fn main() {
-    let matches = App::new("muxing")
+    let matches = Command::new("muxing")
         .arg(
-            Arg::with_name("input")
+            Arg::new("input")
                 .required(true)
-                .takes_value(true)
                 .value_name("INPUT")
                 .help("Input file"),
         )
         .arg(
-            Arg::with_name("output")
+            Arg::new("output")
                 .required(true)
-                .takes_value(true)
                 .value_name("OUTPUT")
                 .help("Output file"),
         )
         .get_matches();
 
-    let input_filename = matches.value_of("input").unwrap();
-    let output_filename = matches.value_of("output").unwrap();
+    let input_filename = matches.get_one::<String>("input").unwrap();
+    let output_filename = matches.get_one::<String>("output").unwrap();
 
     if let Err(err) = convert(input_filename, output_filename) {
         eprintln!("ERROR: {}", err);
