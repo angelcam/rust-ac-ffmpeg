@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.18.2 (2025-01-13)
+
+* Fix build for FFmpeg 7.x
+* Expose stream side data
+* Expose input format name from demuxer
+* Expose codec tag
+* Use pkg-config also on MAC OS
+
 ## v0.18.1 (2023-01-06)
 
 * Expose packet duration

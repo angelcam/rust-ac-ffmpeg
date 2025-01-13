@@ -29,7 +29,8 @@ interface.
 
 ## Requirements
 
-* FFmpeg v4.x or v5.x libraries. The following libraries are required:
+* FFmpeg v4.x, v5.x, v6.x or v7.x libraries. The following libraries are
+  required:
     * libavutil
     * libavcodec
     * libavformat
