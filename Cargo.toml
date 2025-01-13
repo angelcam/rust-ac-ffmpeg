@@ -4,3 +4,4 @@ members = [
     "ac-ffmpeg-build",
     "ac-ffmpeg-features",
 ]
+resolver = "2"
