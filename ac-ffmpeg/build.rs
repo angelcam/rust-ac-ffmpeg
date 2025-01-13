@@ -1,14 +1,25 @@
 use std::path::Path;
 
 use cc::Build;
+use rustc_version::Version;
 
 fn main() {
     let docs_rs = std::env::var_os("DOCS_RS");
 
-    let ffmpeg_features = ac_ffmpeg_features::ffmpeg_features(docs_rs.is_some());
+    let rust_version = rustc_version::version_meta().expect("unable to get rustc version");
 
-    for feature in &ffmpeg_features {
-        println!("cargo:rustc-cfg={}", feature);
+    let all_ffmpeg_features = ac_ffmpeg_features::ffmpeg_features(true);
+    let available_ffmpeg_features = ac_ffmpeg_features::ffmpeg_features(docs_rs.is_some());
+
+    // Avoid cfg-check warnings on Rust >= 1.77.
+    if version_gte(&rust_version.semver, 1, 77) {
+        for feature in &all_ffmpeg_features {
+            println!("cargo::rustc-check-cfg=cfg({feature})");
+        }
+    }
+
+    for feature in &available_ffmpeg_features {
+        println!("cargo:rustc-cfg={feature}");
     }
 
     // skip building native resources during docs.rs builds
@@ -33,7 +44,7 @@ fn main() {
         build.include(dir);
     }
 
-    for feature in &ffmpeg_features {
+    for feature in &available_ffmpeg_features {
         build.define(&format!("FFW_FEATURE_{}", feature.to_uppercase()), None);
     }
 
@@ -79,4 +90,8 @@ fn link_mode() -> &'static str {
 /// Link a given library.
 fn link(lib: &str, mode: &str) {
     println!("cargo:rustc-link-lib={}={}", mode, lib);
+}
+
+fn version_gte(version: &Version, major: u64, minor: u64) -> bool {
+    version.major > major || (version.major == major && version.minor >= minor)
 }
