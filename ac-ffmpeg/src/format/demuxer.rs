@@ -45,6 +45,8 @@ extern "C" {
     fn ffw_demuxer_get_nb_streams(demuxer: *const c_void) -> c_uint;
     fn ffw_demuxer_get_stream(demuxer: *mut c_void, index: c_uint) -> *mut c_void;
     fn ffw_demuxer_get_input_format(demuxer: *const c_void) -> *const c_void;
+    fn ffw_demuxer_get_bit_rate(demuxer: *const c_void) -> c_int;
+    fn ffw_demuxer_get_duration(demuxer: *const c_void) -> c_int;
     fn ffw_demuxer_read_frame(
         demuxer: *mut c_void,
         packet: *mut *mut c_void,
@@ -332,6 +334,18 @@ impl<T> Demuxer<T> {
         };
 
         Ok(res)
+    }
+
+    pub fn get_bit_rate(&self) -> Result<i32, Error> {
+        let ret = unsafe { ffw_demuxer_get_bit_rate(self.ptr) };
+
+        Ok(ret)
+    }
+
+    pub fn get_duration(&self) -> Result<i32, Error> {
+        let ret = unsafe { ffw_demuxer_get_duration(self.ptr) };
+
+        Ok(ret)
     }
 
     pub fn input_format(&self) -> InputFormat {
