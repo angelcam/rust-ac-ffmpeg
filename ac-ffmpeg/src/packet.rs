@@ -482,6 +482,7 @@ pub struct SideDataRef(());
 
 impl SideDataRef {
     /// Create a packet side data from its raw representation.
+    #[cfg(any(stream_side_data, codec_params_side_data))]
     pub(crate) unsafe fn from_raw_ptr<'a>(ptr: *const c_void) -> &'a Self {
         unsafe { &*(ptr as *const Self) }
     }

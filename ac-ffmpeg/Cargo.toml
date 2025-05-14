@@ -24,7 +24,7 @@ version = "=0.1"
 path = "../ac-ffmpeg-build"
 
 [build-dependencies.ac-ffmpeg-features]
-version = "=0.1"
+version = "=0.1.1"
 path = "../ac-ffmpeg-features"
 
 [dev-dependencies]

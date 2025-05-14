@@ -7,8 +7,12 @@ use std::{
 
 use crate::{
     codec::CodecParameters,
-    packet::{SideDataRef, SideDataType},
     time::{TimeBase, Timestamp},
+};
+
+#[cfg(stream_side_data)]
+use crate::{
+    packet::{SideDataRef, SideDataType},
     Error,
 };
 
@@ -26,8 +30,14 @@ extern "C" {
         value: *const c_char,
     ) -> c_int;
     fn ffw_stream_set_id(stream: *mut c_void, id: c_int);
+
+    #[cfg(stream_side_data)]
     fn ffw_stream_get_nb_side_data(stream: *const c_void) -> usize;
+
+    #[cfg(stream_side_data)]
     fn ffw_stream_get_side_data(stream: *const c_void, index: usize) -> *const c_void;
+
+    #[cfg(stream_side_data)]
     fn ffw_stream_add_side_data(
         stream: *mut c_void,
         data_type: c_int,
@@ -137,6 +147,7 @@ impl Stream {
     }
 
     /// Get stream side data.
+    #[cfg(stream_side_data)]
     pub fn side_data(&self) -> SideDataIter<'_> {
         let len = unsafe { ffw_stream_get_nb_side_data(self.ptr) };
 
@@ -148,16 +159,17 @@ impl Stream {
     }
 
     /// Add stream side data.
+    #[cfg(stream_side_data)]
     pub fn add_side_data(&mut self, data_type: SideDataType, data: &[u8]) -> Result<(), Error> {
         let ret = unsafe {
             ffw_stream_add_side_data(self.ptr, data_type.into_raw(), data.as_ptr(), data.len())
         };
 
         if ret < 0 {
-            return Err(Error::from_raw_error_code(ret));
+            Err(Error::from_raw_error_code(ret))
+        } else {
+            Ok(())
         }
-
-        Ok(())
     }
 }
 
@@ -165,12 +177,14 @@ unsafe impl Send for Stream {}
 unsafe impl Sync for Stream {}
 
 /// Iterator over stream side data.
+#[cfg(stream_side_data)]
 pub struct SideDataIter<'a> {
     stream: &'a Stream,
     index: usize,
     len: usize,
 }
 
+#[cfg(stream_side_data)]
 impl<'a> Iterator for SideDataIter<'a> {
     type Item = &'a SideDataRef;
 
@@ -182,6 +196,7 @@ impl<'a> Iterator for SideDataIter<'a> {
         let side_data = unsafe {
             SideDataRef::from_raw_ptr(ffw_stream_get_side_data(self.stream.ptr, self.index))
         };
+
         self.index += 1;
 
         Some(side_data)
@@ -189,8 +204,10 @@ impl<'a> Iterator for SideDataIter<'a> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let hint = self.len - self.index;
+
         (hint, Some(hint))
     }
 }
 
+#[cfg(stream_side_data)]
 impl ExactSizeIterator for SideDataIter<'_> {}

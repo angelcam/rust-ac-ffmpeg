@@ -204,6 +204,54 @@ int ffw_codec_parameters_set_extradata(AVCodecParameters* params, const uint8_t*
     return 0;
 }
 
+#ifdef FFW_FEATURE_CODEC_PARAMS_SIDE_DATA
+
+size_t ffw_codec_parameters_get_nb_coded_side_data(const AVCodecParameters* params) {
+    return params->nb_coded_side_data;
+}
+
+const AVPacketSideData* ffw_codec_parameters_get_coded_side_data(
+    const AVCodecParameters* params,
+    size_t index)
+{
+    return &params->coded_side_data[index];
+}
+
+int ffw_codec_parameters_add_coded_side_data(
+    AVCodecParameters* params,
+    enum AVPacketSideDataType data_type,
+    const uint8_t* data,
+    size_t size)
+{
+    AVPacketSideData* side_data;
+    void* dup_data;
+
+    if (!(dup_data = av_memdup(data, size))) {
+        return AVERROR(ENOMEM);
+    }
+
+    side_data = av_packet_side_data_add(
+        &params->coded_side_data,
+        &params->nb_coded_side_data,
+        data_type,
+        dup_data,
+        size,
+        0);
+
+    if (!side_data) {
+        goto error;
+    }
+
+    return 0;
+
+error:
+    av_free(dup_data);
+
+    return AVERROR(ENOMEM);
+}
+
+#endif // FFW_FEATURE_CODEC_PARAMS_SIDE_DATA
+
 void ffw_codec_parameters_free(AVCodecParameters* params) {
     avcodec_parameters_free(&params);
 }

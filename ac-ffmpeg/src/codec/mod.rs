@@ -20,6 +20,9 @@ use crate::{
     Error,
 };
 
+#[cfg(codec_params_side_data)]
+use crate::packet::{SideDataRef, SideDataType};
+
 extern "C" {
     fn ffw_audio_codec_parameters_new(codec: *const c_char) -> *mut c_void;
     fn ffw_video_codec_parameters_new(codec: *const c_char) -> *mut c_void;
@@ -53,6 +56,23 @@ extern "C" {
         size: c_int,
     ) -> c_int;
     fn ffw_codec_parameters_free(params: *mut c_void);
+
+    #[cfg(codec_params_side_data)]
+    fn ffw_codec_parameters_get_nb_coded_side_data(params: *const c_void) -> usize;
+
+    #[cfg(codec_params_side_data)]
+    fn ffw_codec_parameters_get_coded_side_data(
+        params: *const c_void,
+        index: usize,
+    ) -> *const c_void;
+
+    #[cfg(codec_params_side_data)]
+    fn ffw_codec_parameters_add_coded_side_data(
+        params: *mut c_void,
+        data_type: c_int,
+        data: *const u8,
+        size: usize,
+    ) -> c_int;
 
     fn ffw_decoder_new(codec: *const c_char) -> *mut c_void;
     fn ffw_decoder_from_codec_parameters(params: *const c_void) -> *mut c_void;
@@ -180,6 +200,45 @@ impl From<Error> for CodecError {
     }
 }
 
+/// Iterator over codec parameters side data.
+#[cfg(codec_params_side_data)]
+pub struct SideDataIter<'a> {
+    params: &'a InnerCodecParameters,
+    index: usize,
+    len: usize,
+}
+
+#[cfg(codec_params_side_data)]
+impl<'a> Iterator for SideDataIter<'a> {
+    type Item = &'a SideDataRef;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index == self.len {
+            return None;
+        }
+
+        let side_data = unsafe {
+            SideDataRef::from_raw_ptr(ffw_codec_parameters_get_coded_side_data(
+                self.params.ptr,
+                self.index,
+            ))
+        };
+
+        self.index += 1;
+
+        Some(side_data)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let hint = self.len - self.index;
+
+        (hint, Some(hint))
+    }
+}
+
+#[cfg(codec_params_side_data)]
+impl ExactSizeIterator for SideDataIter<'_> {}
+
 /// Inner struct holding the pointer to the codec parameters.
 struct InnerCodecParameters {
     ptr: *mut c_void,
@@ -213,7 +272,7 @@ impl InnerCodecParameters {
 
     /// Get name of the decoder that is able to decode this codec or None
     /// if the decoder is not available.
-    fn decoder_name(&self) -> Option<&'static str> {
+    fn get_decoder_name(&self) -> Option<&'static str> {
         unsafe {
             let ptr = ffw_codec_parameters_get_decoder_name(self.ptr);
 
@@ -229,7 +288,7 @@ impl InnerCodecParameters {
 
     /// Get name of the encoder that is able to produce encoding of this codec
     /// or None if the encoder is not available.
-    fn encoder_name(&self) -> Option<&'static str> {
+    fn get_encoder_name(&self) -> Option<&'static str> {
         unsafe {
             let ptr = ffw_codec_parameters_get_encoder_name(self.ptr);
 
@@ -244,9 +303,180 @@ impl InnerCodecParameters {
     }
 
     /// Get codec tag.
-    pub fn codec_tag(&self) -> CodecTag {
+    fn get_codec_tag(&self) -> CodecTag {
         let codec_tag = unsafe { ffw_codec_parameters_get_codec_tag(self.ptr) };
+
         codec_tag.into()
+    }
+
+    /// Set codec tag.
+    fn set_codec_tag<T>(&mut self, codec_tag: T)
+    where
+        T: Into<CodecTag>,
+    {
+        let codec_tag = codec_tag.into();
+
+        unsafe {
+            ffw_codec_parameters_set_codec_tag(self.ptr, codec_tag.into());
+        }
+    }
+
+    /// Get bit rate.
+    fn get_bit_rate(&self) -> u64 {
+        unsafe { ffw_codec_parameters_get_bit_rate(self.ptr) as _ }
+    }
+
+    /// Set bit rate.
+    fn set_bit_rate(&mut self, bit_rate: u64) {
+        unsafe {
+            ffw_codec_parameters_set_bit_rate(self.ptr, bit_rate as _);
+        }
+    }
+
+    /// Get frame sample format.
+    fn get_sample_format(&self) -> SampleFormat {
+        unsafe { SampleFormat::from_raw(ffw_codec_parameters_get_format(self.ptr)) }
+    }
+
+    /// Set frame sample format.
+    fn set_sample_format(&mut self, format: SampleFormat) {
+        unsafe {
+            ffw_codec_parameters_set_format(self.ptr, format.into_raw());
+        }
+    }
+
+    /// Get sampling rate.
+    fn get_sample_rate(&self) -> u32 {
+        unsafe { ffw_codec_parameters_get_sample_rate(self.ptr) as _ }
+    }
+
+    /// Set sampling rate.
+    fn set_sample_rate(&mut self, rate: u32) {
+        assert!(rate > 0);
+
+        unsafe {
+            ffw_codec_parameters_set_sample_rate(self.ptr, rate as _);
+        }
+    }
+
+    /// Get channel layout.
+    fn get_channel_layout(&self) -> &ChannelLayoutRef {
+        unsafe { ChannelLayoutRef::from_raw_ptr(ffw_codec_parameters_get_channel_layout(self.ptr)) }
+    }
+
+    /// Set channel layout.
+    fn set_channel_layout(&mut self, layout: &ChannelLayoutRef) {
+        let ret = unsafe { ffw_codec_parameters_set_channel_layout(self.ptr, layout.as_ptr()) };
+
+        if ret != 0 {
+            panic!("unable to copy channel layout");
+        }
+    }
+
+    /// Get frame pixel format.
+    fn get_pixel_format(&self) -> PixelFormat {
+        unsafe { PixelFormat::from_raw(ffw_codec_parameters_get_format(self.ptr)) }
+    }
+
+    /// Set frame pixel format.
+    fn set_pixel_format(&mut self, format: PixelFormat) {
+        unsafe {
+            ffw_codec_parameters_set_format(self.ptr, format.into_raw());
+        }
+    }
+
+    /// Get frame width.
+    fn get_width(&self) -> usize {
+        unsafe { ffw_codec_parameters_get_width(self.ptr) as _ }
+    }
+
+    /// Set frame width.
+    fn set_width(&mut self, width: usize) {
+        unsafe {
+            ffw_codec_parameters_set_width(self.ptr, width as _);
+        }
+    }
+
+    /// Get frame height.
+    fn get_height(&self) -> usize {
+        unsafe { ffw_codec_parameters_get_height(self.ptr) as _ }
+    }
+
+    /// Set frame height.
+    fn set_height(&mut self, height: usize) {
+        unsafe {
+            ffw_codec_parameters_set_height(self.ptr, height as _);
+        }
+    }
+
+    /// Get extradata.
+    fn get_extradata(&self) -> Option<&[u8]> {
+        unsafe {
+            let data = ffw_codec_parameters_get_extradata(self.ptr) as *const u8;
+            let size = ffw_codec_parameters_get_extradata_size(self.ptr) as usize;
+
+            if data.is_null() {
+                None
+            } else {
+                Some(slice::from_raw_parts(data, size))
+            }
+        }
+    }
+
+    /// Set extradata.
+    fn set_extradata<T>(&mut self, data: Option<T>)
+    where
+        T: AsRef<[u8]>,
+    {
+        let data = data.as_ref().map(|d| d.as_ref());
+
+        let ptr;
+        let size;
+
+        if let Some(data) = data {
+            ptr = data.as_ptr();
+            size = data.len();
+        } else {
+            ptr = ptr::null();
+            size = 0;
+        }
+
+        let res = unsafe { ffw_codec_parameters_set_extradata(self.ptr, ptr, size as _) };
+
+        if res < 0 {
+            panic!("unable to allocate extradata");
+        }
+    }
+
+    /// Get the additional data associated with the entire stream.
+    #[cfg(codec_params_side_data)]
+    fn get_coded_side_data(&self) -> SideDataIter<'_> {
+        let len = unsafe { ffw_codec_parameters_get_nb_coded_side_data(self.ptr) };
+
+        SideDataIter {
+            params: self,
+            index: 0,
+            len,
+        }
+    }
+
+    /// Add new side data.
+    #[cfg(codec_params_side_data)]
+    fn add_coded_side_data(&mut self, data_type: SideDataType, data: &[u8]) -> Result<(), Error> {
+        let ret = unsafe {
+            ffw_codec_parameters_add_coded_side_data(
+                self.ptr,
+                data_type.into_raw(),
+                data.as_ptr(),
+                data.len(),
+            )
+        };
+
+        if ret < 0 {
+            Err(Error::from_raw_error_code(ret))
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -345,13 +575,13 @@ impl CodecParameters {
     /// Get name of the decoder that is able to decode this codec or None
     /// if the decoder is not available.
     pub fn decoder_name(&self) -> Option<&'static str> {
-        self.inner.as_ref().decoder_name()
+        self.inner.as_ref().get_decoder_name()
     }
 
     /// Get name of the encoder that is able to produce encoding of this codec
     /// or None if the encoder is not available.
     pub fn encoder_name(&self) -> Option<&'static str> {
-        self.inner.as_ref().encoder_name()
+        self.inner.as_ref().get_encoder_name()
     }
 
     /// Get reference to audio codec parameters (if possible).
@@ -456,80 +686,55 @@ impl AudioCodecParametersBuilder {
     }
 
     /// Set bit rate.
-    pub fn bit_rate(self, bit_rate: u64) -> Self {
-        unsafe {
-            ffw_codec_parameters_set_bit_rate(self.inner.ptr, bit_rate as _);
-        }
-
+    pub fn bit_rate(mut self, bit_rate: u64) -> Self {
+        self.inner.set_bit_rate(bit_rate);
         self
     }
 
     /// Set frame sample format.
-    pub fn sample_format(self, format: SampleFormat) -> Self {
-        unsafe {
-            ffw_codec_parameters_set_format(self.inner.ptr, format.into_raw());
-        }
-
+    pub fn sample_format(mut self, format: SampleFormat) -> Self {
+        self.inner.set_sample_format(format);
         self
     }
 
     /// Set sampling rate.
-    pub fn sample_rate(self, rate: u32) -> Self {
-        assert!(rate > 0);
-
-        unsafe {
-            ffw_codec_parameters_set_sample_rate(self.inner.ptr, rate as _);
-        }
-
+    pub fn sample_rate(mut self, rate: u32) -> Self {
+        self.inner.set_sample_rate(rate);
         self
     }
 
     /// Set channel layout.
-    pub fn channel_layout(self, layout: &ChannelLayoutRef) -> Self {
-        let ret =
-            unsafe { ffw_codec_parameters_set_channel_layout(self.inner.ptr, layout.as_ptr()) };
-
-        if ret != 0 {
-            panic!("unable to copy channel layout");
-        }
-
+    pub fn channel_layout(mut self, layout: &ChannelLayoutRef) -> Self {
+        self.inner.set_channel_layout(layout);
         self
     }
 
     /// Set codec tag.
-    pub fn codec_tag(self, codec_tag: impl Into<CodecTag>) -> Self {
-        unsafe {
-            ffw_codec_parameters_set_codec_tag(self.inner.ptr, codec_tag.into().into());
-        }
-
+    pub fn codec_tag<T>(mut self, codec_tag: T) -> Self
+    where
+        T: Into<CodecTag>,
+    {
+        self.inner.set_codec_tag(codec_tag);
         self
     }
 
     /// Set extradata.
-    pub fn extradata<T>(self, data: Option<T>) -> Self
+    pub fn extradata<T>(mut self, data: Option<T>) -> Self
     where
         T: AsRef<[u8]>,
     {
-        let data = data.as_ref().map(|d| d.as_ref());
-
-        let ptr;
-        let size;
-
-        if let Some(data) = data {
-            ptr = data.as_ptr();
-            size = data.len();
-        } else {
-            ptr = ptr::null();
-            size = 0;
-        }
-
-        let res = unsafe { ffw_codec_parameters_set_extradata(self.inner.ptr, ptr, size as _) };
-
-        if res < 0 {
-            panic!("unable to allocate extradata");
-        }
-
+        self.inner.set_extradata(data);
         self
+    }
+
+    /// Add new side data.
+    #[cfg(codec_params_side_data)]
+    pub fn add_coded_side_data(
+        &mut self,
+        data_type: SideDataType,
+        data: &[u8],
+    ) -> Result<(), Error> {
+        self.inner.add_coded_side_data(data_type, data)
     }
 
     /// Build the codec parameters.
@@ -566,54 +771,49 @@ impl AudioCodecParameters {
     /// Get name of the decoder that is able to decode this codec or None
     /// if the decoder is not available.
     pub fn decoder_name(&self) -> Option<&'static str> {
-        self.inner.decoder_name()
+        self.inner.get_decoder_name()
     }
 
     /// Get name of the encoder that is able to produce encoding of this codec
     /// or None if the encoder is not available.
     pub fn encoder_name(&self) -> Option<&'static str> {
-        self.inner.encoder_name()
+        self.inner.get_encoder_name()
     }
 
     /// Get bit rate.
     pub fn bit_rate(&self) -> u64 {
-        unsafe { ffw_codec_parameters_get_bit_rate(self.inner.ptr) as _ }
+        self.inner.get_bit_rate()
     }
 
     /// Get frame sample format.
     pub fn sample_format(&self) -> SampleFormat {
-        unsafe { SampleFormat::from_raw(ffw_codec_parameters_get_format(self.inner.ptr)) }
+        self.inner.get_sample_format()
     }
 
     /// Get sampling rate.
     pub fn sample_rate(&self) -> u32 {
-        unsafe { ffw_codec_parameters_get_sample_rate(self.inner.ptr) as _ }
+        self.inner.get_sample_rate()
     }
 
     /// Get channel layout.
     pub fn channel_layout(&self) -> &ChannelLayoutRef {
-        unsafe {
-            ChannelLayoutRef::from_raw_ptr(ffw_codec_parameters_get_channel_layout(self.inner.ptr))
-        }
+        self.inner.get_channel_layout()
     }
 
     /// Get codec tag.
     pub fn codec_tag(&self) -> CodecTag {
-        self.inner.codec_tag()
+        self.inner.get_codec_tag()
     }
 
     /// Get extradata.
     pub fn extradata(&self) -> Option<&[u8]> {
-        unsafe {
-            let data = ffw_codec_parameters_get_extradata(self.inner.ptr) as *const u8;
-            let size = ffw_codec_parameters_get_extradata_size(self.inner.ptr) as usize;
+        self.inner.get_extradata()
+    }
 
-            if data.is_null() {
-                None
-            } else {
-                Some(slice::from_raw_parts(data, size))
-            }
-        }
+    /// Get the additional data associated with the entire stream.
+    #[cfg(codec_params_side_data)]
+    pub fn coded_side_data(&self) -> SideDataIter<'_> {
+        self.inner.get_coded_side_data()
     }
 }
 
@@ -653,75 +853,55 @@ impl VideoCodecParametersBuilder {
     }
 
     /// Set bit rate.
-    pub fn bit_rate(self, bit_rate: u64) -> Self {
-        unsafe {
-            ffw_codec_parameters_set_bit_rate(self.inner.ptr, bit_rate as _);
-        }
-
+    pub fn bit_rate(mut self, bit_rate: u64) -> Self {
+        self.inner.set_bit_rate(bit_rate);
         self
     }
 
     /// Set frame pixel format.
-    pub fn pixel_format(self, format: PixelFormat) -> Self {
-        unsafe {
-            ffw_codec_parameters_set_format(self.inner.ptr, format.into_raw());
-        }
-
+    pub fn pixel_format(mut self, format: PixelFormat) -> Self {
+        self.inner.set_pixel_format(format);
         self
     }
 
     /// Set frame width.
-    pub fn width(self, width: usize) -> Self {
-        unsafe {
-            ffw_codec_parameters_set_width(self.inner.ptr, width as _);
-        }
-
+    pub fn width(mut self, width: usize) -> Self {
+        self.inner.set_width(width);
         self
     }
 
     /// Set frame height.
-    pub fn height(self, height: usize) -> Self {
-        unsafe {
-            ffw_codec_parameters_set_height(self.inner.ptr, height as _);
-        }
-
+    pub fn height(mut self, height: usize) -> Self {
+        self.inner.set_height(height);
         self
     }
 
     /// Set codec tag.
-    pub fn codec_tag(self, codec_tag: impl Into<CodecTag>) -> Self {
-        unsafe {
-            ffw_codec_parameters_set_codec_tag(self.inner.ptr, codec_tag.into().into());
-        }
-
+    pub fn codec_tag<T>(mut self, codec_tag: T) -> Self
+    where
+        T: Into<CodecTag>,
+    {
+        self.inner.set_codec_tag(codec_tag);
         self
     }
 
     /// Set extradata.
-    pub fn extradata<T>(self, data: Option<T>) -> Self
+    pub fn extradata<T>(mut self, data: Option<T>) -> Self
     where
         T: AsRef<[u8]>,
     {
-        let data = data.as_ref().map(|d| d.as_ref());
-
-        let ptr;
-        let size;
-
-        if let Some(data) = data {
-            ptr = data.as_ptr();
-            size = data.len();
-        } else {
-            ptr = ptr::null();
-            size = 0;
-        }
-
-        let res = unsafe { ffw_codec_parameters_set_extradata(self.inner.ptr, ptr, size as _) };
-
-        if res < 0 {
-            panic!("unable to allocate extradata");
-        }
-
+        self.inner.set_extradata(data);
         self
+    }
+
+    /// Add new side data.
+    #[cfg(codec_params_side_data)]
+    pub fn add_coded_side_data(
+        &mut self,
+        data_type: SideDataType,
+        data: &[u8],
+    ) -> Result<(), Error> {
+        self.inner.add_coded_side_data(data_type, data)
     }
 
     /// Build the codec parameters.
@@ -758,52 +938,49 @@ impl VideoCodecParameters {
     /// Get name of the decoder that is able to decode this codec or None
     /// if the decoder is not available.
     pub fn decoder_name(&self) -> Option<&'static str> {
-        self.inner.decoder_name()
+        self.inner.get_decoder_name()
     }
 
     /// Get name of the encoder that is able to produce encoding of this codec
     /// or None if the encoder is not available.
     pub fn encoder_name(&self) -> Option<&'static str> {
-        self.inner.encoder_name()
+        self.inner.get_encoder_name()
     }
 
     /// Get bit rate.
     pub fn bit_rate(&self) -> u64 {
-        unsafe { ffw_codec_parameters_get_bit_rate(self.inner.ptr) as _ }
+        self.inner.get_bit_rate()
     }
 
     /// Get frame pixel format.
     pub fn pixel_format(&self) -> PixelFormat {
-        unsafe { PixelFormat::from_raw(ffw_codec_parameters_get_format(self.inner.ptr)) }
+        self.inner.get_pixel_format()
     }
 
     /// Get frame width.
     pub fn width(&self) -> usize {
-        unsafe { ffw_codec_parameters_get_width(self.inner.ptr) as _ }
+        self.inner.get_width()
     }
 
     /// Get frame height.
     pub fn height(&self) -> usize {
-        unsafe { ffw_codec_parameters_get_height(self.inner.ptr) as _ }
+        self.inner.get_height()
     }
 
     /// Get codec tag.
     pub fn codec_tag(&self) -> CodecTag {
-        self.inner.codec_tag()
+        self.inner.get_codec_tag()
     }
 
     /// Get extradata.
     pub fn extradata(&self) -> Option<&[u8]> {
-        unsafe {
-            let data = ffw_codec_parameters_get_extradata(self.inner.ptr) as *const u8;
-            let size = ffw_codec_parameters_get_extradata_size(self.inner.ptr) as usize;
+        self.inner.get_extradata()
+    }
 
-            if data.is_null() {
-                None
-            } else {
-                Some(slice::from_raw_parts(data, size))
-            }
-        }
+    /// Get the additional data associated with the entire stream.
+    #[cfg(codec_params_side_data)]
+    pub fn coded_side_data(&self) -> SideDataIter<'_> {
+        self.inner.get_coded_side_data()
     }
 }
 
@@ -844,13 +1021,13 @@ impl SubtitleCodecParameters {
     /// Get name of the decoder that is able to decode this codec or None
     /// if the decoder is not available.
     pub fn decoder_name(&self) -> Option<&'static str> {
-        self.inner.decoder_name()
+        self.inner.get_decoder_name()
     }
 
     /// Get name of the encoder that is able to produce encoding of this codec
     /// or None if the encoder is not available.
     pub fn encoder_name(&self) -> Option<&'static str> {
-        self.inner.encoder_name()
+        self.inner.get_encoder_name()
     }
 }
 
