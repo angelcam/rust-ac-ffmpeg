@@ -62,7 +62,7 @@ fn get_seekable_length<T>(seekable: &mut T) -> Result<u64, std::io::Error>
 where
     T: Seek,
 {
-    let current_position = seekable.seek(SeekFrom::Current(0))?;
+    let current_position = seekable.stream_position()?;
     let end_position = seekable.seek(SeekFrom::End(0))?;
 
     seekable.seek(SeekFrom::Start(current_position))?;
@@ -120,7 +120,7 @@ where
     let mode = unsafe { ffw_io_whence_to_seek_mode(whence) };
 
     match inner(input, offset, mode) {
-        Ok(len) => len as i64,
+        Ok(len) => len,
         Err(err) => err
             .raw_os_error()
             .map(|code| unsafe { crate::ffw_error_from_posix(code as _) })

@@ -254,7 +254,7 @@ impl<'a> Deref for PlanesMut<'a> {
     }
 }
 
-impl<'a> DerefMut for PlanesMut<'a> {
+impl DerefMut for PlanesMut<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
