@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.19.0 (2025-MM-DD)
+
+* Handle stream side data deprecation and expose codec parameters side data
+  when available
+* Fix seeking
+
 ## v0.18.2 (2025-01-13)
 
 * Fix build for FFmpeg 7.x
