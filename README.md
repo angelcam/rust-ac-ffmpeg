@@ -23,6 +23,7 @@ interface.
 * Seeking
 * Decoding audio and video
 * Encoding audio and video
+* Transcoding subtitles
 * Video frame scaling and pixel format transformations
 * Audio resampling
 * Bitstream filters
