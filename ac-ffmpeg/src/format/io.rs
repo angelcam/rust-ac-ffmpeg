@@ -9,8 +9,10 @@ use std::{
 
 type ReadPacketCallback =
     extern "C" fn(opaque: *mut c_void, buffer: *mut u8, buffer_size: c_int) -> c_int;
+
 type WritePacketCallback =
     extern "C" fn(opaque: *mut c_void, buffer: *const u8, buffer_size: c_int) -> c_int;
+
 type SeekCallback = extern "C" fn(opaque: *mut c_void, offset: i64, whence: c_int) -> i64;
 
 extern "C" {
@@ -77,7 +79,8 @@ where
     where
         U: Seek,
     {
-        // 0 indicates that the AVSEEK_SIZE flag was set and we should return the current position
+        // 0 indicates that the AVSEEK_SIZE flag was set and we should just
+        // return the size of the stream.
         if mode == 0 {
             return get_seekable_length(input)?
                 .try_into()
@@ -89,10 +92,13 @@ where
             1 => u64::try_from(offset)
                 .map(SeekFrom::Start)
                 .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid offset"))?,
+
             // 2 means seek relative to the current position
             2 => SeekFrom::Current(offset),
+
             // 3 means seek relative to the end position
             3 => SeekFrom::End(offset),
+
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -108,7 +114,9 @@ where
     }
 
     let input_ptr = opaque as *mut T;
+
     let input = unsafe { &mut *input_ptr };
+
     let mode = unsafe { ffw_io_whence_to_seek_mode(whence) };
 
     match inner(input, offset, mode) {
