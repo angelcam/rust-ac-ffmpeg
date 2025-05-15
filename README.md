@@ -26,6 +26,7 @@ interface.
 * Video frame scaling and pixel format transformations
 * Audio resampling
 * Bitstream filters
+* Simple Video filtergraphs
 
 ## Requirements
 
@@ -36,6 +37,8 @@ interface.
     * libavformat
     * libswresample
     * libswscale
+* and the following libraries are optional:
+    * libavfilter
 
 ## Compilation
 

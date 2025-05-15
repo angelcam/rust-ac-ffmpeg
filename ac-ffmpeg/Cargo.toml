@@ -12,6 +12,10 @@ Simple and safe Rust interface for FFmpeg libraries.
 """
 keywords = ["ffmpeg", "audio", "video", "codec", "multimedia"]
 
+[features]
+default = []
+filters = []
+
 [dependencies]
 lazy_static = "1.4"
 
@@ -29,3 +33,11 @@ path = "../ac-ffmpeg-features"
 
 [dev-dependencies]
 clap = "4"
+
+[[example]]
+name = "filtering"
+path = "examples/filtering.rs"
+required-features = ["filters"]
+
+[package.metadata.docs.rs]
+features = ["filters"]
