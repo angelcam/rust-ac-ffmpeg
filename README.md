@@ -37,6 +37,7 @@ interface.
     * libavformat
     * libswresample
     * libswscale
+* and the following libraries are optional:
     * libavfilter
 
 ## Compilation

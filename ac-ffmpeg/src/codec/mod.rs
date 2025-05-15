@@ -1169,6 +1169,14 @@ pub trait Encoder {
     fn take(&mut self) -> Result<Option<Packet>, Error>;
 }
 
+/// A media filter.
+///
+/// # Common filter operation
+/// 1. Push a frame to the filter.
+/// 2. Take all frames from the filter until you get `None`.
+/// 3. If there are more frames to be filtered, continue with 1.
+/// 4. Flush the filter.
+/// 5. Take all frames from the filter until you get `None`.
 pub trait Filter {
     type Frame;
 
