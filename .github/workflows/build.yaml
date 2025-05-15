@@ -1,8 +1,8 @@
-name: Release build for all boards
+name: Check formatting and run tests
 on:
   push:
     branches:
-      - 'master'
+      - master
   workflow_dispatch:
 jobs:
   build:
