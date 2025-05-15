@@ -2,6 +2,7 @@
 
 ## v0.19.0 (2025-MM-DD)
 
+* Add video filtering support
 * Handle stream side data deprecation and expose codec parameters side data
   when available
 * Fix seeking
