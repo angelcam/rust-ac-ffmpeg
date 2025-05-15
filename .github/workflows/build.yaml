@@ -1,0 +1,29 @@
+name: Release build for all boards
+on:
+  push:
+    branches:
+      - 'master'
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        features:
+          - ""
+          - "filters"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: ConorMacBride/install-package@v1
+        with:
+          apt: libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+      - name: Run Clippy
+        run: |
+          cargo clippy --features "${{ matrix.features }}" -- -D warnings
+      - name: Run tests
+        run: |
+          cargo test --features "${{ matrix.features }}"
