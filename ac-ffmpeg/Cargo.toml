@@ -1,6 +1,6 @@
 [package]
 name = "ac-ffmpeg"
-version = "0.18.2"
+version = "0.19.0"
 authors = ["Angelcam, Inc. <dev@angelcam.com>"]
 edition = "2021"
 readme = "README.md"

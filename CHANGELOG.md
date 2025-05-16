@@ -1,12 +1,13 @@
 # Changelog
 
-## v0.19.0 (2025-MM-DD)
+## v0.19.0 (2025-05-16)
 
 * Add video filtering support
 * Handle stream side data deprecation and expose codec parameters side data
   when available
 * Allow inlining trivial functions
 * Fix seeking
+* Multiple fixes and optimizations
 
 ## v0.18.2 (2025-01-13)
 
