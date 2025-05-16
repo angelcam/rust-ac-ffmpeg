@@ -124,7 +124,7 @@ where
         Err(err) => err
             .raw_os_error()
             .map(|code| unsafe { crate::ffw_error_from_posix(code as _) })
-            .unwrap_or_else(|| unsafe { crate::ffw_error_unknown() }) as i64,
+            .unwrap_or_else(|| unsafe { crate::ffw_error_unknown }) as i64,
     }
 }
 
@@ -144,16 +144,16 @@ where
             if n > 0 {
                 n as c_int
             } else {
-                unsafe { crate::ffw_error_eof() }
+                unsafe { crate::ffw_error_eof }
             }
         }
         Err(err) => {
             if let Some(code) = err.raw_os_error() {
                 unsafe { crate::ffw_error_from_posix(code as _) }
             } else if err.kind() == io::ErrorKind::WouldBlock {
-                unsafe { crate::ffw_error_would_block() }
+                unsafe { crate::ffw_error_would_block }
             } else {
-                unsafe { crate::ffw_error_unknown() }
+                unsafe { crate::ffw_error_unknown }
             }
         }
     }
@@ -180,16 +180,16 @@ where
                 if n > 0 {
                     n as c_int
                 } else {
-                    unsafe { crate::ffw_error_eof() }
+                    unsafe { crate::ffw_error_eof }
                 }
             }
             Err(err) => {
                 if let Some(code) = err.raw_os_error() {
                     unsafe { crate::ffw_error_from_posix(code as _) }
                 } else if err.kind() == io::ErrorKind::WouldBlock {
-                    unsafe { crate::ffw_error_would_block() }
+                    unsafe { crate::ffw_error_would_block }
                 } else {
-                    unsafe { crate::ffw_error_unknown() }
+                    unsafe { crate::ffw_error_unknown }
                 }
             }
         }
@@ -197,9 +197,9 @@ where
         if let Some(code) = err.raw_os_error() {
             unsafe { crate::ffw_error_from_posix(code) }
         } else if err.kind() == io::ErrorKind::WouldBlock {
-            unsafe { crate::ffw_error_would_block() }
+            unsafe { crate::ffw_error_would_block }
         } else {
-            unsafe { crate::ffw_error_unknown() }
+            unsafe { crate::ffw_error_unknown }
         }
     } else {
         0

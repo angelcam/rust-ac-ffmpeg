@@ -1,21 +1,10 @@
 #include <libavutil/common.h>
 #include <libavutil/error.h>
 
-int ffw_error_again() {
-    return AVERROR(EAGAIN);
-}
-
-int ffw_error_eof() {
-    return AVERROR_EOF;
-}
-
-int ffw_error_would_block() {
-    return AVERROR(EWOULDBLOCK);
-}
-
-int ffw_error_unknown() {
-    return AVERROR_UNKNOWN;
-}
+int ffw_error_again = AVERROR(EAGAIN);
+int ffw_error_eof = AVERROR_EOF;
+int ffw_error_would_block = AVERROR(EWOULDBLOCK);
+int ffw_error_unknown = AVERROR_UNKNOWN;
 
 int ffw_error_from_posix(int error) {
     return AVERROR(error);

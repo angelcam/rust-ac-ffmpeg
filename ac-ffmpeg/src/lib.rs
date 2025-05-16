@@ -26,10 +26,11 @@ lazy_static! {
 extern "C" {
     fn ffw_set_log_callback(callback: extern "C" fn(c_int, *const c_char));
 
-    fn ffw_error_again() -> c_int;
-    fn ffw_error_eof() -> c_int;
-    fn ffw_error_would_block() -> c_int;
-    fn ffw_error_unknown() -> c_int;
+    static ffw_error_again: c_int;
+    static ffw_error_eof: c_int;
+    static ffw_error_would_block: c_int;
+    static ffw_error_unknown: c_int;
+
     fn ffw_error_from_posix(error: c_int) -> c_int;
     fn ffw_error_to_posix(error: c_int) -> c_int;
     fn ffw_error_get_error_string(error: c_int, buffer: *mut c_char, buffer_size: usize);
