@@ -5,6 +5,7 @@
 * Add video filtering support
 * Handle stream side data deprecation and expose codec parameters side data
   when available
+* Allow inlining trivial functions
 * Fix seeking
 
 ## v0.18.2 (2025-01-13)
