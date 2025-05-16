@@ -25,17 +25,20 @@ impl TimeBase {
 
     /// Create a new time base as a rational number with a given numerator and
     /// denominator.
+    #[inline]
     pub const fn new(num: u32, den: u32) -> Self {
         Self { num, den }
     }
 
     /// Get the numerator.
-    pub fn num(&self) -> u32 {
+    #[inline]
+    pub const fn num(&self) -> u32 {
         self.num
     }
 
     /// Get the denominator.
-    pub fn den(&self) -> u32 {
+    #[inline]
+    pub const fn den(&self) -> u32 {
         self.den
     }
 }
@@ -66,6 +69,7 @@ impl Timestamp {
     }
 
     /// Create a new timestamp with a given time base.
+    #[inline]
     pub const fn new(timestamp: i64, time_base: TimeBase) -> Self {
         Self {
             timestamp,
@@ -74,39 +78,45 @@ impl Timestamp {
     }
 
     /// Create a new timestamp with 1/1 time base.
+    #[inline]
     pub const fn from_secs(timestamp: i64) -> Self {
         Self::new(timestamp, TimeBase::new(1, 1))
     }
 
     /// Create a new timestamp with 1/1_000 time base.
+    #[inline]
     pub const fn from_millis(timestamp: i64) -> Self {
         Self::new(timestamp, TimeBase::new(1, 1_000))
     }
 
     /// Create a new timestamp with 1/1_000_000 time base.
+    #[inline]
     pub const fn from_micros(timestamp: i64) -> Self {
         Self::new(timestamp, TimeBase::new(1, 1_000_000))
     }
 
     /// Create a new timestamp with 1/1_000_000_000 time base.
+    #[inline]
     pub const fn from_nanos(timestamp: i64) -> Self {
         Self::new(timestamp, TimeBase::new(1, 1_000_000_000))
     }
 
     /// Get the time base.
-    pub fn time_base(&self) -> TimeBase {
+    #[inline]
+    pub const fn time_base(&self) -> TimeBase {
         self.time_base
     }
 
     /// Get the raw timestamp value.
-    pub fn timestamp(&self) -> i64 {
+    #[inline]
+    pub const fn timestamp(&self) -> i64 {
         self.timestamp
     }
 
     /// Set the timestamp with the current time base.
-    pub fn with_raw_timestamp(mut self, timestamp: i64) -> Self {
+    #[inline]
+    pub const fn with_raw_timestamp(mut self, timestamp: i64) -> Self {
         self.timestamp = timestamp;
-
         self
     }
 

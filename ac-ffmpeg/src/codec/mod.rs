@@ -159,11 +159,13 @@ impl CodecError {
     }
 
     /// Check if another operation needs to be done.
+    #[inline]
     pub fn is_again(&self) -> bool {
         matches!(&self.variant, CodecErrorVariant::Again(_))
     }
 
     /// Get the inner error (if any).
+    #[inline]
     pub fn into_inner(self) -> Option<Error> {
         if let CodecErrorVariant::Error(err) = self.variant {
             Some(err)
@@ -193,6 +195,7 @@ impl Display for CodecError {
 impl std::error::Error for CodecError {}
 
 impl From<Error> for CodecError {
+    #[inline]
     fn from(err: Error) -> Self {
         Self {
             variant: CodecErrorVariant::Error(err),
@@ -640,6 +643,7 @@ impl CodecParameters {
 }
 
 impl From<AudioCodecParameters> for CodecParameters {
+    #[inline]
     fn from(params: AudioCodecParameters) -> Self {
         Self {
             inner: CodecParametersVariant::Audio(params),
@@ -648,6 +652,7 @@ impl From<AudioCodecParameters> for CodecParameters {
 }
 
 impl From<VideoCodecParameters> for CodecParameters {
+    #[inline]
     fn from(params: VideoCodecParameters) -> Self {
         Self {
             inner: CodecParametersVariant::Video(params),
@@ -655,6 +660,7 @@ impl From<VideoCodecParameters> for CodecParameters {
     }
 }
 impl From<SubtitleCodecParameters> for CodecParameters {
+    #[inline]
     fn from(params: SubtitleCodecParameters) -> Self {
         Self {
             inner: CodecParametersVariant::Subtitle(params),
@@ -738,12 +744,14 @@ impl AudioCodecParametersBuilder {
     }
 
     /// Build the codec parameters.
+    #[inline]
     pub fn build(self) -> AudioCodecParameters {
         AudioCodecParameters { inner: self.inner }
     }
 }
 
 impl From<AudioCodecParameters> for AudioCodecParametersBuilder {
+    #[inline]
     fn from(params: AudioCodecParameters) -> Self {
         Self {
             inner: params.inner,
@@ -905,12 +913,14 @@ impl VideoCodecParametersBuilder {
     }
 
     /// Build the codec parameters.
+    #[inline]
     pub fn build(self) -> VideoCodecParameters {
         VideoCodecParameters { inner: self.inner }
     }
 }
 
 impl From<VideoCodecParameters> for VideoCodecParametersBuilder {
+    #[inline]
     fn from(params: VideoCodecParameters) -> VideoCodecParametersBuilder {
         VideoCodecParametersBuilder {
             inner: params.inner,
@@ -1066,18 +1076,21 @@ impl From<InnerCodecParameters> for OtherCodecParameters {
 pub struct CodecTag(u32);
 
 impl From<u32> for CodecTag {
+    #[inline]
     fn from(value: u32) -> Self {
         Self(value)
     }
 }
 
 impl From<CodecTag> for u32 {
+    #[inline]
     fn from(value: CodecTag) -> Self {
         value.0
     }
 }
 
 impl From<&[u8; 4]> for CodecTag {
+    #[inline]
     fn from(value: &[u8; 4]) -> Self {
         Self(u32::from_le_bytes(*value))
     }

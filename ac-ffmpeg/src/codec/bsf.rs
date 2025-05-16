@@ -60,6 +60,7 @@ impl BitstreamFilterBuilder {
 
     /// Set input time base. By default it's in microseconds. All input packets
     /// will be rescaled to this time base before passing them to the filter.
+    #[inline]
     pub fn input_time_base(mut self, time_base: TimeBase) -> Self {
         self.input_time_base = time_base;
         self
@@ -79,6 +80,7 @@ impl BitstreamFilterBuilder {
 
     /// Set output time base. By default it's in microseconds. All output
     /// packets will use this time base.
+    #[inline]
     pub fn output_time_base(mut self, time_base: TimeBase) -> Self {
         self.output_time_base = time_base;
         self

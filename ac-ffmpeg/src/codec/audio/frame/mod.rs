@@ -225,6 +225,7 @@ impl<'a> From<&'a AudioFrameMut> for Planes<'a> {
 impl<'a> Deref for Planes<'a> {
     type Target = [Plane<'a>];
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
@@ -249,12 +250,14 @@ impl<'a> From<&'a mut AudioFrameMut> for PlanesMut<'a> {
 impl<'a> Deref for PlanesMut<'a> {
     type Target = [Plane<'a>];
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
 impl DerefMut for PlanesMut<'_> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
@@ -310,11 +313,13 @@ impl AudioFrameMut {
     }
 
     /// Get sample data planes for this frame.
+    #[inline]
     pub fn planes(&self) -> Planes {
         Planes::from(self)
     }
 
     /// Get mutable sample data planes for this frame.
+    #[inline]
     pub fn planes_mut(&mut self) -> PlanesMut {
         PlanesMut::from(self)
     }
@@ -325,6 +330,7 @@ impl AudioFrameMut {
     }
 
     /// Get frame time base.
+    #[inline]
     pub fn time_base(&self) -> TimeBase {
         self.time_base
     }
@@ -360,6 +366,7 @@ impl AudioFrameMut {
     }
 
     /// Make the frame immutable.
+    #[inline]
     pub fn freeze(mut self) -> AudioFrame {
         let ptr = self.ptr;
 
@@ -409,6 +416,7 @@ impl AudioFrame {
     }
 
     /// Get sample data planes for this frame.
+    #[inline]
     pub fn planes(&self) -> Planes {
         Planes::from(self)
     }
@@ -419,6 +427,7 @@ impl AudioFrame {
     }
 
     /// Get frame time base.
+    #[inline]
     pub fn time_base(&self) -> TimeBase {
         self.time_base
     }

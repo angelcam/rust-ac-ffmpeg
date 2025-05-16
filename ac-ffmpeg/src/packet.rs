@@ -78,6 +78,7 @@ impl PacketMut {
     }
 
     /// Get packet time base.
+    #[inline]
     pub fn time_base(&self) -> TimeBase {
         self.time_base
     }
@@ -283,6 +284,7 @@ impl Packet {
     }
 
     /// Get packet time base.
+    #[inline]
     pub fn time_base(&self) -> TimeBase {
         self.time_base
     }

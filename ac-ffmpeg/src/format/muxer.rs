@@ -98,11 +98,13 @@ impl MuxerBuilder {
     }
 
     /// Get streams.
+    #[inline]
     pub fn streams(&self) -> &[Stream] {
         &self.streams
     }
 
     /// Get mutable streams.
+    #[inline]
     pub fn streams_mut(&mut self) -> &mut [Stream] {
         &mut self.streams
     }
@@ -165,6 +167,7 @@ impl MuxerBuilder {
 
     /// Set the muxer to do the interleaving automatically. It is disabled by
     /// default.
+    #[inline]
     pub fn interleaved(mut self, interleaved: bool) -> MuxerBuilder {
         self.interleaved = interleaved;
         self

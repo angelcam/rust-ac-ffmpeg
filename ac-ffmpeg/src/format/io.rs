@@ -333,6 +333,7 @@ impl Write for MemWriter {
         Ok(buffer.len())
     }
 
+    #[inline]
     fn flush(&mut self) -> Result<(), io::Error> {
         Ok(())
     }

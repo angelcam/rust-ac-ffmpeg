@@ -390,24 +390,28 @@ impl AudioEncoderBuilder {
     }
 
     /// Set encoder time base. The default time base is in microseconds.
+    #[inline]
     pub fn time_base(mut self, time_base: TimeBase) -> Self {
         self.time_base = time_base;
         self
     }
 
     /// Set audio sample format.
+    #[inline]
     pub fn sample_format(mut self, format: SampleFormat) -> Self {
         self.sample_format = Some(format);
         self
     }
 
     /// Set sampling rate.
+    #[inline]
     pub fn sample_rate(mut self, rate: u32) -> Self {
         self.sample_rate = Some(rate);
         self
     }
 
     /// Set channel layout.
+    #[inline]
     pub fn channel_layout(mut self, layout: ChannelLayout) -> Self {
         self.channel_layout = Some(layout);
         self

@@ -145,6 +145,7 @@ impl DemuxerBuilder {
     }
 
     /// Set input format. If the input format is not set, it will be guessed from the input.
+    #[inline]
     pub fn input_format(mut self, format: Option<InputFormat>) -> DemuxerBuilder {
         self.input_format = format;
         self

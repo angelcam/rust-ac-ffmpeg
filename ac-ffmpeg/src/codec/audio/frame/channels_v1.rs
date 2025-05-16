@@ -19,11 +19,13 @@ pub struct ChannelLayoutRef(());
 
 impl ChannelLayoutRef {
     /// Create channel layout reference from a given pointer.
+    #[inline]
     pub(crate) unsafe fn from_raw_ptr<'a>(ptr: *const c_void) -> &'a Self {
         &*(ptr as *const Self)
     }
 
     /// Get raw pointer.
+    #[inline]
     pub(crate) fn as_ptr(&self) -> *const c_void {
         self as *const Self as *const c_void
     }
@@ -34,12 +36,14 @@ impl ChannelLayoutRef {
     }
 
     /// Get the raw representation.
+    #[inline]
     fn to_raw(&self) -> u64 {
         unsafe { *(self.as_ptr() as *const u64) }
     }
 }
 
 impl PartialEq for ChannelLayoutRef {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.to_raw() == other.to_raw()
     }
@@ -48,6 +52,7 @@ impl PartialEq for ChannelLayoutRef {
 impl ToOwned for ChannelLayoutRef {
     type Owned = ChannelLayout;
 
+    #[inline]
     fn to_owned(&self) -> Self::Owned {
         ChannelLayout(self.to_raw())
     }
@@ -71,6 +76,7 @@ impl ChannelLayout {
 }
 
 impl AsRef<ChannelLayoutRef> for ChannelLayout {
+    #[inline]
     fn as_ref(&self) -> &ChannelLayoutRef {
         let Self(raw) = self;
 
@@ -79,6 +85,7 @@ impl AsRef<ChannelLayoutRef> for ChannelLayout {
 }
 
 impl Borrow<ChannelLayoutRef> for ChannelLayout {
+    #[inline]
     fn borrow(&self) -> &ChannelLayoutRef {
         self.as_ref()
     }
@@ -87,24 +94,28 @@ impl Borrow<ChannelLayoutRef> for ChannelLayout {
 impl Deref for ChannelLayout {
     type Target = ChannelLayoutRef;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         self.as_ref()
     }
 }
 
 impl PartialEq for ChannelLayout {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_ref() == other.as_ref()
     }
 }
 
 impl PartialEq<ChannelLayoutRef> for ChannelLayout {
+    #[inline]
     fn eq(&self, other: &ChannelLayoutRef) -> bool {
         self.as_ref() == other
     }
 }
 
 impl PartialEq<ChannelLayout> for ChannelLayoutRef {
+    #[inline]
     fn eq(&self, other: &ChannelLayout) -> bool {
         self == other.as_ref()
     }

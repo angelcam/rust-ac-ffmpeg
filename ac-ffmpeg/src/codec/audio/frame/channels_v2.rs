@@ -27,6 +27,7 @@ pub struct ChannelLayoutRef(());
 
 impl ChannelLayoutRef {
     /// Create channel layout reference from a given pointer.
+    #[inline]
     pub(crate) unsafe fn from_raw_ptr<'a>(ptr: *const c_void) -> &'a Self {
         &*(ptr as *const Self)
     }
@@ -113,12 +114,14 @@ impl Drop for ChannelLayout {
 }
 
 impl AsRef<ChannelLayoutRef> for ChannelLayout {
+    #[inline]
     fn as_ref(&self) -> &ChannelLayoutRef {
         unsafe { ChannelLayoutRef::from_raw_ptr(self.ptr) }
     }
 }
 
 impl Borrow<ChannelLayoutRef> for ChannelLayout {
+    #[inline]
     fn borrow(&self) -> &ChannelLayoutRef {
         self.as_ref()
     }
@@ -127,30 +130,35 @@ impl Borrow<ChannelLayoutRef> for ChannelLayout {
 impl Deref for ChannelLayout {
     type Target = ChannelLayoutRef;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         self.as_ref()
     }
 }
 
 impl PartialEq for ChannelLayout {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_ref() == other.as_ref()
     }
 }
 
 impl PartialEq<ChannelLayoutRef> for ChannelLayout {
+    #[inline]
     fn eq(&self, other: &ChannelLayoutRef) -> bool {
         self.as_ref() == other
     }
 }
 
 impl PartialEq<ChannelLayout> for ChannelLayoutRef {
+    #[inline]
     fn eq(&self, other: &ChannelLayout) -> bool {
         self == other.as_ref()
     }
 }
 
 impl Clone for ChannelLayout {
+    #[inline]
     fn clone(&self) -> Self {
         self.as_ref().to_owned()
     }

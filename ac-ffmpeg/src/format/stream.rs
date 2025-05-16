@@ -67,6 +67,7 @@ impl Stream {
     }
 
     /// Get stream time base.
+    #[inline]
     pub fn time_base(&self) -> TimeBase {
         self.time_base
     }

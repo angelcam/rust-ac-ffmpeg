@@ -44,6 +44,7 @@ pub struct AudioResamplerBuilder {
 
 impl AudioResamplerBuilder {
     /// Create a new builder.
+    #[inline]
     fn new() -> Self {
         Self {
             source_channel_layout: None,
@@ -59,36 +60,42 @@ impl AudioResamplerBuilder {
     }
 
     /// Set source channel layout.
+    #[inline]
     pub fn source_channel_layout(mut self, channel_layout: ChannelLayout) -> Self {
         self.source_channel_layout = Some(channel_layout);
         self
     }
 
     /// Set source sample format.
+    #[inline]
     pub fn source_sample_format(mut self, sample_format: SampleFormat) -> Self {
         self.source_sample_format = Some(sample_format);
         self
     }
 
     /// Set source sample rate.
+    #[inline]
     pub fn source_sample_rate(mut self, sample_rate: u32) -> Self {
         self.source_sample_rate = Some(sample_rate);
         self
     }
 
     /// Set target channel layout.
+    #[inline]
     pub fn target_channel_layout(mut self, channel_layout: ChannelLayout) -> Self {
         self.target_channel_layout = Some(channel_layout);
         self
     }
 
     /// Set target sample format.
+    #[inline]
     pub fn target_sample_format(mut self, sample_format: SampleFormat) -> Self {
         self.target_sample_format = Some(sample_format);
         self
     }
 
     /// Set target sample rate.
+    #[inline]
     pub fn target_sample_rate(mut self, sample_rate: u32) -> Self {
         self.target_sample_rate = Some(sample_rate);
         self
@@ -96,6 +103,7 @@ impl AudioResamplerBuilder {
 
     /// Set the expected number of samples in target frames (for fixed frame
     /// size codecs).
+    #[inline]
     pub fn target_frame_samples(mut self, samples: Option<usize>) -> Self {
         self.target_frame_samples = samples;
         self
@@ -178,6 +186,7 @@ pub struct AudioResampler {
 
 impl AudioResampler {
     /// Get a builder for the audio resampler.
+    #[inline]
     pub fn builder() -> AudioResamplerBuilder {
         AudioResamplerBuilder::new()
     }

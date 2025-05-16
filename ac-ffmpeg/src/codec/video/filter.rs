@@ -70,6 +70,7 @@ impl VideoFilterBuilder {
     }
 
     /// Set the pixel aspect ratio (the default is `1:1`).
+    #[inline]
     pub fn pixel_aspect_ratio(mut self, num: u32, den: u32) -> Self {
         self.pixel_aspect_num = num;
         self.pixel_aspect_den = den;
@@ -77,12 +78,14 @@ impl VideoFilterBuilder {
     }
 
     /// Set input time base (the default is `1/1000000`).
+    #[inline]
     pub fn input_time_base(mut self, time_base: TimeBase) -> Self {
         self.input_time_base = time_base;
         self
     }
 
     /// Set output time base.
+    #[inline]
     pub fn output_time_base(mut self, time_base: TimeBase) -> Self {
         self.output_time_base = Some(time_base);
         self

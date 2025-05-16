@@ -307,6 +307,7 @@ impl<'a> From<&'a VideoFrameMut> for Planes<'a> {
 impl<'a> Deref for Planes<'a> {
     type Target = [Plane<'a>];
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
@@ -335,12 +336,14 @@ impl<'a> From<&'a mut VideoFrameMut> for PlanesMut<'a> {
 impl<'a> Deref for PlanesMut<'a> {
     type Target = [Plane<'a>];
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
 impl DerefMut for PlanesMut<'_> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
@@ -384,6 +387,7 @@ impl VideoFrameMut {
     }
 
     /// Get frame time base.
+    #[inline]
     pub fn time_base(&self) -> TimeBase {
         self.time_base
     }
@@ -494,6 +498,7 @@ impl VideoFrame {
     }
 
     /// Get frame time base.
+    #[inline]
     pub fn time_base(&self) -> TimeBase {
         self.time_base
     }

@@ -362,24 +362,28 @@ impl VideoEncoderBuilder {
     }
 
     /// Set encoder time base. The default time base is in microseconds.
+    #[inline]
     pub fn time_base(mut self, time_base: TimeBase) -> Self {
         self.time_base = time_base;
         self
     }
 
     /// Set encoder pixel format.
+    #[inline]
     pub fn pixel_format(mut self, format: PixelFormat) -> Self {
         self.format = Some(format);
         self
     }
 
     /// Set frame width.
+    #[inline]
     pub fn width(mut self, width: usize) -> Self {
         self.width = Some(width);
         self
     }
 
     /// Set frame height.
+    #[inline]
     pub fn height(mut self, height: usize) -> Self {
         self.height = Some(height);
         self
