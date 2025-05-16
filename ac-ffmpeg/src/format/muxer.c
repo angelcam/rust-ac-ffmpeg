@@ -27,8 +27,8 @@ int ffw_muxer_get_option(Muxer*, const char*, uint8_t**);
 int ffw_muxer_set_initial_option(Muxer*, const char*, const char*);
 int ffw_muxer_set_option(Muxer*, const char*, const char*);
 int ffw_muxer_set_metadata(Muxer*, const char*, const char*);
-int ffw_muxer_write_frame(Muxer*, AVPacket*, uint32_t, uint32_t);
-int ffw_muxer_interleaved_write_frame(Muxer*, AVPacket*, uint32_t, uint32_t);
+int ffw_muxer_write_frame(Muxer*, AVPacket*, int, int);
+int ffw_muxer_interleaved_write_frame(Muxer*, AVPacket*, int, int);
 int ffw_muxer_free(Muxer*);
 
 Muxer* ffw_muxer_new() {
@@ -127,7 +127,7 @@ int ffw_muxer_set_metadata(Muxer* muxer, const char* key, const char* value) {
     return av_dict_set(&muxer->fc->metadata, key, value, 0);
 }
 
-static int ffw_rescale_packet_timestamps(Muxer* muxer, AVPacket* packet, uint32_t src_tb_num, uint32_t src_tb_den) {
+static int ffw_rescale_packet_timestamps(Muxer* muxer, AVPacket* packet, int src_tb_num, int src_tb_den) {
     AVStream* stream;
     AVRational src_tb;
 
@@ -153,7 +153,7 @@ static int ffw_rescale_packet_timestamps(Muxer* muxer, AVPacket* packet, uint32_
     return 0;
 }
 
-int ffw_muxer_write_frame(Muxer* muxer, AVPacket* packet, uint32_t tb_num, uint32_t tb_den) {
+int ffw_muxer_write_frame(Muxer* muxer, AVPacket* packet, int tb_num, int tb_den) {
     int ret = ffw_rescale_packet_timestamps(muxer, packet, tb_num, tb_den);
 
     if (ret < 0) {
@@ -163,7 +163,7 @@ int ffw_muxer_write_frame(Muxer* muxer, AVPacket* packet, uint32_t tb_num, uint3
     return av_write_frame(muxer->fc, packet);
 }
 
-int ffw_muxer_interleaved_write_frame(Muxer* muxer, AVPacket* packet, uint32_t tb_num, uint32_t tb_den) {
+int ffw_muxer_interleaved_write_frame(Muxer* muxer, AVPacket* packet, int tb_num, int tb_den) {
     int ret = ffw_rescale_packet_timestamps(muxer, packet, tb_num, tb_den);
 
     if (ret < 0) {

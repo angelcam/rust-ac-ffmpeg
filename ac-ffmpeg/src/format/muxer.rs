@@ -41,14 +41,14 @@ extern "C" {
     fn ffw_muxer_write_frame(
         muxer: *mut c_void,
         packet: *mut c_void,
-        tb_num: u32,
-        tb_den: u32,
+        tb_num: c_int,
+        tb_den: c_int,
     ) -> c_int;
     fn ffw_muxer_interleaved_write_frame(
         muxer: *mut c_void,
         packet: *mut c_void,
-        tb_num: u32,
-        tb_den: u32,
+        tb_num: c_int,
+        tb_den: c_int,
     ) -> c_int;
     fn ffw_muxer_free(muxer: *mut c_void) -> c_int;
 }

@@ -14,11 +14,14 @@ use crate::{
 use crate::{
     packet::{SideDataRef, SideDataType},
     Error,
+    Rational,
 };
 
 extern "C" {
-    fn ffw_stream_get_time_base(stream: *const c_void, num: *mut u32, den: *mut u32);
-    fn ffw_stream_set_time_base(stream: *mut c_void, num: u32, den: u32);
+    fn ffw_stream_get_time_base(stream: *const c_void, num: *mut c_int, den: *mut c_int);
+    fn ffw_stream_set_time_base(stream: *mut c_void, num: c_int, den: c_int);
+    fn ffw_stream_get_r_frame_rate(stream: *const c_void, num: *mut c_int, den: *mut c_int);
+    fn ffw_stream_get_avg_frame_rate(stream: *const c_void, num: *mut c_int, den: *mut c_int);
     fn ffw_stream_get_start_time(stream: *const c_void) -> i64;
     fn ffw_stream_get_duration(stream: *const c_void) -> i64;
     fn ffw_stream_get_nb_frames(stream: *const c_void) -> i64;
@@ -55,8 +58,8 @@ pub struct Stream {
 impl Stream {
     /// Create a new stream from its raw representation.
     pub(crate) unsafe fn from_raw_ptr(ptr: *mut c_void) -> Self {
-        let mut num = 0_u32;
-        let mut den = 0_u32;
+        let mut num = 0;
+        let mut den = 0;
 
         ffw_stream_get_time_base(ptr, &mut num, &mut den);
 
@@ -76,6 +79,34 @@ impl Stream {
         self.time_base = time_base;
         unsafe {
             ffw_stream_set_time_base(self.ptr, self.time_base.num(), self.time_base.den());
+        }
+    }
+
+    /// Get real base framerate of the stream.
+    pub fn r_frame_rate(&self) -> Rational {
+        let mut num = 0;
+        let mut den = 0;
+
+        unsafe {
+            ffw_stream_get_r_frame_rate(self.ptr, &mut num, &mut den);
+        }
+
+        Rational::new(num, den)
+    }
+
+    /// Get average stream frame rate.
+    pub fn avg_frame_rate(&self) -> Option<Rational> {
+        let mut num = 0;
+        let mut den = 0;
+
+        unsafe {
+            ffw_stream_get_avg_frame_rate(self.ptr, &mut num, &mut den);
+        }
+
+        if num != 0 && den != 0 {
+            Some(Rational::new(num, den))
+        } else {
+            None
         }
     }
 
