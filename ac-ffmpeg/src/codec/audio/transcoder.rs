@@ -67,12 +67,12 @@ impl AudioTranscoderBuilder {
     pub fn build(self) -> Result<AudioTranscoder, Error> {
         let decoder = self
             .decoder_builder
-            .time_base(TimeBase::new(1, self.input.sample_rate()))
+            .time_base(TimeBase::new(1, self.input.sample_rate() as i32))
             .build()?;
 
         let encoder = self
             .encoder_builder
-            .time_base(TimeBase::new(1, self.output.sample_rate()))
+            .time_base(TimeBase::new(1, self.output.sample_rate() as i32))
             .build()?;
 
         let source_channel_layout = self.input.channel_layout();

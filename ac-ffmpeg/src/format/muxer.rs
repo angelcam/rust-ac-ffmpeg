@@ -41,14 +41,14 @@ extern "C" {
     fn ffw_muxer_write_frame(
         muxer: *mut c_void,
         packet: *mut c_void,
-        tb_num: u32,
-        tb_den: u32,
+        tb_num: c_int,
+        tb_den: c_int,
     ) -> c_int;
     fn ffw_muxer_interleaved_write_frame(
         muxer: *mut c_void,
         packet: *mut c_void,
-        tb_num: u32,
-        tb_den: u32,
+        tb_num: c_int,
+        tb_den: c_int,
     ) -> c_int;
     fn ffw_muxer_free(muxer: *mut c_void) -> c_int;
 }
@@ -259,11 +259,14 @@ impl<T> Muxer<T> {
 
         let tb = packet.time_base();
 
+        let tb_num: c_int = tb.num() as _;
+        let tb_den: c_int = tb.den() as _;
+
         let ret = unsafe {
             if self.interleaved {
-                ffw_muxer_interleaved_write_frame(self.ptr, packet.as_mut_ptr(), tb.num(), tb.den())
+                ffw_muxer_interleaved_write_frame(self.ptr, packet.as_mut_ptr(), tb_num, tb_den)
             } else {
-                ffw_muxer_write_frame(self.ptr, packet.as_mut_ptr(), tb.num(), tb.den())
+                ffw_muxer_write_frame(self.ptr, packet.as_mut_ptr(), tb_num, tb_den)
             }
         };
 

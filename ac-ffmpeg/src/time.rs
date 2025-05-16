@@ -1,23 +1,25 @@
 //! Time base aware timestamps.
 
 use std::{
+    borrow::Borrow,
     cmp::{Eq, Ordering, PartialEq, PartialOrd},
     fmt::{self, Debug, Formatter},
-    ops::{Add, AddAssign, Sub, SubAssign},
+    ops::{Add, AddAssign, Deref, Sub, SubAssign},
     time::Duration,
 };
+
+use crate::math::Rational;
 
 extern "C" {
     static ffw_null_timestamp: i64;
 
-    fn ffw_rescale_q(n: i64, aq_num: u32, aq_den: u32, bq_num: u32, bq_den: u32) -> i64;
+    fn ffw_rescale_q(n: i64, aq_num: i32, aq_den: i32, bq_num: i32, bq_den: i32) -> i64;
 }
 
 /// A rational time base (e.g. 1/1000 is a millisecond time base).
 #[derive(Copy, Clone)]
 pub struct TimeBase {
-    num: u32,
-    den: u32,
+    inner: Rational,
 }
 
 impl TimeBase {
@@ -27,26 +29,54 @@ impl TimeBase {
     /// Create a new time base as a rational number with a given numerator and
     /// denominator.
     #[inline]
-    pub const fn new(num: u32, den: u32) -> Self {
-        Self { num, den }
+    pub const fn new(num: i32, den: i32) -> Self {
+        Self {
+            inner: Rational::new(num, den),
+        }
     }
+}
 
-    /// Get the numerator.
+impl AsRef<Rational> for TimeBase {
     #[inline]
-    pub const fn num(&self) -> u32 {
-        self.num
+    fn as_ref(&self) -> &Rational {
+        &self.inner
     }
+}
 
-    /// Get the denominator.
+impl Borrow<Rational> for TimeBase {
     #[inline]
-    pub const fn den(&self) -> u32 {
-        self.den
+    fn borrow(&self) -> &Rational {
+        &self.inner
+    }
+}
+
+impl Deref for TimeBase {
+    type Target = Rational;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }
 
 impl Debug for TimeBase {
+    #[inline]
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        write!(f, "{}/{}", self.num(), self.den())
+        Debug::fmt(&self.inner, f)
+    }
+}
+
+impl From<Rational> for TimeBase {
+    #[inline]
+    fn from(r: Rational) -> Self {
+        Self { inner: r }
+    }
+}
+
+impl From<TimeBase> for Rational {
+    #[inline]
+    fn from(t: TimeBase) -> Self {
+        t.inner
     }
 }
 
@@ -137,10 +167,10 @@ impl Timestamp {
             unsafe {
                 ffw_rescale_q(
                     self.timestamp,
-                    self.time_base.num,
-                    self.time_base.den,
-                    time_base.num,
-                    time_base.den,
+                    self.time_base.num(),
+                    self.time_base.den(),
+                    time_base.num(),
+                    time_base.den(),
                 )
             }
         };
@@ -201,7 +231,7 @@ impl Timestamp {
         if self.is_null() {
             None
         } else {
-            Some(self.timestamp as f32 * self.time_base.num as f32 / self.time_base.den as f32)
+            Some(self.timestamp as f32 * self.time_base.num() as f32 / self.time_base.den() as f32)
         }
     }
 
@@ -211,7 +241,7 @@ impl Timestamp {
         if self.is_null() {
             None
         } else {
-            Some(self.timestamp as f64 * self.time_base.num as f64 / self.time_base.den as f64)
+            Some(self.timestamp as f64 * self.time_base.num() as f64 / self.time_base.den() as f64)
         }
     }
 }

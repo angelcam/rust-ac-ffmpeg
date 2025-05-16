@@ -14,10 +14,10 @@ extern "C" {
     fn ffw_bsf_set_output_codec_parameters(context: *mut c_void, params: *const c_void) -> c_int;
     fn ffw_bsf_init(
         context: *mut c_void,
-        itb_num: u32,
-        itb_den: u32,
-        otb_num: u32,
-        otb_den: u32,
+        itb_num: c_int,
+        itb_den: c_int,
+        otb_num: c_int,
+        otb_den: c_int,
     ) -> c_int;
     fn ffw_bsf_push(context: *mut c_void, packet: *mut c_void) -> c_int;
     fn ffw_bsf_flush(context: *mut c_void) -> c_int;
@@ -103,10 +103,10 @@ impl BitstreamFilterBuilder {
         let ret = unsafe {
             ffw_bsf_init(
                 self.ptr,
-                self.input_time_base.num(),
-                self.input_time_base.den(),
-                self.output_time_base.num(),
-                self.output_time_base.den(),
+                self.input_time_base.num() as _,
+                self.input_time_base.den() as _,
+                self.output_time_base.num() as _,
+                self.output_time_base.den() as _,
             )
         };
 
@@ -115,7 +115,9 @@ impl BitstreamFilterBuilder {
         }
 
         let ptr = self.ptr;
+
         self.ptr = ptr::null_mut();
+
         let res = BitstreamFilter {
             ptr,
             output_time_base: self.output_time_base,

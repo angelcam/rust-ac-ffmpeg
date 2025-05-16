@@ -17,8 +17,8 @@ use crate::{
 };
 
 extern "C" {
-    fn ffw_stream_get_time_base(stream: *const c_void, num: *mut u32, den: *mut u32);
-    fn ffw_stream_set_time_base(stream: *mut c_void, num: u32, den: u32);
+    fn ffw_stream_get_time_base(stream: *const c_void, num: *mut c_int, den: *mut c_int);
+    fn ffw_stream_set_time_base(stream: *mut c_void, num: c_int, den: c_int);
     fn ffw_stream_get_start_time(stream: *const c_void) -> i64;
     fn ffw_stream_get_duration(stream: *const c_void) -> i64;
     fn ffw_stream_get_nb_frames(stream: *const c_void) -> i64;
@@ -55,14 +55,14 @@ pub struct Stream {
 impl Stream {
     /// Create a new stream from its raw representation.
     pub(crate) unsafe fn from_raw_ptr(ptr: *mut c_void) -> Self {
-        let mut num = 0_u32;
-        let mut den = 0_u32;
+        let mut num: c_int = 0;
+        let mut den: c_int = 0;
 
         ffw_stream_get_time_base(ptr, &mut num, &mut den);
 
         Stream {
             ptr,
-            time_base: TimeBase::new(num, den),
+            time_base: TimeBase::new(num as _, den as _),
         }
     }
 
@@ -75,8 +75,13 @@ impl Stream {
     /// Provide a hint to the muxer about the desired timebase.
     pub fn set_time_base(&mut self, time_base: TimeBase) {
         self.time_base = time_base;
+
         unsafe {
-            ffw_stream_set_time_base(self.ptr, self.time_base.num(), self.time_base.den());
+            ffw_stream_set_time_base(
+                self.ptr,
+                self.time_base.num() as _,
+                self.time_base.den() as _,
+            );
         }
     }
 

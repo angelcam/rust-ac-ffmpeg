@@ -220,7 +220,7 @@ impl AudioResampler {
             ));
         }
 
-        let frame = frame.with_time_base(TimeBase::new(1, self.source_sample_rate));
+        let frame = frame.with_time_base(TimeBase::new(1, self.source_sample_rate as i32));
 
         unsafe {
             match ffw_audio_resampler_push_frame(self.ptr, frame.as_ptr()) {
@@ -259,7 +259,7 @@ impl AudioResampler {
     pub fn take(&mut self) -> Result<Option<AudioFrame>, Error> {
         let mut fptr = ptr::null_mut();
 
-        let tb = TimeBase::new(1, self.target_sample_rate);
+        let tb = TimeBase::new(1, self.target_sample_rate as i32);
 
         unsafe {
             match ffw_audio_resampler_take_frame(self.ptr, &mut fptr) {

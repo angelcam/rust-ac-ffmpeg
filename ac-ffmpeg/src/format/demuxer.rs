@@ -48,8 +48,8 @@ extern "C" {
     fn ffw_demuxer_read_frame(
         demuxer: *mut c_void,
         packet: *mut *mut c_void,
-        tb_num: *mut u32,
-        tb_den: *mut u32,
+        tb_num: *mut c_int,
+        tb_den: *mut c_int,
     ) -> c_int;
     fn ffw_demuxer_seek(
         demuxer: *mut c_void,
@@ -228,8 +228,8 @@ impl<T> Demuxer<T> {
     pub fn take(&mut self) -> Result<Option<Packet>, Error> {
         let mut pptr = ptr::null_mut();
 
-        let mut tb_num = 0;
-        let mut tb_den = 0;
+        let mut tb_num: c_int = 0;
+        let mut tb_den: c_int = 0;
 
         let ret = unsafe { ffw_demuxer_read_frame(self.ptr, &mut pptr, &mut tb_num, &mut tb_den) };
 
@@ -238,7 +238,9 @@ impl<T> Demuxer<T> {
         } else if pptr.is_null() {
             Ok(None)
         } else {
-            let packet = unsafe { Packet::from_raw_ptr(pptr, TimeBase::new(tb_num, tb_den)) };
+            let tb = TimeBase::new(tb_num as i32, tb_den as i32);
+
+            let packet = unsafe { Packet::from_raw_ptr(pptr, tb) };
 
             Ok(Some(packet))
         }

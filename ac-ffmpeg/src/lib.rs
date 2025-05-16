@@ -3,6 +3,7 @@
 
 pub mod codec;
 pub mod format;
+pub mod math;
 pub mod packet;
 pub mod time;
 
