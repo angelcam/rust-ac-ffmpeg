@@ -83,6 +83,14 @@ uint8_t* ffw_packet_get_data(AVPacket* packet) {
     return packet->data;
 }
 
+int64_t ffw_packet_get_pos(const AVPacket* packet) {
+    return packet->pos;
+}
+
+void ffw_packet_set_pos(AVPacket* packet, int64_t pos) {
+    packet->pos = pos;
+}
+
 int ffw_packet_is_writable(const AVPacket* packet) {
     // XXX: There is no av_packet_is_writable() function. The following check
     // has been copied from the av_packet_make_writable() function.
