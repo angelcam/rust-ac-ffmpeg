@@ -59,6 +59,8 @@ int ffw_demuxer_init(Demuxer* demuxer, AVIOContext* io_context, AVInputFormat* f
 int ffw_demuxer_set_initial_option(Demuxer* demuxer, const char* key, const char* value);
 int ffw_demuxer_set_option(Demuxer* demuxer, const char* key, const char* value);
 int ffw_demuxer_find_stream_info(Demuxer* demuxer, int64_t max_analyze_duration);
+int ffw_demuxer_get_bit_rate(Demuxer* demuxer);
+int ffw_demuxer_get_duration(Demuxer* demuxer);
 unsigned ffw_demuxer_get_nb_streams(const Demuxer* demuxer);
 AVStream* ffw_demuxer_get_stream(Demuxer* demuxer, unsigned stream_index);
 const AVInputFormat* ffw_demuxer_get_input_format(const Demuxer* demuxer);
@@ -128,6 +130,14 @@ int ffw_demuxer_find_stream_info(Demuxer* demuxer, int64_t max_analyze_duration)
     demuxer->fc->max_analyze_duration = max_analyze_duration;
 
     return avformat_find_stream_info(demuxer->fc, NULL);
+}
+
+int ffw_demuxer_get_bit_rate(Demuxer* demuxer) {
+    return demuxer->fc->bit_rate;
+}
+
+int ffw_demuxer_get_duration(Demuxer* demuxer) {
+    return demuxer->fc->duration;
 }
 
 unsigned ffw_demuxer_get_nb_streams(const Demuxer* demuxer) {
